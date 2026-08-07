@@ -159,7 +159,7 @@ typedef struct {
 /* BCD prefill: d-prompt-tokens (a-tokenize-prompt output), leader-owned prompt
  * token span for one accepted request. */
 typedef struct {
-    const char *session_id;
+    char session_id[128];
     int token_ids[DS4_GLM52_L0_PREFILL_MAX_PROMPT_TOKENS];
     int prompt_length;
     int consumed;

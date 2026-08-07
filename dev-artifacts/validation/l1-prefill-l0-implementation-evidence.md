@@ -16,7 +16,7 @@ or weights are involved.
     span) plus the a-tokenize guard block in `ds4_glm52_l0_prefill_run`.
   - State: `state->prompt` (`ds4_glm52_l0_prompt_tokens`) carries
     `session_id`, `token_ids`, `prompt_length`, and the consumed-position
-    cursor. Maps to BCD data node `d-prompt-tokens`
+    cursor. The session id is copied into owned prompt state. Maps to BCD data node `d-prompt-tokens`
     (`blueprint.work.ds4_arch.prompt_tokens`, leader-only).
   - Preconditions block fail-closed in dependency order before any cursor
     mutation: resident rank-local model shards (`state-model-worker`),
@@ -36,18 +36,18 @@ or weights are involved.
     append-ordered, not already prefilled, and session-consistent with the
     request (same-state identity to `serve/state-kv`).
 - `prefill/a-prefill-layer-tp`
-  - Code: `ds4_glm52_l0_prefill_run` skeleton seam (trace + identity gate).
+  - Code: `ds4_glm52_l0_prefill_run` skeleton seam (identity gate plus
+    explicit mock-only continuation).
   - State read: `state-model-worker` (`resident_shards`) and `state-tp`
     (`tp_fabric`). Rank identity is validated as
     `resident_shards.rank == rank_plan.rank == config.rank ==
     tp_fabric.local_rank` (`prefill_identity_ok`), enforcing the
     rank-plan/model-shard-layout binding; a mismatch is INVALID and mutates
-    nothing.
+    nothing. Non-mock execution stops here with NOT_READY before any KV/cursor
+    commit because real GLM 5.2 TP prefill kernels are not implemented.
 - `prefill/a-prefill-allreduce`
-  - Code: `ds4_glm52_l0_prefill_run` skeleton seam (trace). No real
-    allreduce runs; the reduced-hidden availability implied by the ordering
-    edge `e-reduce-before-commit` is represented by the append-order gate
-    below.
+  - Code: `ds4_glm52_l0_prefill_run` explicit mock skeleton seam (trace). No
+    real allreduce runs; non-mock execution cannot reach this action yet.
 - `prefill/a-commit-prefill-kv`
   - Code: append-order validation pass + apply loop in
     `ds4_glm52_l0_prefill_run`.
@@ -71,9 +71,11 @@ or weights are involved.
     may start at the next position using the committed KV cursor.
 - `serve/action-serve-prefill` (root expands to `prefill`)
   - Code: `ds4_glm52_l0_stub_action(DS4_GLM52_L0_ACTION_PREFILL)` now
-    delegates to `ds4_glm52_l0_prefill_run`. On success it returns OK and
-    leaves decode-ready state; on any prerequisite/identity/append failure it
-    returns the typed NOT_READY/INVALID and mutates nothing.
+    delegates to `ds4_glm52_l0_prefill_run`. In explicit mock mode, success
+    returns OK and leaves decode-ready state; in non-mock mode, the action
+    returns typed NOT_READY at the real TP layer seam before KV/cursor commit.
+    Any prerequisite/identity/append failure returns typed NOT_READY/INVALID
+    and mutates nothing.
 
 ## Shared state identity (same_state_as)
 
@@ -115,7 +117,8 @@ or weights are involved.
 - `git diff --check`: PASS.
 - BCD prefill leaf validation:
   `dev-artifacts/validation-prefill-current.json`, PASS.
-- BCD serve L0 validation: `dev-artifacts/ds4-arch-bp/vc-serve.json`, PASS.
+- BCD serve L0 validation: `dev-artifacts/validation-serve-l0-current.json`,
+  PASS.
 
 ### Proof points added (tests/test_glm52_l0.c)
 
@@ -123,8 +126,11 @@ or weights are involved.
   contract order).
 - prefill cannot run before model/rank-plan/fabric/request readiness, and a
   blocked prefill does not mutate KV/cursor/commit state.
-- prefill advances `token_step_j` and `kv_length` deterministically to the
-  prompt length and leaves a decode-ready replicated PREFILL cursor.
+- non-mock prefill reaches the real TP layer seam and stops NOT_READY with no
+  KV/cursor/commit mutation.
+- explicit mock prefill advances `token_step_j` and `kv_length`
+  deterministically to the prompt length and leaves a decode-ready replicated
+  PREFILL cursor.
 - KV append ordering is explicit and validated: a chunk plan that does not
   start at the append-ordered cursor is rejected (INVALID) with no mutation.
 - multi-chunk prefill (37 tokens / chunk 16) commits exactly once and traces

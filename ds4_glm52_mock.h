@@ -60,6 +60,10 @@ typedef struct {
 
 typedef struct {
     int rank;
+    uint64_t model_hash;
+    uint64_t session_hash;
+    ds4_glm52_tp4_command command;
+    uint64_t seq;
     int q_head_start;
     int q_head_end;
     int vocab_start;
@@ -76,6 +80,7 @@ typedef struct {
 typedef struct {
     ds4_glm52_tp4_command command;
     uint64_t seq;
+    uint64_t model_hash;
     uint64_t session_hash;
     uint64_t token_step_j;
     uint64_t kv_length;
@@ -123,6 +128,42 @@ bool ds4_glm52_mock_tp4_step_add_rank(
         const ds4_glm52_mock_session *session,
         ds4_glm52_tp4_command command,
         uint64_t seq,
+        char *err,
+        size_t err_size);
+bool ds4_glm52_mock_make_rank_step(
+        const ds4_glm52_mock_model *model,
+        const ds4_glm52_mock_session *session,
+        ds4_glm52_tp4_command command,
+        uint64_t seq,
+        ds4_glm52_mock_rank_step *rank_step,
+        char *err,
+        size_t err_size);
+bool ds4_glm52_mock_tp4_step_add_contribution(
+        ds4_glm52_mock_tp4_step *step,
+        const ds4_glm52_mock_rank_step *rank_step,
+        char *err,
+        size_t err_size);
+bool ds4_glm52_mock_transport_send_rank_step(
+        int fd,
+        const ds4_glm52_mock_rank_step *rank_step,
+        char *err,
+        size_t err_size);
+bool ds4_glm52_mock_transport_recv_rank_step(
+        int fd,
+        ds4_glm52_mock_rank_step *rank_step,
+        char *err,
+        size_t err_size);
+bool ds4_glm52_mock_transport_send_tokens(
+        int fd,
+        const int *tokens,
+        size_t token_count,
+        char *err,
+        size_t err_size);
+bool ds4_glm52_mock_transport_recv_tokens(
+        int fd,
+        int *tokens,
+        size_t max_tokens,
+        size_t *token_count,
         char *err,
         size_t err_size);
 void ds4_glm52_mock_tokenize(const char *text, ds4_tokens *out);

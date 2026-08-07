@@ -2,15 +2,54 @@
 #include "ds4_glm52_mock.h"
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 static void check(bool cond, const char *msg) {
     if (!cond) {
         fprintf(stderr, "test_glm52_tp4_mock: %s\n", msg);
         exit(1);
     }
+}
+
+static void make_socket_pair(int fds[2]) {
+    check(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0,
+          "socketpair should succeed");
+}
+
+static void close_pair(int fds[2]) {
+    if (fds[0] >= 0) close(fds[0]);
+    if (fds[1] >= 0) close(fds[1]);
+    fds[0] = -1;
+    fds[1] = -1;
+}
+
+static pid_t fork_send_tokens(int fd, const int *tokens, size_t token_count) {
+    pid_t pid = fork();
+    check(pid >= 0, "token transport fork should succeed");
+    if (pid == 0) {
+        char err[192] = "";
+        bool ok = ds4_glm52_mock_transport_send_tokens(fd,
+                                                       tokens,
+                                                       token_count,
+                                                       err,
+                                                       sizeof(err));
+        close(fd);
+        _exit(ok ? 0 : 2);
+    }
+    return pid;
+}
+
+static void wait_sender_ok(pid_t pid) {
+    int status = 0;
+    check(waitpid(pid, &status, 0) == pid, "token sender waitpid should succeed");
+    check(WIFEXITED(status) && WEXITSTATUS(status) == 0,
+          "token sender should exit successfully");
 }
 
 static ds4_glm52_l0_config mock_cfg(int rank) {
@@ -65,8 +104,8 @@ static void prefill_sessions(
               "rank mock prefill should succeed");
         check(sessions[rank].session_hash == sessions[0].session_hash,
               "all ranks should preserve one logical session identity");
-        check(sessions[rank].token_step_j == 3,
-              "prefill token_step_j should point at last prompt token");
+        check(sessions[rank].token_step_j == 4,
+              "prefill token_step_j should point at prompt-length cursor");
         check(sessions[rank].kv_length == 4,
               "prefill should commit four KV rows");
     }
@@ -176,7 +215,7 @@ static void test_prefill_and_decode_tp4_mock_steps(void) {
                   sessions,
                   DS4_GLM52_TP4_COMMAND_PREFILL,
                   seq);
-    assert_complete_step(&prefill, 3, 4);
+    assert_complete_step(&prefill, 4, 4);
 
     const int gathered_token = prefill.coordinator_token;
     for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
@@ -204,7 +243,7 @@ static void test_prefill_and_decode_tp4_mock_steps(void) {
                   sessions,
                   DS4_GLM52_TP4_COMMAND_DECODE,
                   seq);
-    assert_complete_step(&decode, 4, 5);
+    assert_complete_step(&decode, 5, 5);
 }
 
 static void test_tp4_mock_rejects_mismatches(void) {
@@ -269,11 +308,162 @@ static void test_tp4_mock_rejects_mismatches(void) {
                                             err,
                                             sizeof(err)),
           "cursor mismatch should fail");
+
+    ds4_glm52_mock_rank_step bad_contribution;
+    check(ds4_glm52_mock_make_rank_step(&models[2],
+                                        &sessions[2],
+                                        DS4_GLM52_TP4_COMMAND_PREFILL,
+                                        1,
+                                        &bad_contribution,
+                                        err,
+                                        sizeof(err)),
+          "rank step creation should succeed");
+    bad_contribution.candidate_token = bad_contribution.vocab_end;
+    ds4_glm52_mock_tp4_step bad_step = {0};
+    check(!ds4_glm52_mock_tp4_step_add_contribution(&bad_step,
+                                                    &bad_contribution,
+                                                    err,
+                                                    sizeof(err)),
+          "candidate outside rank vocab shard should fail");
+
+    ds4_glm52_mock_tp4_step model_mismatch = {0};
+    check(ds4_glm52_mock_tp4_step_add_rank(&model_mismatch,
+                                           &models[0],
+                                           &sessions[0],
+                                           DS4_GLM52_TP4_COMMAND_PREFILL,
+                                           1,
+                                           err,
+                                           sizeof(err)),
+          "first rank contribution should establish model identity");
+    check(ds4_glm52_mock_make_rank_step(&models[1],
+                                        &sessions[1],
+                                        DS4_GLM52_TP4_COMMAND_PREFILL,
+                                        1,
+                                        &bad_contribution,
+                                        err,
+                                        sizeof(err)),
+          "second rank step creation should succeed");
+    bad_contribution.model_hash++;
+    check(!ds4_glm52_mock_tp4_step_add_contribution(&model_mismatch,
+                                                    &bad_contribution,
+                                                    err,
+                                                    sizeof(err)),
+          "model identity mismatch should fail");
+}
+
+static void test_mock_transport_round_trip_and_rejections(void) {
+    ds4_glm52_mock_model models[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_mock_session sessions[DS4_GLM52_L0_RANK_COUNT];
+    char err[192] = "";
+
+    init_models(models);
+    prefill_sessions(models, sessions);
+
+    ds4_glm52_mock_rank_step sent;
+    ds4_glm52_mock_rank_step received;
+    check(ds4_glm52_mock_make_rank_step(&models[1],
+                                        &sessions[1],
+                                        DS4_GLM52_TP4_COMMAND_PREFILL,
+                                        7,
+                                        &sent,
+                                        err,
+                                        sizeof(err)),
+          "rank step creation should succeed for transport");
+    int fds[2] = {-1, -1};
+    make_socket_pair(fds);
+    check(ds4_glm52_mock_transport_send_rank_step(fds[0],
+                                                  &sent,
+                                                  err,
+                                                  sizeof(err)),
+          "rank step transport send should succeed");
+    check(ds4_glm52_mock_transport_recv_rank_step(fds[1],
+                                                  &received,
+                                                  err,
+                                                  sizeof(err)),
+          "rank step transport recv should succeed");
+    check(received.present &&
+              received.rank == sent.rank &&
+              received.model_hash == sent.model_hash &&
+              received.session_hash == sent.session_hash &&
+              received.command == sent.command &&
+              received.seq == sent.seq &&
+              received.candidate_token == sent.candidate_token &&
+              received.token_step_j == sent.token_step_j &&
+              received.kv_length == sent.kv_length,
+          "rank step transport should preserve contribution identity");
+    close_pair(fds);
+
+    const int tokens[] = {10, 11, 12, 13};
+    int token_out[4] = {0};
+    size_t token_count = 0;
+    make_socket_pair(fds);
+    pid_t sender = fork_send_tokens(fds[0],
+                                    tokens,
+                                    sizeof(tokens) / sizeof(tokens[0]));
+    close(fds[0]);
+    fds[0] = -1;
+    check(ds4_glm52_mock_transport_recv_tokens(fds[1],
+                                               token_out,
+                                               sizeof(token_out) / sizeof(token_out[0]),
+                                               &token_count,
+                                               err,
+                                               sizeof(err)),
+          "token transport recv should succeed");
+    check(token_count == sizeof(tokens) / sizeof(tokens[0]) &&
+              memcmp(tokens, token_out, sizeof(tokens)) == 0,
+          "token transport should preserve the prompt span");
+    wait_sender_ok(sender);
+    close_pair(fds);
+
+    make_socket_pair(fds);
+    sender = fork_send_tokens(fds[0],
+                              tokens,
+                              sizeof(tokens) / sizeof(tokens[0]));
+    close(fds[0]);
+    fds[0] = -1;
+    check(!ds4_glm52_mock_transport_recv_tokens(fds[1],
+                                                token_out,
+                                                2,
+                                                &token_count,
+                                                err,
+                                                sizeof(err)),
+          "token transport should reject receiver capacity overflow");
+    wait_sender_ok(sender);
+    close_pair(fds);
+
+    make_socket_pair(fds);
+    uint8_t corrupt_header[16] = {0};
+    check(write(fds[0], corrupt_header, sizeof(corrupt_header)) ==
+              (ssize_t)sizeof(corrupt_header),
+          "corrupt frame write should succeed");
+    check(!ds4_glm52_mock_transport_recv_rank_step(fds[1],
+                                                   &received,
+                                                   err,
+                                                   sizeof(err)),
+          "rank step transport should reject corrupt frames");
+    close_pair(fds);
+
+    make_socket_pair(fds);
+    const uint8_t truncated[] = {0x35, 0x4d, 0x53};
+    check(write(fds[0], truncated, sizeof(truncated)) ==
+              (ssize_t)sizeof(truncated),
+          "truncated frame write should succeed");
+    close(fds[0]);
+    fds[0] = -1;
+    check(!ds4_glm52_mock_transport_recv_tokens(fds[1],
+                                                token_out,
+                                                sizeof(token_out) / sizeof(token_out[0]),
+                                                &token_count,
+                                                err,
+                                                sizeof(err)),
+          "token transport should reject truncated frames");
+    close_pair(fds);
 }
 
 int main(void) {
     test_prefill_and_decode_tp4_mock_steps();
     test_tp4_mock_rejects_mismatches();
+    test_mock_transport_round_trip_and_rejections();
     puts("test_glm52_tp4_mock: ok");
     return 0;
 }

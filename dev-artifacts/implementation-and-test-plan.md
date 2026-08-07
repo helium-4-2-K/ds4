@@ -10,14 +10,25 @@ unless a code discovery proves that the contract itself is wrong or incomplete.
 
 ## Pinned Contract
 
-- Blueprint hash: `a0d9cf6b17df5f544ab2d17930aaf58b6f2bf4a3c1ce4034d3f91f1ba202e30a`
-- Semantic hash: `a4808fa315b82548de56bf906a6497cffb4f39d09c03a5b2267c69bfd9ff3f6e`
+- Blueprint hash: `3466079cab4a6e6d8011d675c3cf429d7cda2bc961c2d5ca006e3087af317b6c`
+- Semantic hash: `3177dc06506cb955e519157ab2f2125472287223a6e5f60ded7e3a95ecead023`
 - Root graph: `serve`, graph hash `9212a3685de85a5df4e17c1471458e064e4c335988ae220f36f65731baca3c8a`
-- Decode graph: `decode`, graph hash `e98ec8de0297f19e37d776a48f3cc032a7d0b91972a643ff72ca3ad8c42fe3cb`
+- Decode graph: `decode`, graph hash `2af92c0420b89ec8189e6c62009a4b879cb65a12c361d794476dd907904b0a1e`
+- Decode DCP top-k graph: `decode-dcp-topk`, graph hash `2311682e85d881362a93c0be8eed1d36aad3e87844f612878ff85c816b3c3f24`
 - Model-load graph: `model-load`, graph hash `0d3a26146444d194a72ed4f843fabbd3f6275eeefa45873465f5b9e2ac63c215`
 - Model-shard-layout graph: `model-shard-layout`, graph hash `eb05725c27670f0c0d9c3b90044c040e3ee5e6130eca1e09e8d1b26a202b911e`
 - Prefill graph: registered under current blueprint; validate before prefill implementation starts.
+- Lowered data-plane child graphs:
+  - `decode-attn-allreduce-sum`: TP4 attention hidden all-reduce invariants.
+  - `decode-ffn-allreduce-sum`: TP4 FFN hidden all-reduce invariants.
+  - `decode-logits-gather-topk`: TP4 vocab-shard gather/top-k invariants.
+  - `decode-dcp-row-exchange`: DCP4 selected-row owner mapping and payload exchange.
 - Validation evidence:
+  - `dev-artifacts/validation/mutate-lower-tp4-data-plane.result.json`: PASS
+  - `dev-artifacts/validation/validate-lowered-tp4-leaves.result.json`: PASS
+  - `dev-artifacts/validation/validate-lowered-decode-composite.result.json`: PASS
+  - `dev-artifacts/validation/validate-lowered-serve-composite.result.json`: PASS
+  - `dev-artifacts/validation/status-after-lowering.result.json`: PASS
   - `dev-artifacts/validation-lint-current.json`: PASS
   - `dev-artifacts/validation-serve-l0-current.json`: PASS
   - `dev-artifacts/validation-decode-composite-current.json`: PASS
@@ -68,10 +79,14 @@ Completed implementation slices:
   - `ds4_glm52_l0_prefill_set_prompt` binds the leader-owned prompt token span
     (`prefill/a-tokenize-prompt`);
   - `ds4_glm52_l0_prefill_run` plans bounded prompt chunks with the BCD 1024
-    reference chunk (`prefill/a-plan-prefill-chunks`), validates rank-plan /
-    model-shard / fabric identity and TP-aware append-ordered KV identity,
-    commits the prompt prefix with explicit append-order validation
-    (`prefill/a-commit-prefill-kv`), and publishes decode handoff readiness
+    reference chunk (`prefill/a-plan-prefill-chunks`) and validates rank-plan /
+    model-shard / fabric identity and TP-aware append-ordered KV identity;
+  - non-mock execution stops `not_ready` before `prefill/a-prefill-layer-tp`
+    mutates KV/cursor state because real GLM 5.2 TP prefill kernels and
+    all-reduce are still open;
+  - explicit mock execution may continue through mock layer/all-reduce seams,
+    commit the prompt prefix with explicit append-order validation
+    (`prefill/a-commit-prefill-kv`), and publish decode handoff readiness
     (`prefill/a-prefill-ready`);
   - `kv.cursor.phase` records the producing phase (PREFILL/DECODE) so decode can
     start only from a prefill-produced or otherwise valid decoded cursor;
@@ -86,8 +101,9 @@ Delegated implementation slice:
 Open implementation slices before real serving:
 
 - cross-machine deployment policy for rank endpoint files/CLI wiring;
-- collective backend selection and data movement over the established rank
-  transport;
+- collective backend implementation for the lowered `decode-attn-allreduce-sum`,
+  `decode-ffn-allreduce-sum`, and `decode-logits-gather-topk` contracts;
+- DCP selected-row exchange implementation for `decode-dcp-row-exchange`;
 - request/session binding;
 - real TP4/DCP4 prefill kernels/collectives (prefill L0 state machine is done);
 - decode skeleton and then real GLM 5.2 TP4/DCP4 kernels/collectives;
@@ -191,9 +207,8 @@ Active in `tests/test_glm52_mock.c`:
 Required next:
 
 - HTTP smoke remains useful for server plumbing, but it is not the TP4 proof.
-- four-process mock rank smoke after rank command orchestration can route
-  prefill/decode commands over real worker processes instead of only in-process
-  rank contributions;
+- server-path mock TP4 wiring should reuse the process mock protocol instead
+  of adding a second rank contribution path;
 - contract-to-code review for the mock seam whenever the model-load or decode
   contracts gain a first-class mock/simulation variant.
 
@@ -213,18 +228,36 @@ Active in `tests/test_glm52_tp4_mock.c`:
   `PREFILL`, and completes only after all four rank contributions acknowledge
   the same command sequence;
 - a TP4 mock prefill step rejects duplicate rank contributions, sequence
-  mismatches, and cursor/KV mismatches;
+  mismatches, model identity mismatches, cursor/KV mismatches, and invalid
+  rank-local vocab candidates;
+- mock rank-step and token-span transport helpers round-trip valid frames and
+  reject corrupt frames, truncated frames, and receiver capacity overflow;
 - complete prefill proves Q-head coverage `[0,64)` exactly once and contiguous
   vocab-shard coverage `[0,154880)`;
 - coordinator token selection is gathered from a rank-local vocab candidate,
   not invented outside rank ownership;
 - all ranks consume the gathered token in a mock `DECODE` step, advance to the
-  same `token_step_j`/`kv_length`, and complete the second rank-group command.
+  same prompt-length `token_step_j`/`kv_length`, and complete the second
+  rank-group command.
 
-This proves TP4 mock orchestration, rank identity, shared command/cursor
-agreement, and rank-local output-gather semantics. It still does not prove real
-QKV/MLA kernels, DCP row exchange, all-reduce tensor math, or GX10 transport
-performance.
+Active in `tests/test_glm52_tp4_mock_process.c`:
+
+- rank 0 binds a local TCP rendezvous endpoint and forks three worker ranks;
+- each worker initializes a rank-local full-shape GLM 5.2 mock model, connects
+  to rank 0, and registers through the TP4 hello/rank-group protocol;
+- rank 0 broadcasts `PREFILL` and sends the prompt token span over a mock
+  token-span frame, then receives rank-local mock contribution frames and
+  command acknowledgements from workers;
+- rank 0 validates the complete TP4 prefill step, gathers the coordinator token
+  from rank-owned vocab candidates, broadcasts `DECODE`, sends the gathered
+  token, and validates that every rank advances to the same cursor/KV state;
+- rank 0 broadcasts `SHUTDOWN`, records all worker acknowledgements, and
+  verifies every worker exits cleanly.
+
+This proves TP4 mock orchestration, process/rank identity, local TCP command
+transport, shared command/cursor agreement, and rank-local output-gather
+semantics. It still does not prove real QKV/MLA kernels, DCP row exchange,
+all-reduce tensor math, cross-GX10 deployment, or GX10 transport performance.
 
 ### Rung 3: DS4-Native Shard-Layout Fixture Tests
 
@@ -521,10 +554,15 @@ Exit gate:
 Implementation:
 
 - Add typed collectives needed by the blueprint:
-  - all-reduce sum for hidden vectors and per-layer partial outputs.
-  - all-gather/top-k support for vocab logits.
-  - global top-k merge for DCP candidate rows.
-  - selected-row request/response exchange for compact KV rows.
+  - `decode-attn-allreduce-sum`: four rank-local attention partials for the
+    same session/layer/position/dtype/shape hash reduce to identical hidden
+    output on every rank.
+  - `decode-ffn-allreduce-sum`: four rank-local FFN partials reduce to the
+    next replicated hidden with the same epoch and failure rules.
+  - `decode-logits-gather-topk`: rank-local contiguous vocab shards cover the
+    vocabulary exactly once and merge deterministic top-k candidates on rank 0.
+  - `decode-dcp-row-exchange`: DCP ranks score owned MLA/index rows, merge
+    global top-k, and fetch owner-mapped selected row payloads before attention.
 - Bind collectives to real GLM dimensions: hidden `6144`, `64` heads,
   `16` Q heads per rank, `kv_lora = 512`, and GLM sparse indexer top-k.
 - Add per-collective sequence numbers tied to layer id and token cursor.
@@ -749,7 +787,7 @@ Exit gate:
 | Phase L0 | Whole `serve` L0 composition: `action-serve-open`, `action-tp-group`, `action-serve-accept`, `action-serve-prefill`, `action-decode-token`, `action-stream-token`, `action-kv-checkpoint`, and root states `state-model-leader`, `state-model-worker`, `state-tp`, `state-rank-plan`, `state-kv`, `state-kv-cursor` |
 | Phase 0 | `serve/action-serve-open`, `serve/action-tp-group`, `model-load/a-validate-launch-plan` |
 | Phase 1 | `serve/action-tp-group`, `serve/state-tp`, `serve/state-rank-plan` |
-| Phase 2 | `decode/a-embed-broadcast`, `decode/a-attn-allreduce`, `decode/a-ffn-allreduce`, `decode/a-logits-gather`, `decode-dcp-topk/a-dcp-topk-merge` |
+| Phase 2 | `decode/a-embed-broadcast`, `decode/a-attn-allreduce` -> `decode-attn-allreduce-sum`, `decode/a-ffn-allreduce` -> `decode-ffn-allreduce-sum`, `decode/a-logits-gather` -> `decode-logits-gather-topk`, `decode-dcp-topk/a-dcp-topk-merge` -> `decode-dcp-row-exchange` |
 | Phase 3 | `model-load/a-validate-launch-plan`, `model-load/a-validate-shard-manifest`, `model-load/a-map-rank-shards`, `model-load/a-ready-rank-engines` |
 | Phase 4 | Internal scaffold for `decode/a-qkv-shard`, `decode/a-attn-local`, `decode/a-attn-allreduce`, `decode/a-ffn-route`, `decode/a-ffn-local`, `decode/a-ffn-allreduce`, `decode/a-logits-gather`, `decode/a-sample`; not contract-complete without Phase 5 |
 | Phase 5 | `decode/a-dcp-topk`, `decode-dcp-topk/a-dcp-topk-merge`, `decode-sparse-attention/a-sparse-attn-kernel`, `decode/state-kv` DCP ownership |

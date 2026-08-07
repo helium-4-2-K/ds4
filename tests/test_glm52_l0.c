@@ -157,6 +157,13 @@ static ds4_glm52_l0_config valid_config(void) {
     return cfg;
 }
 
+static ds4_glm52_l0_config mock_config(void) {
+    ds4_glm52_l0_config cfg = valid_config();
+    cfg.mock_model = true;
+    cfg.mock_matmul = true;
+    return cfg;
+}
+
 static void mark_resident_shards(ds4_glm52_l0_state *state) {
     state->model_plan.validated = true;
     state->shard_manifest.validated = true;
@@ -1158,7 +1165,7 @@ static void test_prefill_blocks_before_rank_plan_without_mutation(void) {
 }
 
 static void test_prefill_advances_cursors_deterministically(void) {
-    ds4_glm52_l0_config cfg = valid_config();
+    ds4_glm52_l0_config cfg = mock_config();
     int ids[7] = {101, 102, 103, 104, 105, 106, 107};
     ds4_glm52_l0_state results[2] = {0};
     char err[160] = {0};
@@ -1209,7 +1216,7 @@ static void test_prefill_advances_cursors_deterministically(void) {
 }
 
 static void test_prefill_multi_chunk_append_order_and_trace(void) {
-    ds4_glm52_l0_config cfg = valid_config();
+    ds4_glm52_l0_config cfg = mock_config();
     ds4_glm52_l0_state state;
     memset(&state, 0, sizeof(state));
     mark_readied_for_prefill(&state);
@@ -1337,8 +1344,38 @@ static void test_prefill_rank_identity_mismatch_rejected(void) {
           "config identity rejection should name identity mismatch");
 }
 
-static void test_prefill_empty_prompt_deterministic(void) {
+static void test_prefill_real_kernel_seam_not_ready(void) {
     ds4_glm52_l0_config cfg = valid_config();
+    ds4_glm52_l0_state state;
+    memset(&state, 0, sizeof(state));
+    mark_readied_for_prefill(&state);
+    int ids[4] = {31, 32, 33, 34};
+    char err[160] = {0};
+    check(ds4_glm52_l0_prefill_set_prompt(&state, "test-session",
+                                          ids, 4, err, sizeof(err)),
+          "prompt should bind before real kernel seam");
+
+    ds4_glm52_l0_result result;
+    ds4_glm52_l0_status status =
+        ds4_glm52_l0_stub_action(DS4_GLM52_L0_ACTION_PREFILL,
+                                 &cfg, &state, &result);
+    check(status == DS4_GLM52_L0_STATUS_NOT_READY,
+          "non-mock prefill should stop at the real TP layer seam");
+    check(strstr(result.message, "prefill/a-prefill-layer-tp") != NULL,
+          "non-mock prefill block should name the TP layer action");
+    check(strstr(result.message, "not implemented") != NULL,
+          "non-mock prefill block should name missing real kernels");
+    check(state.kv.length == 0 &&
+              state.cursor.kv_length == 0 &&
+              state.cursor.token_step_j == 0 &&
+              state.prompt.consumed == 0 &&
+              !state.commit.committed &&
+              !state.kv.prefill_complete,
+          "non-mock prefill block must not commit KV/cursor state");
+}
+
+static void test_prefill_empty_prompt_deterministic(void) {
+    ds4_glm52_l0_config cfg = mock_config();
     char err[160] = {0};
     ds4_glm52_l0_state results[2] = {0};
 
@@ -1374,7 +1411,7 @@ static void test_prefill_empty_prompt_deterministic(void) {
 }
 
 static void test_prefill_rejects_double_append(void) {
-    ds4_glm52_l0_config cfg = valid_config();
+    ds4_glm52_l0_config cfg = mock_config();
     char err[160] = {0};
     int ids[3] = {1, 2, 3};
     ds4_glm52_l0_state state;
@@ -1405,7 +1442,7 @@ static void test_prefill_rejects_double_append(void) {
 }
 
 static void test_decode_requires_prefill_produced_cursor(void) {
-    ds4_glm52_l0_config cfg = valid_config();
+    ds4_glm52_l0_config cfg = mock_config();
     char err[160] = {0};
     int ids[3] = {21, 22, 23};
 
@@ -1521,6 +1558,7 @@ int main(void) {
     test_prefill_multi_chunk_append_order_and_trace();
     test_prefill_append_order_violation_rejected();
     test_prefill_rank_identity_mismatch_rejected();
+    test_prefill_real_kernel_seam_not_ready();
     test_prefill_empty_prompt_deterministic();
     test_prefill_rejects_double_append();
     test_decode_requires_prefill_produced_cursor();

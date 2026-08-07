@@ -757,7 +757,8 @@ bool ds4_glm52_l0_prefill_set_prompt(ds4_glm52_l0_state *state,
     }
 
     memset(&state->prompt, 0, sizeof(state->prompt));
-    state->prompt.session_id = session_id;
+    snprintf(state->prompt.session_id, sizeof(state->prompt.session_id),
+             "%s", session_id);
     state->prompt.prompt_length = token_count;
     state->prompt.consumed = 0;
     if (token_count > 0) {
@@ -808,7 +809,7 @@ ds4_glm52_l0_status ds4_glm52_l0_prefill_run(
                             "prefill requires an accepted request/session");
     }
     if (!state->prompt.set ||
-        !state->prompt.session_id ||
+        !state->prompt.session_id[0] ||
         strcmp(state->prompt.session_id, state->request.session_id) != 0) {
         prefill_trace(trace, trace_ud, 0,
                       DS4_GLM52_L0_STATUS_NOT_READY, true, state);
@@ -878,12 +879,19 @@ ds4_glm52_l0_status ds4_glm52_l0_prefill_run(
         }
     }
 
-    /* ---- a-prefill-layer-tp / a-prefill-allreduce: L0 skeleton seams ---- */
+    if (!cfg->mock_model || !cfg->mock_matmul) {
+        prefill_trace(trace, trace_ud, 2,
+                      DS4_GLM52_L0_STATUS_NOT_READY, true, state);
+        return prefill_fail(result, DS4_GLM52_L0_STATUS_NOT_READY, 2,
+                            "real GLM 5.2 TP4 prefill layer kernels are not implemented");
+    }
+
+    /* ---- a-prefill-layer-tp / a-prefill-allreduce: explicit mock seams ---- */
     /* No real GLM 5.2 TP kernels or all-reduce collectives run here. The
-     * layer-before-reduce-before-commit-before-ready ordering is proven by
-     * the resident-shard / TP-fabric / rank identity validation above and by
-     * the append-order validation below; traces make the contract order
-     * observable without real weights. */
+     * mock-only layer-before-reduce-before-commit-before-ready ordering is
+     * proven by resident-shard / TP-fabric / rank identity validation above
+     * and by append-order validation below; traces make the skeleton contract
+     * order observable without real weights. */
     prefill_trace(trace, trace_ud, 1, DS4_GLM52_L0_STATUS_OK, false, state);
     prefill_trace(trace, trace_ud, 2, DS4_GLM52_L0_STATUS_OK, false, state);
     prefill_trace(trace, trace_ud, 3, DS4_GLM52_L0_STATUS_OK, false, state);

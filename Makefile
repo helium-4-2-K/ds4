@@ -351,6 +351,12 @@ tests/test_glm52_tp4_mock.o: tests/test_glm52_tp4_mock.c ds4.h ds4_glm52_l0.h ds
 tests/test_glm52_tp4_mock: tests/test_glm52_tp4_mock.o ds4_cpu_test_hooks.o ds4_distributed.o ds4_tp.o ds4_glm52_l0.o ds4_glm52_mock.o ds4_ssd.o ds4_layer_pack.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
+tests/test_glm52_tp4_mock_process.o: tests/test_glm52_tp4_mock_process.c ds4.h ds4_glm52_l0.h ds4_glm52_mock.h
+	$(CC) $(CFLAGS) -I. -c -o $@ $<
+
+tests/test_glm52_tp4_mock_process: tests/test_glm52_tp4_mock_process.o ds4_cpu_test_hooks.o ds4_distributed.o ds4_tp.o ds4_glm52_l0.o ds4_glm52_mock.o ds4_ssd.o ds4_layer_pack.o
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+
 tests/test_gpu_args.o: tests/test_gpu_args.c ds4_gpu_args.h ds4_gpu_mgpu.h
 	$(CC) $(CFLAGS) -I. -DDS4_NO_GPU -c -o $@ $<
 
@@ -446,7 +452,7 @@ else
 endif
 
 test: ds4_test ds4_agent_test ds4-eval q4k-dot-test mxfp4-dot-test \
-	tests/test_layer_pack tests/test_glm52_l0 tests/test_tp4_rank_group tests/test_glm52_mock tests/test_glm52_tp4_mock tests/test_engine_mgpu_placement tests/test_gpu_args \
+	tests/test_layer_pack tests/test_glm52_l0 tests/test_tp4_rank_group tests/test_glm52_mock tests/test_glm52_tp4_mock tests/test_glm52_tp4_mock_process tests/test_engine_mgpu_placement tests/test_gpu_args \
 	$(SAMPLING_TEST) ds4 ds4-server ds4-bench ds4-agent
 	./ds4-eval --self-test-extractors
 	./ds4_agent_test
@@ -456,6 +462,7 @@ test: ds4_test ds4_agent_test ds4-eval q4k-dot-test mxfp4-dot-test \
 	./tests/test_tp4_rank_group
 	./tests/test_glm52_mock
 	./tests/test_glm52_tp4_mock
+	./tests/test_glm52_tp4_mock_process
 	./tests/test_engine_mgpu_placement
 	./tests/test_gpu_args
 	./tests/test_gpu_args_cli.sh
@@ -497,4 +504,4 @@ mxfp4-dot-test: tests/test_mxfp4_dot.c
 	./tests/test_mxfp4_dot
 
 clean:
-	rm -f ds4 ds4-server ds4-bench ds4-eval ds4-agent ds4_cpu ds4_native ds4_server_test ds4_test ds4_agent_test gguf-tools/quality-testing/score_official gguf-tools/quality-testing/score_official.o tests/test_q4k_dot tests/test_mxfp4_dot tests/test_mxfp4_metal tests/test_mxfp4_cuda tests/test_metal_session_batch tests/test_gpu_xdev tests/test_gpu_model_cache tests/test_gpu_lookup_cache_strict tests/test_engine_mgpu_refusal tests/test_engine_mgpu_runtime tests/test_engine_correctness tests/test_sampling tests/test_cuda_session_batch tests/test_cuda_mixed_batch tests/test_glm52_l0 tests/test_tp4_rank_group tests/test_glm52_mock tests/test_glm52_tp4_mock tests/*.o *.o tests/cuda_long_context_smoke tests/cuda_long_context_smoke.o
+	rm -f ds4 ds4-server ds4-bench ds4-eval ds4-agent ds4_cpu ds4_native ds4_server_test ds4_test ds4_agent_test gguf-tools/quality-testing/score_official gguf-tools/quality-testing/score_official.o tests/test_q4k_dot tests/test_mxfp4_dot tests/test_mxfp4_metal tests/test_mxfp4_cuda tests/test_metal_session_batch tests/test_gpu_xdev tests/test_gpu_model_cache tests/test_gpu_lookup_cache_strict tests/test_engine_mgpu_refusal tests/test_engine_mgpu_runtime tests/test_engine_correctness tests/test_sampling tests/test_cuda_session_batch tests/test_cuda_mixed_batch tests/test_glm52_l0 tests/test_tp4_rank_group tests/test_glm52_mock tests/test_glm52_tp4_mock tests/test_glm52_tp4_mock_process tests/*.o *.o tests/cuda_long_context_smoke tests/cuda_long_context_smoke.o
