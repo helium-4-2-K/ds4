@@ -275,6 +275,10 @@ static bool resident_shards_ready(const ds4_glm52_l0_state *state) {
            state->resident_shards.mapped_bytes > 0;
 }
 
+static uint32_t l0_full_rank_mask(void) {
+    return (UINT32_C(1) << DS4_GLM52_L0_RANK_COUNT) - UINT32_C(1);
+}
+
 static bool tp_group_ready(const ds4_glm52_l0_state *state) {
     return resident_shards_ready(state) &&
            state->rank_plan.bound &&
@@ -943,6 +947,227 @@ ds4_glm52_l0_status ds4_glm52_l0_prefill_run(
     return DS4_GLM52_L0_STATUS_OK;
 }
 
+const char *ds4_glm52_tp4_collective_kind_name(
+        ds4_glm52_tp4_collective_kind kind) {
+    switch (kind) {
+    case DS4_GLM52_TP4_COLLECTIVE_ATTN:
+        return "attn";
+    case DS4_GLM52_TP4_COLLECTIVE_FFN:
+        return "ffn";
+    case DS4_GLM52_TP4_COLLECTIVE_LOGITS:
+        return "logits";
+    default:
+        return "unknown";
+    }
+}
+
+static bool valid_collective_kind(ds4_glm52_tp4_collective_kind kind) {
+    return kind == DS4_GLM52_TP4_COLLECTIVE_ATTN ||
+           kind == DS4_GLM52_TP4_COLLECTIVE_FFN ||
+           kind == DS4_GLM52_TP4_COLLECTIVE_LOGITS;
+}
+
+ds4_glm52_l0_status ds4_glm52_tp4_real_collective_allreduce(
+        const ds4_glm52_tp4_collective_request *request,
+        ds4_glm52_l0_result *result) {
+    if (!request) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_INVALID,
+                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+                   "real TP4 collective request is missing");
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+    if (!valid_collective_kind(request->kind)) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_INVALID,
+                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+                   "real TP4 collective kind is invalid");
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+    if (request->rank < 0 ||
+        request->rank >= DS4_GLM52_L0_RANK_COUNT ||
+        request->tp_size != DS4_GLM52_L0_TP_SIZE ||
+        request->dcp_size != DS4_GLM52_L0_DCP_SIZE ||
+        request->rank_count != DS4_GLM52_L0_RANK_COUNT) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_INVALID,
+                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+                   "real TP4 collective requires rank in [0,4) with TP4/DCP4/rank_count=4");
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+    if (request->participant_mask != l0_full_rank_mask()) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_INVALID,
+                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+                   "real TP4 collective requires all four rank participants");
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+    if (request->seq == 0 ||
+        request->model_hash == 0 ||
+        request->session_hash == 0 ||
+        request->element_count == 0 ||
+        request->layer_index < 0 ||
+        request->dtype == 0) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_INVALID,
+                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+                   "real TP4 collective requires nonzero identity, dtype, layer, and tensor shape evidence");
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+    if (!request->topology_ready || !request->transport_ready) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_NOT_READY,
+                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+                   "real TP4 collective backend is not ready: topology and tensor transport are required");
+        return DS4_GLM52_L0_STATUS_NOT_READY;
+    }
+    if (!request->rank_local_partial_ready ||
+        !request->replicated_output_ready) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_NOT_READY,
+                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+                   "real TP4 collective backend is not ready: device partial and replicated output buffers are required");
+        return DS4_GLM52_L0_STATUS_NOT_READY;
+    }
+    set_result(result,
+               DS4_GLM52_L0_STATUS_NOT_READY,
+               DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+               "real TP4 all-reduce tensor execution is not implemented behind the validated boundary");
+    return DS4_GLM52_L0_STATUS_NOT_READY;
+}
+
+ds4_glm52_l0_status ds4_glm52_dcp_real_row_exchange(
+        const ds4_glm52_dcp_exchange_request *request,
+        ds4_glm52_l0_result *result) {
+    if (!request) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_INVALID,
+                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+                   "real DCP row-exchange request is missing");
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+    if (request->rank < 0 ||
+        request->rank >= DS4_GLM52_L0_RANK_COUNT ||
+        request->dcp_size != DS4_GLM52_L0_DCP_SIZE ||
+        request->rank_count != DS4_GLM52_L0_RANK_COUNT) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_INVALID,
+                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+                   "real DCP row exchange requires rank in [0,4) with DCP4/rank_count=4");
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+    if (request->seq == 0 ||
+        request->model_hash == 0 ||
+        request->session_hash == 0 ||
+        request->layer_index < 0 ||
+        request->selected_row_count < 0) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_INVALID,
+                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+                   "real DCP row exchange requires nonzero identity and valid layer/selection evidence");
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+    if (request->owner_rank_mask != l0_full_rank_mask()) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_INVALID,
+                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+                   "real DCP row exchange requires a complete four-rank owner map");
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+    if (!request->ownership_plan_valid || !request->append_ordered_kv) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_INVALID,
+                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+                   "real DCP row exchange requires validated ownership and append-ordered KV state");
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+    if (!request->row_payload_ready || !request->transport_ready) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_NOT_READY,
+                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+                   "real DCP selected-row exchange backend is not ready: row payloads and transport are required");
+        return DS4_GLM52_L0_STATUS_NOT_READY;
+    }
+    set_result(result,
+               DS4_GLM52_L0_STATUS_NOT_READY,
+               DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+               "real DCP selected-row exchange execution is not implemented behind the validated boundary");
+    return DS4_GLM52_L0_STATUS_NOT_READY;
+}
+
+ds4_glm52_l0_status ds4_glm52_decode_real_step(
+        const ds4_glm52_l0_config *cfg,
+        const ds4_glm52_decode_real_request *request,
+        ds4_glm52_l0_state *state,
+        ds4_glm52_l0_result *result) {
+    char err[160];
+    if (!ds4_glm52_l0_validate_config(cfg, err, sizeof(err))) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_INVALID,
+                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+                   err);
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+    if (!request || !state) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_INVALID,
+                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+                   "real decode requires request and mutable L0 state");
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+    if (!prefill_ready(state)) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_NOT_READY,
+                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+                   "real decode requires prefill-complete append-ordered KV state and replicated cursor");
+        return DS4_GLM52_L0_STATUS_NOT_READY;
+    }
+    if (request->rank != cfg->rank ||
+        request->seq == 0 ||
+        request->model_hash == 0 ||
+        request->session_hash == 0 ||
+        request->input_token < 0) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_INVALID,
+                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+                   "real decode requires matching rank plus nonzero model/session/sequence and valid token evidence");
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+    if (!request->model_ready || !resident_shards_ready(state)) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_NOT_READY,
+                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+                   "real decode requires ready resident rank-local model engines");
+        return DS4_GLM52_L0_STATUS_NOT_READY;
+    }
+    if (!request->tp_collectives_ready) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_NOT_READY,
+                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+                   "real decode requires the TP4 all-reduce backend");
+        return DS4_GLM52_L0_STATUS_NOT_READY;
+    }
+    if (!request->dcp_exchange_ready) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_NOT_READY,
+                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+                   "real decode requires the DCP selected-row exchange backend");
+        return DS4_GLM52_L0_STATUS_NOT_READY;
+    }
+    if (!request->glm52_kernels_ready) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_NOT_READY,
+                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+                   "real decode requires GLM 5.2 QKV/MLA/MoE/logits kernels");
+        return DS4_GLM52_L0_STATUS_NOT_READY;
+    }
+    set_result(result,
+               DS4_GLM52_L0_STATUS_NOT_READY,
+               DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+               "real GLM 5.2 decode execution is not implemented behind the validated boundary; KV cursor is unchanged");
+    return DS4_GLM52_L0_STATUS_NOT_READY;
+}
+
 ds4_glm52_l0_status ds4_glm52_l0_stub_action(ds4_glm52_l0_action action,
                                              const ds4_glm52_l0_config *cfg,
                                              ds4_glm52_l0_state *state,
@@ -983,10 +1208,10 @@ ds4_glm52_l0_status ds4_glm52_l0_stub_action(ds4_glm52_l0_action action,
             return DS4_GLM52_L0_STATUS_NOT_READY;
         }
         set_result(result,
-                   DS4_GLM52_L0_STATUS_NOT_READY,
+                   DS4_GLM52_L0_STATUS_OK,
                    action,
-                   "model-load/a-ready-rank-engines is not implemented");
-        return DS4_GLM52_L0_STATUS_NOT_READY;
+                   "model-load/a-ready-rank-engines: resident rank-local model shards are ready");
+        return DS4_GLM52_L0_STATUS_OK;
     case DS4_GLM52_L0_ACTION_TP_GROUP:
         return bind_tp_group(cfg, state, result);
     case DS4_GLM52_L0_ACTION_ACCEPT:

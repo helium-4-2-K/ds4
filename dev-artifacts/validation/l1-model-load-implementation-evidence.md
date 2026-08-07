@@ -18,14 +18,17 @@ current BCD contract for `model-load`.
     at foreign `rankN` paths.
 - `model-load/a-map-rank-shards`
   - Code: `ds4_glm52_l0.c`, `DS4_GLM52_L0_ACTION_SERVE_OPEN`.
-  - Still strict `not_ready`. The implementation records validated manifest
-    evidence but does not claim tensor mmap/resident engine readiness.
-  - Delegated implementation dependency: the separate `model-shard-layout`
-    slice must publish mapped rank-local tensor slices before this parent seam
-    can proceed to rank engine readiness.
+  - Runs the `model-shard-layout` child when `--glm52-tp4-layout FILE` is
+    supplied and resident rank-local shard state is not already ready.
+  - Remains strict `not_ready` without a layout path, so startup does not claim
+    model residency from rank-plan shard counts alone.
 - `model-load/a-ready-rank-engines`
-  - Still downstream strict `not_ready`, because rank engine residency depends
-    on the unresolved mapper and TP fabric work.
+  - Code: `ds4_glm52_l0.c`, `resident_shards_ready` plus the
+    `DS4_GLM52_L0_ACTION_SERVE_OPEN` success result.
+  - Returns `OK` only after launch plan, shard manifest, and DS4 layout
+    publication prove current-rank resident shard readiness.
+  - Does not claim real GPU tensor upload, real tensor handle residency, or
+    collective readiness.
 - `serve/action-tp-group`
   - Code: `ds4_glm52_l0.c`, `bind_tp_group`.
   - When resident rank-local shards are present, binds TP4/DCP4/PP1 topology,
@@ -40,10 +43,13 @@ current BCD contract for `model-load`.
 - Header state: `ds4_glm52_l0_launch_plan`,
   `ds4_glm52_l0_shard_manifest`, and extended
   `ds4_glm52_l0_resident_rank_shards`.
-- `serve/action-serve-open` now validates model-load child state before stopping
-  at `model-load/a-map-rank-shards`.
-- The parent root still reports `serve/action-serve-open` as the blocked action,
-  so L0 boundary behavior remains fail-closed.
+- `serve/action-serve-open` now validates model-load child state, runs
+  model-shard-layout when provided, and can publish ready resident rank-local
+  model state.
+- Without a layout path, the parent root still reports `serve/action-serve-open`
+  as the blocked action, so the no-layout path remains fail-closed.
+- With a valid layout path, the next blocker moves to `serve/action-tp-group`
+  until a real four-rank fabric publishes readiness.
 - KV/cursor state remains unmodified by unresolved decode/prefill seams.
 
 ## Orchestration Preconditions
@@ -61,10 +67,9 @@ current BCD contract for `model-load`.
 - `serve/action-kv-checkpoint` now fails closed when checkpointing is requested
   before TP-aware KV/cursor state exists.
 
-The delegated shard-layout implementation remains the only writer of the
-resident mapped-shard success condition. The parent skeleton records the
-required interface and blocks downstream orchestration until that condition is
-true.
+The shard-layout implementation remains the only writer of the resident
+mapped-shard success condition. The parent skeleton records the required
+interface and blocks downstream orchestration until that condition is true.
 
 ## Validation
 
@@ -75,6 +80,8 @@ true.
 - Added focused tests for TP-group topology binding: valid rank-local resident
   shards bind rank/Q-head/DCP/fabric topology, missing fabric is rejected, and
   resident-shard rank mismatch is rejected.
+- Added `test_model_load_layout_reaches_ready_rank_engines`: a valid DS4 layout
+  lets serve-open publish ready resident rank-local model state.
 - `make cpu`: PASS.
 - CLI smoke with a real temporary rank-2 plan and 20+1 shard fixture: expected
   `rc=1`; message names `model-load/a-map-rank-shards` after launch/manifest
@@ -96,11 +103,11 @@ true.
 
 ## Remaining Frontier
 
-The delegated implementation frontier is `model-shard-layout`: parse the
-DS4-native GLM 5.2 TP4 tensor shard manifest, validate ownership spans and
-hashes, mmap only current-rank tensors plus explicitly replicated tensors, and
-publish the loaded rank shard state consumed by `model-load/a-map-rank-shards`.
+The next model-load frontier is turning mapped-slice evidence into real
+resident tensor handles and GPU-ready rank engines. The current success path
+is intentionally narrower: it proves rank-local layout ownership and file
+residency, then hands off to TP fabric formation.
 
-The next non-delegated frontier is the real four-rank collective transport
+The next cross-rank frontier is the real four-rank collective transport
 handshake behind `serve/action-tp-group`. The current code binds topology but
 does not claim transport readiness.

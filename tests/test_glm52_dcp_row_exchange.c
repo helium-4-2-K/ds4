@@ -318,14 +318,108 @@ static void test_all_ranks_cross_request(void) {
     }
 }
 
+/* Reject a request whose selection count is outside [0, MAX_SELECTION]
+ * (negative or oversized would otherwise be silently empty or an
+ * out-of-bounds read of selected_rows). */
+static void test_reject_invalid_selection_count(void) {
+    ds4_glm52_dcp_plan plan;
+    build_plan(&plan);
+    ds4_glm52_dcp_row rows[DS4_GLM52_L0_DCP_SIZE * PER_RANK_ROWS];
+    size_t n = build_catalog(rows);
+
+    ds4_glm52_dcp_request req;
+    memset(&req, 0, sizeof(req));
+    req.requester_rank = 0;
+    req.selection_count = -3;   /* negative: nonsensical, must reject */
+    req.present = true;
+    expect_exchange_invalid(&plan, rows, n, &req, 1, "selection count");
+
+    req.selection_count = DS4_GLM52_DCP_MOCK_MAX_SELECTION + 1;  /* oversized */
+    req.selected_rows[0] = 5;
+    expect_exchange_invalid(&plan, rows, n, &req, 1, "selection count");
+}
+
+/* Fail-closed: when a later request fails after an earlier request was fully
+ * resolved, the reply array must be cleared and left unpublished: no partial
+ * reply rows and nothing marked complete. */
+static void test_fail_closed_no_partial_reply(void) {
+    ds4_glm52_dcp_plan plan;
+    build_plan(&plan);
+    ds4_glm52_dcp_row rows[DS4_GLM52_L0_DCP_SIZE * PER_RANK_ROWS];
+    size_t n = build_catalog(rows);
+
+    ds4_glm52_dcp_request reqs[2];
+    int want_ok[] = {5, 11, 17};
+    request_rank(&reqs[0], 0, want_ok, 3);
+    int want_bad[] = {32};   /* out of range: fails step 3 */
+    request_rank(&reqs[1], 1, want_bad, 1);
+
+    ds4_glm52_dcp_reply replies[DS4_GLM52_L0_DCP_SIZE];
+    memset(replies, 0xCD, sizeof(replies));   /* poison */
+    char err[192] = "";
+    check(!ds4_glm52_dcp_row_exchange(&plan, rows, n, reqs, 2,
+                                      replies, err, sizeof(err)),
+          "trailing invalid request must reject the exchange");
+    check(strstr(err, "out-of-range") != NULL,
+          "rejection should name the out-of-range row");
+    for (int r = 0; r < DS4_GLM52_L0_DCP_SIZE; r++) {
+        check(replies[r].row_count == 0, "failure must not leave partial reply rows");
+        check(!replies[r].complete, "failure must leave no reply complete");
+    }
+}
+
+/* Ordering follows the contract ("ordered by query layer and token
+ * position"): layer-major, then token position — independent of the
+ * request and catalog arrival order. */
+static void test_layer_position_ordering(void) {
+    ds4_glm52_dcp_plan plan;
+    build_plan(&plan);
+
+    ds4_glm52_dcp_row rows[4];
+    size_t n = 0;
+    const int layer[] = {1, 0, 0, 1};
+    const int pos[]   = {0, 5, 2, 9};
+    for (int i = 0; i < 4; i++) {
+        ds4_glm52_dcp_row row;
+        ds4_glm52_dcp_row_init(&row);
+        row.row_id = i;             /* owned by rank 0's span */
+        row.layer_index = layer[i];
+        row.position = pos[i];
+        row.dcp_owner = 0;
+        row.kv_hash = (uint64_t)i * 1099511628211ull;
+        row.k_rope_hash = (uint64_t)(i + 1) * 2654435761u;
+        row.present = true;
+        rows[n++] = row;
+    }
+
+    int want[] = {3, 1, 0, 2};   /* scrambled request order */
+    ds4_glm52_dcp_request req;
+    request_rank(&req, 0, want, 4);
+    ds4_glm52_dcp_reply replies[DS4_GLM52_L0_DCP_SIZE];
+    char err[192] = "";
+    check(ds4_glm52_dcp_row_exchange(&plan, rows, n, &req, 1,
+                                     replies, err, sizeof(err)),
+          "layer/position ordering exchange should succeed");
+    check(replies[0].row_count == 4, "all selected rows delivered");
+    /* expected: layer 0 (pos 2 -> id 2, pos 5 -> id 1), layer 1 (pos 0 -> id 0, pos 9 -> id 3) */
+    const int expect[] = {2, 1, 0, 3};
+    for (int i = 0; i < 4; i++) {
+        check(replies[0].rows[i].row_id == expect[i],
+              "reply rows must be ordered by query layer then token position");
+    }
+}
+
 int main(void) {
     test_reject_missing_owner_rank();
     test_reject_duplicate_owner();
     test_reject_out_of_range();
     test_reject_conflicting_metadata();
     test_reject_gaps_overlaps();
+    test_reject_invalid_selection_count();
     test_deterministic_ordering();
     test_all_ranks_cross_request();
+    test_fail_closed_no_partial_reply();
+    test_layer_position_ordering();
     puts("test_glm52_dcp_row_exchange: ok");
     return 0;
 }

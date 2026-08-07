@@ -69,7 +69,9 @@ contract's causal edges:
 4. `a-publish-loaded-shard` (e-publish-out, e-publish-state)
 
 On success, `resident_shards_ready(state)` becomes true and serve-open
-proceeds to the next gate (`model-load/a-ready-rank-engines`, still not_ready).
+projects `model-load/a-ready-rank-engines` as `OK`: resident rank-local shard
+readiness is now a real parent-visible model-load output. The next runtime
+gate is TP4/DCP4 fabric readiness, not model-load readiness.
 
 ## Production State Evidence
 
@@ -87,7 +89,7 @@ proceeds to the next gate (`model-load/a-ready-rank-engines`, still not_ready).
 ### Code gates
 
 - `make cpu`: PASS (0 errors, 0 warnings).
-- `make tests/test_glm52_l0 && ./tests/test_glm52_l0`: PASS (all 17 tests).
+- `make tests/test_glm52_l0 && ./tests/test_glm52_l0`: PASS.
 - `git diff --check`: PASS.
 
 ### Test cases (8 required scenarios)
@@ -102,6 +104,7 @@ proceeds to the next gate (`model-load/a-ready-rank-engines`, still not_ready).
 | `test_layout_replicated_visible_all_ranks` | Replicated tensor visible on all 4 ranks |
 | `test_layout_sharded_only_on_owning_rank` | Sharded tensor visible on rank 2, invisible on rank 0 |
 | `test_layout_missing_shard_file_fails` | Nonexistent file_path fails at mmap |
+| `test_model_load_layout_reaches_ready_rank_engines` | Valid layout lets serve-open publish ready rank-local model engines |
 
 ### BCD mechanical validation
 
@@ -143,7 +146,7 @@ proceeds to the next gate (`model-load/a-ready-rank-engines`, still not_ready).
    "MLA/KV-related tensors, routed experts, and vocab/output rows exactly
    once" — expert and vocab coverage validation is a follow-up.
 
-5. **model-load/a-ready-rank-engines is still not_ready.** After
-   model-shard-layout publishes the loaded rank shard, serve-open proceeds to
-   the ready-rank-engines gate, which is still a strict not_ready stub. That
-   is the next L1 frontier.
+5. **Real resident tensor handles are still deferred.** The parent-visible
+   ready state proves DS4 has a validated rank-local layout and file/byte-range
+   residency evidence. It still does not prove real model tensor handles,
+   decoded tensor metadata objects, or GPU upload are wired.

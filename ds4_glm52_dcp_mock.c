@@ -11,11 +11,13 @@
  * single contiguous range with no gaps and no overlaps.  A requester  *
  * lists the row ids it needs; the primitive resolves each requested   *
  * row to exactly one owner, validates the payload against the row     *
- * catalog, and publishes each requester's rows sorted by row id.      *
+ * catalog, and publishes each requester's rows sorted by (query       *
+ * layer, token position).                                             *
  *                                                                     *
- * All rejection paths return false and set err; no partial reply is   *
- * ever published (matches BCD failure_semantics: "Reject and produce  *
- * no sparse selection on ...").                                       *
+ * All rejection paths return false and set err; the reply array is    *
+ * cleared at entry and no partial reply rows are published, with      *
+ * nothing marked complete (matches BCD failure_semantics: "Reject     *
+ * and produce no sparse selection on ...").                           *
  * ------------------------------------------------------------------ */
 
 static void mock_dcp_error(char *err, size_t err_size, const char *msg) {
@@ -229,15 +231,26 @@ static bool catalog_lookup(
     return true;
 }
 
-/* Insert a row into a reply, keeping rows sorted by row id and dropping
- * duplicate selections of the same row id (deterministic dedup). */
+/* Total ordering for reply rows matching the contract's d-dcp-selection
+ * ordering ("ordered by query layer and token position"): primary layer
+ * index, then token position, then row id as a deterministic tiebreak. */
+static bool dcp_row_lt(const ds4_glm52_dcp_row *a,
+                       const ds4_glm52_dcp_row *b) {
+    if (a->layer_index != b->layer_index) return a->layer_index < b->layer_index;
+    if (a->position != b->position) return a->position < b->position;
+    return a->row_id < b->row_id;
+}
+
+/* Insert a row into a reply, keeping rows sorted by (query layer, token
+ * position) and dropping duplicate selections of the same row id
+ * (deterministic dedup). */
 static bool reply_append_sorted(ds4_glm52_dcp_reply *reply,
                                 const ds4_glm52_dcp_row *row) {
     if (reply->row_count >= DS4_GLM52_DCP_MOCK_MAX_SELECTION) return false;
     int i;
     for (i = 0; i < reply->row_count; i++) {
         if (reply->rows[i].row_id == row->row_id) return true; /* dedup */
-        if (reply->rows[i].row_id > row->row_id) break;
+        if (dcp_row_lt(row, &reply->rows[i])) break;
     }
     /* shift tail right by one */
     for (int j = reply->row_count; j > i; j--) {
@@ -297,7 +310,13 @@ bool ds4_glm52_dcp_row_exchange(
     }
     (void)distinct;
 
-    /* Step 3: validate requests and resolve each requested row. */
+    /* Step 3: validate requests and resolve each requested row into a
+     * staging buffer.  Nothing is written to the caller's reply array
+     * until every request has fully validated, so any rejection leaves
+     * the already-cleared output unpublished: no partial reply rows,
+     * nothing marked complete (fail-closed, BCD failure_semantics). */
+    ds4_glm52_dcp_reply staging[DS4_GLM52_L0_DCP_SIZE];
+    memset(staging, 0, sizeof(staging));
     bool requester_seen[DS4_GLM52_L0_DCP_SIZE] = {false};
     for (size_t i = 0; i < request_count; i++) {
         const ds4_glm52_dcp_request *req = &requests[i];
@@ -313,6 +332,12 @@ bool ds4_glm52_dcp_row_exchange(
         }
         requester_seen[req->requester_rank] = true;
 
+        if (req->selection_count < 0 ||
+            req->selection_count > DS4_GLM52_DCP_MOCK_MAX_SELECTION) {
+            mock_dcp_error(err, err_size, "invalid selection count in DCP request");
+            return false;
+        }
+
         for (int k = 0; k < req->selection_count; k++) {
             int row_id = req->selected_rows[k];
             ds4_glm52_dcp_row canon;
@@ -320,16 +345,17 @@ bool ds4_glm52_dcp_row_exchange(
                                 err, err_size)) {
                 return false;
             }
-            if (!reply_append_sorted(&replies[req->requester_rank], &canon)) {
+            if (!reply_append_sorted(&staging[req->requester_rank], &canon)) {
                 mock_dcp_error(err, err_size, "selection exceeds reply capacity");
                 return false;
             }
         }
     }
 
-    /* Step 4: mark completed replies. */
+    /* Step 4: publish completed replies only after every request passed. */
     for (int r = 0; r < DS4_GLM52_L0_DCP_SIZE; r++) {
         if (requester_seen[r]) {
+            replies[r] = staging[r];
             replies[r].requester_rank = r;
             replies[r].complete = true;
         }

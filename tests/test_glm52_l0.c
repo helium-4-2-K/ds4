@@ -13,6 +13,7 @@
 
 typedef struct {
     const char *ids[8];
+    ds4_glm52_l0_status statuses[8];
     bool prerequisite_blocked[8];
     int n;
 } trace_capture;
@@ -123,13 +124,13 @@ static void capture_trace(void *ud,
     trace_capture *cap = (trace_capture *)ud;
     check(graph_id && strcmp(graph_id, DS4_GLM52_L0_GRAPH_ID) == 0,
           "trace graph id must be serve");
-    check(status == DS4_GLM52_L0_STATUS_NOT_READY,
-          "all L0 stubs should be strict not_ready stubs");
     check(state != NULL, "trace state must be present");
     check(cap->n < (int)(sizeof(cap->ids) / sizeof(cap->ids[0])),
           "trace capture overflow");
-    cap->ids[cap->n++] = action_id;
-    cap->prerequisite_blocked[cap->n - 1] = prerequisite_blocked;
+    cap->ids[cap->n] = action_id;
+    cap->statuses[cap->n] = status;
+    cap->prerequisite_blocked[cap->n] = prerequisite_blocked;
+    cap->n++;
 }
 
 static ds4_glm52_l0_config valid_config(void) {
@@ -835,6 +836,42 @@ static void test_layout_valid_manifest_passes(void) {
     check(state.rank_plan.bound, "publish should bind rank plan");
 }
 
+static void test_model_load_layout_reaches_ready_rank_engines(void) {
+    ensure_layout_fixture();
+    ds4_glm52_l0_config cfg = valid_config();
+    cfg.layout_path = g_layout_valid_path;
+    ds4_glm52_l0_state state = {0};
+    ds4_glm52_l0_result result;
+    ds4_glm52_l0_status status =
+        ds4_glm52_l0_stub_action(DS4_GLM52_L0_ACTION_SERVE_OPEN,
+                                 &cfg,
+                                 &state,
+                                 &result);
+    check(status == DS4_GLM52_L0_STATUS_OK,
+          "serve-open should reach ready rank engines after valid layout mapping");
+    check(result.action == DS4_GLM52_L0_ACTION_SERVE_OPEN,
+          "ready model-load result should project to serve-open");
+    check(strstr(result.message, "a-ready-rank-engines") != NULL,
+          "ready model-load result should name the ready-rank-engines action");
+    check(state.launch_plan.validated &&
+              state.shard_manifest.validated &&
+              state.model_plan.validated,
+          "serve-open should validate launch, manifest, and model plan");
+    check(state.resident_shards.mapped &&
+              state.resident_shards.no_foreign_rank_shard &&
+              state.resident_shards.base_shard_count ==
+                  DS4_GLM52_L0_EXPECTED_BASE_SHARDS &&
+              state.resident_shards.mtp_shard_count ==
+                  DS4_GLM52_L0_EXPECTED_MTP_SHARDS &&
+              state.resident_shards.mapped_bytes > 0,
+          "serve-open should publish resident rank-local shard readiness");
+    check(state.rank_plan.bound &&
+              state.rank_plan.rank == 2 &&
+              state.rank_plan.q_head_start == 32 &&
+              state.rank_plan.q_head_end == 48,
+          "serve-open should bind the rank-local Q-head layout");
+}
+
 static void test_layout_wrong_tp_fails(void) {
     ensure_layout_fixture();
     ds4_glm52_layout_spec spec;
@@ -1531,6 +1568,159 @@ static void test_decode_requires_prefill_produced_cursor(void) {
           "diverged cursor block should name the cursor prerequisite");
 }
 
+static uint32_t full_rank_mask(void) {
+    return (UINT32_C(1) << DS4_GLM52_L0_RANK_COUNT) - UINT32_C(1);
+}
+
+static ds4_glm52_tp4_collective_request valid_real_collective_request(void) {
+    ds4_glm52_tp4_collective_request req;
+    memset(&req, 0, sizeof(req));
+    req.kind = DS4_GLM52_TP4_COLLECTIVE_ATTN;
+    req.rank = 2;
+    req.tp_size = DS4_GLM52_L0_TP_SIZE;
+    req.dcp_size = DS4_GLM52_L0_DCP_SIZE;
+    req.rank_count = DS4_GLM52_L0_RANK_COUNT;
+    req.layer_index = 7;
+    req.dtype = 1;
+    req.seq = 44;
+    req.model_hash = 55;
+    req.session_hash = 66;
+    req.token_step_j = 19;
+    req.element_count = 6144;
+    req.participant_mask = full_rank_mask();
+    req.topology_ready = true;
+    req.transport_ready = true;
+    req.rank_local_partial_ready = true;
+    req.replicated_output_ready = true;
+    return req;
+}
+
+static void test_real_collective_frontier_fails_closed(void) {
+    ds4_glm52_l0_result result;
+    ds4_glm52_tp4_collective_request req =
+        valid_real_collective_request();
+
+    req.participant_mask = 0x7u;
+    ds4_glm52_l0_status status =
+        ds4_glm52_tp4_real_collective_allreduce(&req, &result);
+    check(status == DS4_GLM52_L0_STATUS_INVALID,
+          "real collective should reject missing rank participants");
+    check(strstr(result.message, "all four rank participants") != NULL,
+          "participant rejection should name all-rank collective requirement");
+
+    req = valid_real_collective_request();
+    req.transport_ready = false;
+    status = ds4_glm52_tp4_real_collective_allreduce(&req, &result);
+    check(status == DS4_GLM52_L0_STATUS_NOT_READY,
+          "real collective should block without tensor transport");
+    check(strstr(result.message, "transport") != NULL,
+          "transport block should name collective transport readiness");
+
+    req = valid_real_collective_request();
+    status = ds4_glm52_tp4_real_collective_allreduce(&req, &result);
+    check(status == DS4_GLM52_L0_STATUS_NOT_READY,
+          "real collective should remain not_ready until tensor execution is wired");
+    check(strstr(result.message, "not implemented") != NULL,
+          "complete frontier should name unimplemented tensor execution");
+}
+
+static ds4_glm52_dcp_exchange_request valid_real_dcp_request(void) {
+    ds4_glm52_dcp_exchange_request req;
+    memset(&req, 0, sizeof(req));
+    req.rank = 2;
+    req.dcp_size = DS4_GLM52_L0_DCP_SIZE;
+    req.rank_count = DS4_GLM52_L0_RANK_COUNT;
+    req.layer_index = 7;
+    req.seq = 45;
+    req.model_hash = 55;
+    req.session_hash = 66;
+    req.token_step_j = 19;
+    req.selected_row_count = 4;
+    req.owner_rank_mask = full_rank_mask();
+    req.ownership_plan_valid = true;
+    req.append_ordered_kv = true;
+    req.row_payload_ready = true;
+    req.transport_ready = true;
+    return req;
+}
+
+static void test_real_dcp_exchange_frontier_fails_closed(void) {
+    ds4_glm52_l0_result result;
+    ds4_glm52_dcp_exchange_request req = valid_real_dcp_request();
+
+    req.owner_rank_mask = 0xbu;
+    ds4_glm52_l0_status status =
+        ds4_glm52_dcp_real_row_exchange(&req, &result);
+    check(status == DS4_GLM52_L0_STATUS_INVALID,
+          "real DCP exchange should reject incomplete owner maps");
+    check(strstr(result.message, "complete four-rank owner map") != NULL,
+          "DCP owner-map rejection should name complete owner map");
+
+    req = valid_real_dcp_request();
+    req.row_payload_ready = false;
+    status = ds4_glm52_dcp_real_row_exchange(&req, &result);
+    check(status == DS4_GLM52_L0_STATUS_NOT_READY,
+          "real DCP exchange should block without row payloads");
+    check(strstr(result.message, "row payloads") != NULL,
+          "DCP payload block should name row payload readiness");
+
+    req = valid_real_dcp_request();
+    status = ds4_glm52_dcp_real_row_exchange(&req, &result);
+    check(status == DS4_GLM52_L0_STATUS_NOT_READY,
+          "real DCP exchange should remain not_ready until execution is wired");
+    check(strstr(result.message, "not implemented") != NULL,
+          "complete DCP frontier should name unimplemented execution");
+}
+
+static ds4_glm52_decode_real_request valid_real_decode_request(void) {
+    ds4_glm52_decode_real_request req;
+    memset(&req, 0, sizeof(req));
+    req.rank = 2;
+    req.input_token = 123;
+    req.seq = 46;
+    req.model_hash = 55;
+    req.session_hash = 66;
+    req.model_ready = true;
+    req.tp_collectives_ready = true;
+    req.dcp_exchange_ready = true;
+    req.glm52_kernels_ready = true;
+    return req;
+}
+
+static void test_real_decode_frontier_preserves_cursor(void) {
+    ds4_glm52_l0_config cfg = valid_config();
+    ds4_glm52_l0_state state;
+    memset(&state, 0, sizeof(state));
+    mark_prefill(&state);
+    ds4_glm52_l0_state before = state;
+    ds4_glm52_l0_result result;
+    ds4_glm52_decode_real_request req = valid_real_decode_request();
+
+    req.tp_collectives_ready = false;
+    ds4_glm52_l0_status status =
+        ds4_glm52_decode_real_step(&cfg, &req, &state, &result);
+    check(status == DS4_GLM52_L0_STATUS_NOT_READY,
+          "real decode should block without TP collectives");
+    check(strstr(result.message, "TP4 all-reduce") != NULL,
+          "real decode should name the missing collective backend");
+    check(state.cursor.token_step_j == before.cursor.token_step_j &&
+              state.cursor.kv_length == before.cursor.kv_length &&
+              state.kv.length == before.kv.length,
+          "blocked real decode must not mutate cursor or KV");
+
+    req = valid_real_decode_request();
+    status = ds4_glm52_decode_real_step(&cfg, &req, &state, &result);
+    check(status == DS4_GLM52_L0_STATUS_NOT_READY,
+          "real decode should remain not_ready until execution is wired");
+    check(strstr(result.message, "KV cursor is unchanged") != NULL,
+          "complete decode frontier should promise cursor preservation");
+    check(state.cursor.token_step_j == before.cursor.token_step_j &&
+              state.cursor.kv_length == before.cursor.kv_length &&
+              state.kv.length == before.kv.length &&
+              !state.token.present,
+          "unimplemented real decode must preserve cursor, KV, and token state");
+}
+
 int main(void) {
     test_action_order();
     test_validation();
@@ -1543,6 +1733,7 @@ int main(void) {
     test_review_reaches_all_root_actions();
     /* model-shard-layout child tests */
     test_layout_valid_manifest_passes();
+    test_model_load_layout_reaches_ready_rank_engines();
     test_layout_wrong_tp_fails();
     test_layout_foreign_rank_fails();
     test_layout_missing_qhead_fails();
@@ -1562,5 +1753,8 @@ int main(void) {
     test_prefill_empty_prompt_deterministic();
     test_prefill_rejects_double_append();
     test_decode_requires_prefill_produced_cursor();
+    test_real_collective_frontier_fails_closed();
+    test_real_dcp_exchange_frontier_fails_closed();
+    test_real_decode_frontier_preserves_cursor();
     return 0;
 }

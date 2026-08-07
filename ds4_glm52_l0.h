@@ -302,6 +302,82 @@ ds4_glm52_l0_status ds4_glm52_l0_prefill_run(
         void *trace_ud,
         ds4_glm52_l0_result *result);
 
+/* ---- Production execution frontiers for GLM5.2 TP4/DCP4 ----
+ *
+ * These are strict real-path contracts, not mock math. They validate the
+ * rank/session/model/cursor/shape evidence that a production backend must
+ * supply, then fail closed with NOT_READY until the concrete GPU/network
+ * implementation is wired behind the same boundary. */
+
+typedef enum {
+    DS4_GLM52_TP4_COLLECTIVE_ATTN = 1,
+    DS4_GLM52_TP4_COLLECTIVE_FFN = 2,
+    DS4_GLM52_TP4_COLLECTIVE_LOGITS = 3,
+} ds4_glm52_tp4_collective_kind;
+
+typedef struct {
+    ds4_glm52_tp4_collective_kind kind;
+    int rank;
+    int tp_size;
+    int dcp_size;
+    int rank_count;
+    int layer_index;
+    int dtype;
+    uint64_t seq;
+    uint64_t model_hash;
+    uint64_t session_hash;
+    uint64_t token_step_j;
+    size_t element_count;
+    uint32_t participant_mask;
+    bool topology_ready;
+    bool transport_ready;
+    bool rank_local_partial_ready;
+    bool replicated_output_ready;
+} ds4_glm52_tp4_collective_request;
+
+typedef struct {
+    int rank;
+    int dcp_size;
+    int rank_count;
+    int layer_index;
+    uint64_t seq;
+    uint64_t model_hash;
+    uint64_t session_hash;
+    uint64_t token_step_j;
+    int selected_row_count;
+    uint32_t owner_rank_mask;
+    bool ownership_plan_valid;
+    bool append_ordered_kv;
+    bool row_payload_ready;
+    bool transport_ready;
+} ds4_glm52_dcp_exchange_request;
+
+typedef struct {
+    int rank;
+    int input_token;
+    uint64_t seq;
+    uint64_t model_hash;
+    uint64_t session_hash;
+    bool model_ready;
+    bool tp_collectives_ready;
+    bool dcp_exchange_ready;
+    bool glm52_kernels_ready;
+} ds4_glm52_decode_real_request;
+
+const char *ds4_glm52_tp4_collective_kind_name(
+        ds4_glm52_tp4_collective_kind kind);
+ds4_glm52_l0_status ds4_glm52_tp4_real_collective_allreduce(
+        const ds4_glm52_tp4_collective_request *request,
+        ds4_glm52_l0_result *result);
+ds4_glm52_l0_status ds4_glm52_dcp_real_row_exchange(
+        const ds4_glm52_dcp_exchange_request *request,
+        ds4_glm52_l0_result *result);
+ds4_glm52_l0_status ds4_glm52_decode_real_step(
+        const ds4_glm52_l0_config *cfg,
+        const ds4_glm52_decode_real_request *request,
+        ds4_glm52_l0_state *state,
+        ds4_glm52_l0_result *result);
+
 /* ---- TP4 no-model rank-group handshake seam ---- */
 
 typedef enum {

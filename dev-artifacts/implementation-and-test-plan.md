@@ -57,7 +57,9 @@ Completed implementation slices:
 - Model-load validation skeleton:
   - validates launch plan;
   - validates rank-local shard manifest shape;
-  - blocks before claiming actual tensor mmap or resident engine readiness.
+  - runs the `model-shard-layout` child when a DS4 layout manifest is supplied;
+  - publishes `model-load/a-ready-rank-engines` only after validated rank-local
+    layout ownership and file/byte-range residency evidence.
 - `serve/action-tp-group` topology-binding skeleton:
   - binds TP4/DCP4/PP1;
   - binds local rank, Q-head span, DCP rank, rank count, and fabric address;
@@ -94,6 +96,19 @@ Completed implementation slices:
     start only from a prefill-produced or otherwise valid decoded cursor;
   - still strict `not_ready`/no-commit for the real GLM 5.2 TP layer kernels
     and TP all-reduce seams.
+- Production execution frontiers:
+  - typed real TP4 all-reduce request validation rejects wrong ranks,
+    participant masks, identity, dtype, layer, and tensor shape evidence before
+    execution;
+  - typed real DCP selected-row exchange validation rejects incomplete owner
+    maps, invalid identity, and non-append-ordered KV evidence before
+    execution;
+  - typed real decode-step validation requires prefill-ready cursor, resident
+    model readiness, TP4 collectives, DCP exchange, and GLM 5.2 kernels, and
+    preserves KV/cursor/token state while the execution backend is not wired;
+  - deterministic DCP row-exchange mock now publishes replies only after all
+    requests validate, sorts by query layer/token position, and rejects
+    out-of-bound selection counts.
 
 Delegated implementation slice:
 
@@ -103,9 +118,11 @@ Delegated implementation slice:
 Open implementation slices before real serving:
 
 - cross-machine deployment policy for rank endpoint files/CLI wiring;
-- collective backend implementation for the lowered `decode-attn-allreduce-sum`,
-  `decode-ffn-allreduce-sum`, and `decode-logits-gather-topk` contracts;
-- DCP selected-row exchange implementation for `decode-dcp-row-exchange`;
+- real collective backend execution for the lowered
+  `decode-attn-allreduce-sum`, `decode-ffn-allreduce-sum`, and
+  `decode-logits-gather-topk` contracts;
+- real DCP selected-row network exchange execution for
+  `decode-dcp-row-exchange`;
 - request/session binding;
 - real TP4/DCP4 prefill kernels/collectives (prefill L0 state machine is done);
 - decode skeleton and then real GLM 5.2 TP4/DCP4 kernels/collectives;
@@ -169,6 +186,8 @@ Already active in `tests/test_glm52_l0.c`:
 - root action order;
 - configuration rejection for wrong TP/DCP/PP/rank/model/mixed legacy TP;
 - model-load validation reaches `model-load/a-map-rank-shards`;
+- model-load with a valid DS4 layout reaches
+  `model-load/a-ready-rank-engines`;
 - missing rank shards and foreign rank shards fail;
 - TP group waits for resident shards;
 - TP group binds topology but leaves real transport unresolved;
@@ -176,6 +195,9 @@ Already active in `tests/test_glm52_l0.c`:
 - decode waits for prefill-complete KV cursor;
 - stream waits for sampled token;
 - unresolved decode does not mutate KV/cursor state.
+- real TP4 collective, real DCP row-exchange, and real decode frontiers reject
+  invalid inputs and remain `not_ready` without mutating KV/cursor while the
+  concrete backend is unwired.
 
 Required while L0/L1 skeleton work continues:
 
@@ -279,22 +301,28 @@ cross-GX10 deployment, or GX10 transport performance.
 Purpose: prove model loading is architecturally correct before real model
 files and transport are involved.
 
-Next tests to add when the delegated loader lands:
+Active in `tests/test_glm52_l0.c`:
 
 - valid TP4 rank-local manifest passes;
-- wrong `tp_size`, `dcp_size`, or rank count fails;
+- model-load with a valid layout publishes ready resident rank engines;
+- wrong `tp_size` fails;
 - foreign-rank tensor mapping fails;
 - missing required base shard fails;
-- missing required MTP/speculator shard fails when the manifest declares it;
-- wrong file hash fails;
 - byte range outside the file fails;
 - replicated tensor is visible on every rank;
 - sharded tensor is visible only on its owner rank;
-- Q-head ownership covers all 64 heads exactly once;
+- Q-head ownership covers the current rank's 16-head span exactly once;
 - missing Q-head span fails;
 - overlapping Q-head span fails;
+
+Still to add:
+
+- full sha256 recomputation failure;
+- real mmap handle presence;
+- missing required MTP/speculator shard failure derived from manifest roles;
+- expert and vocab span coverage completeness;
 - `kv_lora[512]` replicated activation semantics and DCP-owned committed row
-  semantics are separately represented.
+  semantics in the real kernel path.
 
 Suggested test file:
 
@@ -345,7 +373,16 @@ Suggested test file:
 Purpose: prove distributed math primitives cannot consume the wrong rank,
 layer, cursor, or shape.
 
-Tests to add with collective implementation:
+Active in `tests/test_glm52_l0.c` and DCP tests:
+
+- real TP4 collective frontier rejects missing rank participants and missing
+  tensor transport before execution;
+- real DCP row-exchange frontier rejects incomplete owner maps and missing row
+  payload/transport before execution;
+- DCP row-exchange mock rejects invalid selection counts, never publishes
+  partial replies on failure, and orders replies deterministically.
+
+Tests to add with real collective execution:
 
 - all-reduce sum over four rank-local hidden partials;
 - logits gather or distributed top-k to rank 0;

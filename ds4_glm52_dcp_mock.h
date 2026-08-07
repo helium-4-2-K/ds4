@@ -106,13 +106,16 @@ void ds4_glm52_dcp_row_init(ds4_glm52_dcp_row *row);
  * Validations before any reply is published:
  *   - plan owner mapping is complete and disjoint (gaps/overlaps rejected)
  *   - each requester is a valid rank and appears at most once
+ *   - each request selection count is within [0, MAX_SELECTION]
  *   - each requested row id is in range and has exactly one owner
  *   - the selected row payload matches its catalog entry; a row with no
  *     catalog entry (missing payload) is rejected
  *   - catalog rows for one row id must agree on owner and payload metadata
  *     (duplicate owner / conflicting metadata rejected)
- * All replies publish rows sorted by row id so output is deterministic
- * regardless of request or catalog arrival order.
+ * All replies publish rows sorted by query layer and token position, so
+ * output is deterministic regardless of request or catalog arrival order.
+ * On any rejection replies is cleared and left unpublished (all-zero, nothing
+ * marked complete): no partial reply is produced (fail-closed).
  */
 bool ds4_glm52_dcp_row_exchange(
         const ds4_glm52_dcp_plan *plan,
