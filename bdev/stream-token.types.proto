@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package blueprint.work.ds4_arch;
+
+import "blueprint/v1/blueprint.proto";
+import "serve.types.proto";
+
+message stream_event {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.stream_event"
+    represents: "Coordinator-visible record that one sampled token was delivered and evaluated for continuation."
+    semantics {
+      entry_id: "t-stream-event"
+      key: "meaning"
+      value: "Coordinator-visible record that one sampled token was delivered and evaluated for continuation."
+      status: SUPPORTED
+    }
+  };
+  int32 token_id = 1 [(blueprint.v1.field_contract) = { meaning: "delivered token id" }];
+  int32 position = 2 [(blueprint.v1.field_contract) = { meaning: "delivered token position" }];
+  bool stop = 3 [(blueprint.v1.field_contract) = { meaning: "true when generation stops after this token" }];
+}

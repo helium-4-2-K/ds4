@@ -10,14 +10,19 @@ unless a code discovery proves that the contract itself is wrong or incomplete.
 
 ## Pinned Contract
 
-- Blueprint hash: `3466079cab4a6e6d8011d675c3cf429d7cda2bc961c2d5ca006e3087af317b6c`
-- Semantic hash: `3177dc06506cb955e519157ab2f2125472287223a6e5f60ded7e3a95ecead023`
-- Root graph: `serve`, graph hash `9212a3685de85a5df4e17c1471458e064e4c335988ae220f36f65731baca3c8a`
+- Blueprint hash: `f5090c2f97f06122067f4b3c840bb2e6e581e52bccdbaf370c5a4bec47aa31ed`
+- Semantic hash: `d90ce8a6de0e834c605c043318e3806cf1b8186cac93a897698438f64da2b538`
+- Root graph: `serve`, graph hash `5f60910a22c5a998817974978a85a088a6de5c8a3482d6696840bfe5999c51ac`
 - Decode graph: `decode`, graph hash `2af92c0420b89ec8189e6c62009a4b879cb65a12c361d794476dd907904b0a1e`
 - Decode DCP top-k graph: `decode-dcp-topk`, graph hash `2311682e85d881362a93c0be8eed1d36aad3e87844f612878ff85c816b3c3f24`
 - Model-load graph: `model-load`, graph hash `0d3a26146444d194a72ed4f843fabbd3f6275eeefa45873465f5b9e2ac63c215`
 - Model-shard-layout graph: `model-shard-layout`, graph hash `eb05725c27670f0c0d9c3b90044c040e3ee5e6130eca1e09e8d1b26a202b911e`
 - Prefill graph: registered under current blueprint; validate before prefill implementation starts.
+- Serve L1 child graphs:
+  - `request-session`, graph hash `69a27144354c5ae9dad8fe743690491188da44d45ee273979a69fe87558d77a9`: validates request/session binding and enqueue into prefill work.
+  - `stream-token`, graph hash `a5917ff3d5293756d216aaa4128f5f16cd2d80a322ee9f1e5e19dce16bee2c18`: streams a sampled token and records continuation/checkpoint policy.
+  - `kv-checkpoint`, graph hash `79f4d3207121b675cb0e16411cad0da3cb2833d8a3d2b4eca6aa2b5737da42cb`: persists rank-local KV shard prefixes and replicated checkpoint metadata.
+  - `tp-group`, graph hash `941a792f839175e512f1d44f4d4010401fd289930184b302c9a436f568f6e4fa`: forms the TP4/DCP4 rank group and collective fabric.
 - Lowered data-plane child graphs:
   - `decode-attn-allreduce-sum`: TP4 attention hidden all-reduce invariants.
   - `decode-ffn-allreduce-sum`: TP4 FFN hidden all-reduce invariants.
@@ -29,8 +34,17 @@ unless a code discovery proves that the contract itself is wrong or incomplete.
   - `dev-artifacts/validation/validate-lowered-decode-composite.result.json`: PASS
   - `dev-artifacts/validation/validate-lowered-serve-composite.result.json`: PASS
   - `dev-artifacts/validation/status-after-lowering.result.json`: PASS
+  - `dev-artifacts/validation/mutate-complete-serve-l1-children.result.json`: PASS
+  - `dev-artifacts/validation/mutate-state-terminal-outcomes-for-serve-l1-children.result.json`: PASS
+  - `dev-artifacts/validation/validate-serve-after-l1-children.result.json`: PASS
+  - `dev-artifacts/validation/validate-serve-l1-children-leaves.result.json`: PASS
+  - `dev-artifacts/validation/validate-serve-l1-expanded-composite.result.json`: PASS
+  - `dev-artifacts/validation/validate-serve-existing-l1-leaves.result.json`: PASS
+  - `dev-artifacts/validation/simulate-serve-l1-children-full-trace.result.json`: PASS
   - `dev-artifacts/ds4-arch-review.html`: regenerated, PASS render with 14
     graphs, 135 nodes, 179 edges.
+  - `dev-artifacts/ds4-arch-review.html`: regenerated again after completing
+    serve L1 children, PASS render with 18 graphs, 161 nodes, 213 edges.
   - `dev-artifacts/validation-lint-current.json`: PASS
   - `dev-artifacts/validation-serve-l0-current.json`: PASS
   - `dev-artifacts/validation-decode-composite-current.json`: PASS
@@ -109,6 +123,16 @@ Completed implementation slices:
   - deterministic DCP row-exchange mock now publishes replies only after all
     requests validate, sorts by query layer/token position, and rejects
     out-of-bound selection counts.
+- Completed BCD contract-only serve children:
+  - `serve/action-serve-accept` expands to `request-session`;
+  - `serve/action-stream-token` expands to `stream-token`;
+  - `serve/action-kv-checkpoint` expands to `kv-checkpoint`;
+  - `serve/action-tp-group` expands to `tp-group`;
+  - parent placeholder `code_unit` semantics were removed from expanded serve
+    actions so implementation mapping now belongs to the child leaves;
+  - state-terminal outcome semantics were added so full-trace simulations cover
+    queue, stream, KV checkpoint, rank-plan, model-worker read, and fabric
+    readiness effects explicitly.
 
 Delegated implementation slice:
 
@@ -123,10 +147,12 @@ Open implementation slices before real serving:
   `decode-logits-gather-topk` contracts;
 - real DCP selected-row network exchange execution for
   `decode-dcp-row-exchange`;
-- request/session binding;
+- request/session binding implementation for the new `request-session` child;
 - real TP4/DCP4 prefill kernels/collectives (prefill L0 state machine is done);
 - decode skeleton and then real GLM 5.2 TP4/DCP4 kernels/collectives;
-- server integration and streaming after token commit.
+- server integration and token streaming implementation for the new
+  `stream-token` child;
+- KV checkpoint implementation for the new `kv-checkpoint` child;
 
 ## Implementation Scope
 

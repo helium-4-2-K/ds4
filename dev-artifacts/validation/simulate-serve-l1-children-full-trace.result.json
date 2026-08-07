@@ -1,0 +1,981 @@
+{
+  "action": "simulate_contract",
+  "artifact_integrity": {
+    "blueprint_sha256": "f5090c2f97f06122067f4b3c840bb2e6e581e52bccdbaf370c5a4bec47aa31ed",
+    "semantic_sha256": "d90ce8a6de0e834c605c043318e3806cf1b8186cac93a897698438f64da2b538"
+  },
+  "case_count": 4,
+  "cases": [
+    {
+      "active_edge_ids": [
+        "e-plan-write",
+        "e-policy-before-write",
+        "e-policy-kv",
+        "e-policy-plan",
+        "e-publish-kv",
+        "e-record-publish",
+        "e-write-before-publish",
+        "e-write-kv",
+        "e-write-record"
+      ],
+      "active_node_ids": [
+        "a-evaluate-checkpoint-policy",
+        "a-publish-checkpoint",
+        "a-write-rank-kv-shards",
+        "d-checkpoint-plan",
+        "d-checkpoint-record",
+        "s-kv"
+      ],
+      "assumption_entry_ids": [],
+      "case_id": "kv-checkpoint-full-success",
+      "cycle_node_ids": [],
+      "field_targets": [
+        "d-checkpoint-plan.checkpoint_id",
+        "d-checkpoint-plan.kv_length",
+        "d-checkpoint-plan.rank",
+        "d-checkpoint-plan.session_id",
+        "d-checkpoint-record.checkpoint_id",
+        "d-checkpoint-record.kv_length",
+        "d-checkpoint-record.rank",
+        "d-checkpoint-record.session_id",
+        "s-kv.head_or_latent_end",
+        "s-kv.head_or_latent_start",
+        "s-kv.length",
+        "s-kv.replicated_metadata",
+        "s-kv.session_id",
+        "s-kv.tp_rank"
+      ],
+      "graph_id": "kv-checkpoint",
+      "initial_node_ids": [
+        "a-evaluate-checkpoint-policy"
+      ],
+      "obligation_entry_ids": [
+        "a-evaluate-checkpoint-policy-impl",
+        "a-evaluate-checkpoint-policy-nd",
+        "a-evaluate-checkpoint-policy-no-input",
+        "a-publish-checkpoint-impl",
+        "a-publish-checkpoint-nd",
+        "a-write-rank-kv-shards-impl",
+        "a-write-rank-kv-shards-nd",
+        "action-kv-checkpoint-no-input",
+        "ck-im",
+        "ck-nd",
+        "ck-state",
+        "d-checkpoint-plan-dist",
+        "d-checkpoint-record-dist",
+        "e-policy-kv-state",
+        "e-publish-kv-state",
+        "e-write-kv-state",
+        "publish-checkpoint-record-in",
+        "s-kv-dist",
+        "write-checkpoint-plan-in"
+      ],
+      "outcome_entry_ids": [
+        "a-evaluate-checkpoint-policy-effect",
+        "a-evaluate-checkpoint-policy-exit",
+        "a-publish-checkpoint-effect",
+        "a-publish-checkpoint-exit",
+        "a-publish-checkpoint-no-output",
+        "a-write-rank-kv-shards-effect",
+        "a-write-rank-kv-shards-exit",
+        "action-kv-checkpoint-no-output",
+        "ck-ef",
+        "ck-exit",
+        "kv-checkpoint-kv-state-effect",
+        "plan-checkpoint-out",
+        "write-checkpoint-record-out"
+      ],
+      "property_target_entry_ids": [
+        "d-checkpoint-plan-identity",
+        "d-checkpoint-plan-ordering",
+        "d-checkpoint-plan-presence",
+        "d-checkpoint-plan-provenance",
+        "d-checkpoint-record-identity",
+        "d-checkpoint-record-ordering",
+        "d-checkpoint-record-presence",
+        "d-checkpoint-record-provenance",
+        "s-kv-identity",
+        "s-kv-ordering",
+        "s-kv-presence",
+        "s-kv-provenance"
+      ],
+      "terminal_node_ids": [
+        "s-kv"
+      ]
+    },
+    {
+      "active_edge_ids": [
+        "e-bind-before-enqueue",
+        "e-bind-job",
+        "e-bind-kv",
+        "e-enqueue-kv",
+        "e-enqueue-queue",
+        "e-job-enqueue",
+        "e-normalized-bind",
+        "e-request-validate",
+        "e-validate-before-bind",
+        "e-validated-bind"
+      ],
+      "active_node_ids": [
+        "a-bind-session",
+        "a-enqueue-prefill",
+        "a-validate-request",
+        "d-normalized-request",
+        "d-session-job",
+        "data-request",
+        "s-kv",
+        "s-prefill-queue"
+      ],
+      "assumption_entry_ids": [],
+      "case_id": "request-session-full-success",
+      "cycle_node_ids": [],
+      "field_targets": [
+        "d-normalized-request.max_tokens",
+        "d-normalized-request.messages",
+        "d-normalized-request.session_id",
+        "d-normalized-request.temperature",
+        "d-session-job.max_decode_tokens",
+        "d-session-job.prompt_token_count",
+        "d-session-job.session_id",
+        "s-kv.head_or_latent_end",
+        "s-kv.head_or_latent_start",
+        "s-kv.length",
+        "s-kv.replicated_metadata",
+        "s-kv.session_id",
+        "s-kv.tp_rank",
+        "s-prefill-queue.max_decode_tokens",
+        "s-prefill-queue.prompt_token_count",
+        "s-prefill-queue.session_id"
+      ],
+      "graph_id": "request-session",
+      "initial_node_ids": [
+        "data-request"
+      ],
+      "obligation_entry_ids": [
+        "a-bind-session-impl",
+        "a-bind-session-nd",
+        "a-enqueue-prefill-impl",
+        "a-enqueue-prefill-nd",
+        "a-validate-request-impl",
+        "a-validate-request-nd",
+        "acc-im",
+        "acc-nd",
+        "acc-state",
+        "accept-request-in",
+        "bind-request-in",
+        "d-normalized-request-dist",
+        "d-session-job-dist",
+        "data-request-dist",
+        "e-bind-kv-state",
+        "e-enqueue-kv-state",
+        "e-enqueue-queue-state",
+        "enqueue-session-job-in",
+        "s-kv-dist",
+        "s-prefill-queue-dist",
+        "validate-request-in"
+      ],
+      "outcome_entry_ids": [
+        "a-bind-session-effect",
+        "a-bind-session-exit",
+        "a-enqueue-prefill-effect",
+        "a-enqueue-prefill-exit",
+        "a-enqueue-prefill-no-output",
+        "a-validate-request-effect",
+        "a-validate-request-exit",
+        "acc-ef",
+        "acc-exit",
+        "action-serve-accept-no-output",
+        "bind-session-job-out",
+        "request-session-kv-bound-effect",
+        "request-session-prefill-queue-effect",
+        "validate-request-out"
+      ],
+      "property_target_entry_ids": [
+        "d-normalized-request-identity",
+        "d-normalized-request-ordering",
+        "d-normalized-request-presence",
+        "d-normalized-request-provenance",
+        "d-session-job-identity",
+        "d-session-job-ordering",
+        "d-session-job-presence",
+        "d-session-job-provenance",
+        "s-kv-identity",
+        "s-kv-ordering",
+        "s-kv-presence",
+        "s-kv-provenance",
+        "s-prefill-queue-identity",
+        "s-prefill-queue-ordering",
+        "s-prefill-queue-presence",
+        "s-prefill-queue-provenance"
+      ],
+      "terminal_node_ids": [
+        "s-kv",
+        "s-prefill-queue"
+      ]
+    },
+    {
+      "active_edge_ids": [
+        "e-event-policy",
+        "e-policy-stream",
+        "e-token-write",
+        "e-write-before-policy",
+        "e-write-event"
+      ],
+      "active_node_ids": [
+        "a-evaluate-continuation",
+        "a-write-token",
+        "d-stream-event",
+        "data-token",
+        "s-response-stream"
+      ],
+      "assumption_entry_ids": [],
+      "case_id": "stream-token-full-success",
+      "cycle_node_ids": [],
+      "field_targets": [
+        "d-stream-event.position",
+        "d-stream-event.stop",
+        "d-stream-event.token_id",
+        "s-response-stream.position",
+        "s-response-stream.stop",
+        "s-response-stream.token_id"
+      ],
+      "graph_id": "stream-token",
+      "initial_node_ids": [
+        "data-token"
+      ],
+      "obligation_entry_ids": [
+        "a-evaluate-continuation-impl",
+        "a-evaluate-continuation-nd",
+        "a-write-token-impl",
+        "a-write-token-nd",
+        "d-stream-event-dist",
+        "data-token-dist",
+        "e-policy-stream-state",
+        "policy-stream-event-in",
+        "s-response-stream-dist",
+        "str-im",
+        "str-nd",
+        "stream-token-in",
+        "write-token-in"
+      ],
+      "outcome_entry_ids": [
+        "a-evaluate-continuation-effect",
+        "a-evaluate-continuation-exit",
+        "a-evaluate-continuation-no-output",
+        "a-write-token-effect",
+        "a-write-token-exit",
+        "action-stream-token-no-output",
+        "str-ef",
+        "str-exit",
+        "stream-token-response-state-effect",
+        "write-stream-event-out"
+      ],
+      "property_target_entry_ids": [
+        "d-stream-event-identity",
+        "d-stream-event-ordering",
+        "d-stream-event-presence",
+        "d-stream-event-provenance",
+        "s-response-stream-identity",
+        "s-response-stream-ordering",
+        "s-response-stream-presence",
+        "s-response-stream-provenance"
+      ],
+      "terminal_node_ids": [
+        "s-response-stream"
+      ]
+    },
+    {
+      "active_edge_ids": [
+        "e-fabric-rank",
+        "e-fabric-ready",
+        "e-fabric-tp",
+        "e-hello-bind",
+        "e-hello-model",
+        "e-plan-fabric",
+        "e-plan-model",
+        "e-plan-rank",
+        "e-ready-rank",
+        "e-ready-tp"
+      ],
+      "active_node_ids": [
+        "a-bind-rank-plan",
+        "a-establish-collective-fabric",
+        "a-publish-tp-ready",
+        "a-validate-rank-hello",
+        "s-model-worker",
+        "s-rank-plan",
+        "s-tp"
+      ],
+      "assumption_entry_ids": [],
+      "case_id": "tp-group-full-success",
+      "cycle_node_ids": [],
+      "field_targets": [
+        "s-model-worker.bird_vllm_commit",
+        "s-model-worker.checkpoint_revision",
+        "s-model-worker.expert_shard_axis",
+        "s-model-worker.model_name",
+        "s-model-worker.n_embd",
+        "s-model-worker.n_expert",
+        "s-model-worker.n_expert_used",
+        "s-model-worker.n_head",
+        "s-model-worker.n_head_kv",
+        "s-model-worker.n_layer",
+        "s-model-worker.qkv_shard_axis",
+        "s-model-worker.rank_count",
+        "s-model-worker.reference_runtime",
+        "s-model-worker.served_model_name",
+        "s-model-worker.speculator",
+        "s-model-worker.tp_degree",
+        "s-model-worker.vocab_shard_axis",
+        "s-rank-plan.dcp_rank",
+        "s-rank-plan.expert_end",
+        "s-rank-plan.expert_start",
+        "s-rank-plan.q_head_end",
+        "s-rank-plan.q_head_start",
+        "s-rank-plan.rank",
+        "s-rank-plan.tp_size",
+        "s-rank-plan.vocab_end",
+        "s-rank-plan.vocab_start",
+        "s-tp.all_reduce_count_per_layer",
+        "s-tp.attention_backend",
+        "s-tp.broadcast_count_per_token",
+        "s-tp.collective_backend",
+        "s-tp.dcp_degree",
+        "s-tp.gather_count_per_token",
+        "s-tp.kv_cache_dtype",
+        "s-tp.nccl_channels",
+        "s-tp.nccl_version",
+        "s-tp.pp_degree",
+        "s-tp.roce_hcas",
+        "s-tp.tp_degree",
+        "s-tp.transport"
+      ],
+      "graph_id": "tp-group",
+      "initial_node_ids": [
+        "a-validate-rank-hello"
+      ],
+      "obligation_entry_ids": [
+        "a-bind-rank-plan-impl",
+        "a-bind-rank-plan-nd",
+        "a-bind-rank-plan-no-input",
+        "a-establish-collective-fabric-impl",
+        "a-establish-collective-fabric-nd",
+        "a-establish-collective-fabric-no-input",
+        "a-publish-tp-ready-impl",
+        "a-publish-tp-ready-nd",
+        "a-publish-tp-ready-no-input",
+        "a-validate-rank-hello-impl",
+        "a-validate-rank-hello-nd",
+        "a-validate-rank-hello-no-input",
+        "action-tp-group-no-input",
+        "e-fabric-rank-state",
+        "e-fabric-tp-state",
+        "e-hello-model-state",
+        "e-plan-model-state",
+        "e-plan-rank-state",
+        "e-ready-rank-state",
+        "e-ready-tp-state",
+        "s-model-worker-dist",
+        "s-rank-plan-dist",
+        "s-tp-dist",
+        "tp-bird-ref",
+        "tp-im",
+        "tp-input",
+        "tp-nd",
+        "tp-output"
+      ],
+      "outcome_entry_ids": [
+        "a-bind-rank-plan-effect",
+        "a-bind-rank-plan-exit",
+        "a-bind-rank-plan-no-output",
+        "a-establish-collective-fabric-effect",
+        "a-establish-collective-fabric-exit",
+        "a-establish-collective-fabric-no-output",
+        "a-publish-tp-ready-effect",
+        "a-publish-tp-ready-exit",
+        "a-publish-tp-ready-no-output",
+        "a-validate-rank-hello-effect",
+        "a-validate-rank-hello-exit",
+        "a-validate-rank-hello-no-output",
+        "action-tp-group-no-output",
+        "tp-ef",
+        "tp-exit",
+        "tp-group-fabric-effect",
+        "tp-group-model-worker-read-no-effect",
+        "tp-group-rank-plan-effect"
+      ],
+      "property_target_entry_ids": [
+        "s-model-worker-identity",
+        "s-model-worker-presence",
+        "s-model-worker-provenance",
+        "s-rank-plan-identity",
+        "s-rank-plan-presence",
+        "s-rank-plan-provenance",
+        "s-tp-identity",
+        "s-tp-presence",
+        "s-tp-provenance"
+      ],
+      "terminal_node_ids": [
+        "s-model-worker",
+        "s-rank-plan",
+        "s-tp"
+      ]
+    }
+  ],
+  "contract_validation": {
+    "error_count": 0,
+    "errors": [],
+    "graph_ids": [
+      "kv-checkpoint",
+      "request-session",
+      "stream-token",
+      "tp-group"
+    ],
+    "profile": "leaf",
+    "schema": "blueprint-contract-validation/v4",
+    "snapshot": {
+      "artifact_integrity": {
+        "blueprint_sha256": "f5090c2f97f06122067f4b3c840bb2e6e581e52bccdbaf370c5a4bec47aa31ed",
+        "semantic_sha256": "d90ce8a6de0e834c605c043318e3806cf1b8186cac93a897698438f64da2b538"
+      },
+      "covered_graphs": [
+        {
+          "graph_contract_sha256": "79f4d3207121b675cb0e16411cad0da3cb2833d8a3d2b4eca6aa2b5737da42cb",
+          "graph_id": "kv-checkpoint",
+          "role": "selected",
+          "type_schema_sha256": "268948e2d93680375e897bead2676d872928ebafd97a91928bb363de642ebcc6"
+        },
+        {
+          "graph_contract_sha256": "69a27144354c5ae9dad8fe743690491188da44d45ee273979a69fe87558d77a9",
+          "graph_id": "request-session",
+          "role": "selected",
+          "type_schema_sha256": "4cd0c1c8999384a88d2e0a0125a1a38a9118f61d20dcc270f5155a04c07aed44"
+        },
+        {
+          "graph_contract_sha256": "5f60910a22c5a998817974978a85a088a6de5c8a3482d6696840bfe5999c51ac",
+          "graph_id": "serve",
+          "role": "ancestor",
+          "type_schema_sha256": "30f49b45e889237b5bb310b878ab4e6706809d614eedd39946a3bc723ce1c6d4"
+        },
+        {
+          "graph_contract_sha256": "a5917ff3d5293756d216aaa4128f5f16cd2d80a322ee9f1e5e19dce16bee2c18",
+          "graph_id": "stream-token",
+          "role": "selected",
+          "type_schema_sha256": "c5df5aa72497161e83cc3032abfc909fbc9e1cddbc8c568c747e0d7aedbf5756"
+        },
+        {
+          "graph_contract_sha256": "941a792f839175e512f1d44f4d4010401fd289930184b302c9a436f568f6e4fa",
+          "graph_id": "tp-group",
+          "role": "selected",
+          "type_schema_sha256": "c9b92e83a751264b322323f0c8a3f2282fe07d4f31182dcf70b5e3a4a058d900"
+        }
+      ],
+      "selected_graph_ids": [
+        "kv-checkpoint",
+        "request-session",
+        "stream-token",
+        "tp-group"
+      ]
+    },
+    "status": "PASS",
+    "warning_count": 0,
+    "warnings": []
+  },
+  "coverage": [
+    {
+      "case_ids": [
+        "kv-checkpoint-full-success"
+      ],
+      "conserved_parent_entry_ids": [
+        "action-kv-checkpoint-no-input",
+        "action-kv-checkpoint-no-output",
+        "ck-ef",
+        "ck-exit",
+        "ck-im",
+        "ck-nd",
+        "ck-state"
+      ],
+      "covered_edge_ids": [
+        "e-plan-write",
+        "e-policy-before-write",
+        "e-policy-kv",
+        "e-policy-plan",
+        "e-publish-kv",
+        "e-record-publish",
+        "e-write-before-publish",
+        "e-write-kv",
+        "e-write-record"
+      ],
+      "covered_field_targets": [
+        "d-checkpoint-plan.checkpoint_id",
+        "d-checkpoint-plan.kv_length",
+        "d-checkpoint-plan.rank",
+        "d-checkpoint-plan.session_id",
+        "d-checkpoint-record.checkpoint_id",
+        "d-checkpoint-record.kv_length",
+        "d-checkpoint-record.rank",
+        "d-checkpoint-record.session_id",
+        "s-kv.head_or_latent_end",
+        "s-kv.head_or_latent_start",
+        "s-kv.length",
+        "s-kv.replicated_metadata",
+        "s-kv.session_id",
+        "s-kv.tp_rank"
+      ],
+      "covered_node_ids": [
+        "a-evaluate-checkpoint-policy",
+        "a-publish-checkpoint",
+        "a-write-rank-kv-shards",
+        "d-checkpoint-plan",
+        "d-checkpoint-record",
+        "s-kv"
+      ],
+      "covered_operating_scenario_entry_ids": [],
+      "covered_property_target_entry_ids": [
+        "d-checkpoint-plan-identity",
+        "d-checkpoint-plan-ordering",
+        "d-checkpoint-plan-presence",
+        "d-checkpoint-plan-provenance",
+        "d-checkpoint-record-identity",
+        "d-checkpoint-record-ordering",
+        "d-checkpoint-record-presence",
+        "d-checkpoint-record-provenance",
+        "s-kv-identity",
+        "s-kv-ordering",
+        "s-kv-presence",
+        "s-kv-provenance"
+      ],
+      "covered_semantic_entry_ids": [
+        "a-evaluate-checkpoint-policy-effect",
+        "a-evaluate-checkpoint-policy-exit",
+        "a-evaluate-checkpoint-policy-impl",
+        "a-evaluate-checkpoint-policy-nd",
+        "a-evaluate-checkpoint-policy-no-input",
+        "a-publish-checkpoint-effect",
+        "a-publish-checkpoint-exit",
+        "a-publish-checkpoint-impl",
+        "a-publish-checkpoint-nd",
+        "a-publish-checkpoint-no-output",
+        "a-write-rank-kv-shards-effect",
+        "a-write-rank-kv-shards-exit",
+        "a-write-rank-kv-shards-impl",
+        "a-write-rank-kv-shards-nd",
+        "action-kv-checkpoint-no-input",
+        "action-kv-checkpoint-no-output",
+        "ck-ef",
+        "ck-exit",
+        "ck-im",
+        "ck-nd",
+        "ck-state",
+        "d-checkpoint-plan-dist",
+        "d-checkpoint-record-dist",
+        "e-policy-kv-state",
+        "e-publish-kv-state",
+        "e-write-kv-state",
+        "kv-checkpoint-kv-state-effect",
+        "plan-checkpoint-out",
+        "publish-checkpoint-record-in",
+        "s-kv-dist",
+        "write-checkpoint-plan-in",
+        "write-checkpoint-record-out"
+      ],
+      "covered_terminal_node_ids": [
+        "s-kv"
+      ],
+      "graph_id": "kv-checkpoint"
+    },
+    {
+      "case_ids": [
+        "request-session-full-success"
+      ],
+      "conserved_parent_entry_ids": [
+        "acc-ef",
+        "acc-exit",
+        "acc-im",
+        "acc-nd",
+        "acc-state",
+        "accept-request-in",
+        "action-serve-accept-no-output"
+      ],
+      "covered_edge_ids": [
+        "e-bind-before-enqueue",
+        "e-bind-job",
+        "e-bind-kv",
+        "e-enqueue-kv",
+        "e-enqueue-queue",
+        "e-job-enqueue",
+        "e-normalized-bind",
+        "e-request-validate",
+        "e-validate-before-bind",
+        "e-validated-bind"
+      ],
+      "covered_field_targets": [
+        "d-normalized-request.max_tokens",
+        "d-normalized-request.messages",
+        "d-normalized-request.session_id",
+        "d-normalized-request.temperature",
+        "d-session-job.max_decode_tokens",
+        "d-session-job.prompt_token_count",
+        "d-session-job.session_id",
+        "s-kv.head_or_latent_end",
+        "s-kv.head_or_latent_start",
+        "s-kv.length",
+        "s-kv.replicated_metadata",
+        "s-kv.session_id",
+        "s-kv.tp_rank",
+        "s-prefill-queue.max_decode_tokens",
+        "s-prefill-queue.prompt_token_count",
+        "s-prefill-queue.session_id"
+      ],
+      "covered_node_ids": [
+        "a-bind-session",
+        "a-enqueue-prefill",
+        "a-validate-request",
+        "d-normalized-request",
+        "d-session-job",
+        "data-request",
+        "s-kv",
+        "s-prefill-queue"
+      ],
+      "covered_operating_scenario_entry_ids": [],
+      "covered_property_target_entry_ids": [
+        "d-normalized-request-identity",
+        "d-normalized-request-ordering",
+        "d-normalized-request-presence",
+        "d-normalized-request-provenance",
+        "d-session-job-identity",
+        "d-session-job-ordering",
+        "d-session-job-presence",
+        "d-session-job-provenance",
+        "s-kv-identity",
+        "s-kv-ordering",
+        "s-kv-presence",
+        "s-kv-provenance",
+        "s-prefill-queue-identity",
+        "s-prefill-queue-ordering",
+        "s-prefill-queue-presence",
+        "s-prefill-queue-provenance"
+      ],
+      "covered_semantic_entry_ids": [
+        "a-bind-session-effect",
+        "a-bind-session-exit",
+        "a-bind-session-impl",
+        "a-bind-session-nd",
+        "a-enqueue-prefill-effect",
+        "a-enqueue-prefill-exit",
+        "a-enqueue-prefill-impl",
+        "a-enqueue-prefill-nd",
+        "a-enqueue-prefill-no-output",
+        "a-validate-request-effect",
+        "a-validate-request-exit",
+        "a-validate-request-impl",
+        "a-validate-request-nd",
+        "acc-ef",
+        "acc-exit",
+        "acc-im",
+        "acc-nd",
+        "acc-state",
+        "accept-request-in",
+        "action-serve-accept-no-output",
+        "bind-request-in",
+        "bind-session-job-out",
+        "d-normalized-request-dist",
+        "d-session-job-dist",
+        "data-request-dist",
+        "e-bind-kv-state",
+        "e-enqueue-kv-state",
+        "e-enqueue-queue-state",
+        "enqueue-session-job-in",
+        "request-session-kv-bound-effect",
+        "request-session-prefill-queue-effect",
+        "s-kv-dist",
+        "s-prefill-queue-dist",
+        "validate-request-in",
+        "validate-request-out"
+      ],
+      "covered_terminal_node_ids": [
+        "s-kv",
+        "s-prefill-queue"
+      ],
+      "graph_id": "request-session"
+    },
+    {
+      "case_ids": [
+        "stream-token-full-success"
+      ],
+      "conserved_parent_entry_ids": [
+        "action-stream-token-no-output",
+        "str-ef",
+        "str-exit",
+        "str-im",
+        "str-nd",
+        "stream-token-in"
+      ],
+      "covered_edge_ids": [
+        "e-event-policy",
+        "e-policy-stream",
+        "e-token-write",
+        "e-write-before-policy",
+        "e-write-event"
+      ],
+      "covered_field_targets": [
+        "d-stream-event.position",
+        "d-stream-event.stop",
+        "d-stream-event.token_id",
+        "s-response-stream.position",
+        "s-response-stream.stop",
+        "s-response-stream.token_id"
+      ],
+      "covered_node_ids": [
+        "a-evaluate-continuation",
+        "a-write-token",
+        "d-stream-event",
+        "data-token",
+        "s-response-stream"
+      ],
+      "covered_operating_scenario_entry_ids": [],
+      "covered_property_target_entry_ids": [
+        "d-stream-event-identity",
+        "d-stream-event-ordering",
+        "d-stream-event-presence",
+        "d-stream-event-provenance",
+        "s-response-stream-identity",
+        "s-response-stream-ordering",
+        "s-response-stream-presence",
+        "s-response-stream-provenance"
+      ],
+      "covered_semantic_entry_ids": [
+        "a-evaluate-continuation-effect",
+        "a-evaluate-continuation-exit",
+        "a-evaluate-continuation-impl",
+        "a-evaluate-continuation-nd",
+        "a-evaluate-continuation-no-output",
+        "a-write-token-effect",
+        "a-write-token-exit",
+        "a-write-token-impl",
+        "a-write-token-nd",
+        "action-stream-token-no-output",
+        "d-stream-event-dist",
+        "data-token-dist",
+        "e-policy-stream-state",
+        "policy-stream-event-in",
+        "s-response-stream-dist",
+        "str-ef",
+        "str-exit",
+        "str-im",
+        "str-nd",
+        "stream-token-in",
+        "stream-token-response-state-effect",
+        "write-stream-event-out",
+        "write-token-in"
+      ],
+      "covered_terminal_node_ids": [
+        "s-response-stream"
+      ],
+      "graph_id": "stream-token"
+    },
+    {
+      "case_ids": [
+        "tp-group-full-success"
+      ],
+      "conserved_parent_entry_ids": [
+        "action-tp-group-no-input",
+        "action-tp-group-no-output",
+        "tp-bird-ref",
+        "tp-ef",
+        "tp-exit",
+        "tp-im",
+        "tp-input",
+        "tp-nd",
+        "tp-output"
+      ],
+      "covered_edge_ids": [
+        "e-fabric-rank",
+        "e-fabric-ready",
+        "e-fabric-tp",
+        "e-hello-bind",
+        "e-hello-model",
+        "e-plan-fabric",
+        "e-plan-model",
+        "e-plan-rank",
+        "e-ready-rank",
+        "e-ready-tp"
+      ],
+      "covered_field_targets": [
+        "s-model-worker.bird_vllm_commit",
+        "s-model-worker.checkpoint_revision",
+        "s-model-worker.expert_shard_axis",
+        "s-model-worker.model_name",
+        "s-model-worker.n_embd",
+        "s-model-worker.n_expert",
+        "s-model-worker.n_expert_used",
+        "s-model-worker.n_head",
+        "s-model-worker.n_head_kv",
+        "s-model-worker.n_layer",
+        "s-model-worker.qkv_shard_axis",
+        "s-model-worker.rank_count",
+        "s-model-worker.reference_runtime",
+        "s-model-worker.served_model_name",
+        "s-model-worker.speculator",
+        "s-model-worker.tp_degree",
+        "s-model-worker.vocab_shard_axis",
+        "s-rank-plan.dcp_rank",
+        "s-rank-plan.expert_end",
+        "s-rank-plan.expert_start",
+        "s-rank-plan.q_head_end",
+        "s-rank-plan.q_head_start",
+        "s-rank-plan.rank",
+        "s-rank-plan.tp_size",
+        "s-rank-plan.vocab_end",
+        "s-rank-plan.vocab_start",
+        "s-tp.all_reduce_count_per_layer",
+        "s-tp.attention_backend",
+        "s-tp.broadcast_count_per_token",
+        "s-tp.collective_backend",
+        "s-tp.dcp_degree",
+        "s-tp.gather_count_per_token",
+        "s-tp.kv_cache_dtype",
+        "s-tp.nccl_channels",
+        "s-tp.nccl_version",
+        "s-tp.pp_degree",
+        "s-tp.roce_hcas",
+        "s-tp.tp_degree",
+        "s-tp.transport"
+      ],
+      "covered_node_ids": [
+        "a-bind-rank-plan",
+        "a-establish-collective-fabric",
+        "a-publish-tp-ready",
+        "a-validate-rank-hello",
+        "s-model-worker",
+        "s-rank-plan",
+        "s-tp"
+      ],
+      "covered_operating_scenario_entry_ids": [],
+      "covered_property_target_entry_ids": [
+        "s-model-worker-identity",
+        "s-model-worker-presence",
+        "s-model-worker-provenance",
+        "s-rank-plan-identity",
+        "s-rank-plan-presence",
+        "s-rank-plan-provenance",
+        "s-tp-identity",
+        "s-tp-presence",
+        "s-tp-provenance"
+      ],
+      "covered_semantic_entry_ids": [
+        "a-bind-rank-plan-effect",
+        "a-bind-rank-plan-exit",
+        "a-bind-rank-plan-impl",
+        "a-bind-rank-plan-nd",
+        "a-bind-rank-plan-no-input",
+        "a-bind-rank-plan-no-output",
+        "a-establish-collective-fabric-effect",
+        "a-establish-collective-fabric-exit",
+        "a-establish-collective-fabric-impl",
+        "a-establish-collective-fabric-nd",
+        "a-establish-collective-fabric-no-input",
+        "a-establish-collective-fabric-no-output",
+        "a-publish-tp-ready-effect",
+        "a-publish-tp-ready-exit",
+        "a-publish-tp-ready-impl",
+        "a-publish-tp-ready-nd",
+        "a-publish-tp-ready-no-input",
+        "a-publish-tp-ready-no-output",
+        "a-validate-rank-hello-effect",
+        "a-validate-rank-hello-exit",
+        "a-validate-rank-hello-impl",
+        "a-validate-rank-hello-nd",
+        "a-validate-rank-hello-no-input",
+        "a-validate-rank-hello-no-output",
+        "action-tp-group-no-input",
+        "action-tp-group-no-output",
+        "e-fabric-rank-state",
+        "e-fabric-tp-state",
+        "e-hello-model-state",
+        "e-plan-model-state",
+        "e-plan-rank-state",
+        "e-ready-rank-state",
+        "e-ready-tp-state",
+        "s-model-worker-dist",
+        "s-rank-plan-dist",
+        "s-tp-dist",
+        "tp-bird-ref",
+        "tp-ef",
+        "tp-exit",
+        "tp-group-fabric-effect",
+        "tp-group-model-worker-read-no-effect",
+        "tp-group-rank-plan-effect",
+        "tp-im",
+        "tp-input",
+        "tp-nd",
+        "tp-output"
+      ],
+      "covered_terminal_node_ids": [
+        "s-model-worker",
+        "s-rank-plan",
+        "s-tp"
+      ],
+      "graph_id": "tp-group"
+    }
+  ],
+  "error_count": 0,
+  "errors": [],
+  "graph_ids": [
+    "kv-checkpoint",
+    "request-session",
+    "stream-token",
+    "tp-group"
+  ],
+  "profile": "leaf",
+  "request_id": "simulate-serve-l1-children-full-trace",
+  "schema": "blueprint-contract-simulation/v4",
+  "simulation_sha256": "afae4e8ddb635cd3b58465dc0d7bf1b5b6c98027f66200ece42331d72f9c452e",
+  "snapshot": {
+    "artifact_integrity": {
+      "blueprint_sha256": "f5090c2f97f06122067f4b3c840bb2e6e581e52bccdbaf370c5a4bec47aa31ed",
+      "semantic_sha256": "d90ce8a6de0e834c605c043318e3806cf1b8186cac93a897698438f64da2b538"
+    },
+    "covered_graphs": [
+      {
+        "graph_contract_sha256": "79f4d3207121b675cb0e16411cad0da3cb2833d8a3d2b4eca6aa2b5737da42cb",
+        "graph_id": "kv-checkpoint",
+        "role": "selected",
+        "type_schema_sha256": "268948e2d93680375e897bead2676d872928ebafd97a91928bb363de642ebcc6"
+      },
+      {
+        "graph_contract_sha256": "69a27144354c5ae9dad8fe743690491188da44d45ee273979a69fe87558d77a9",
+        "graph_id": "request-session",
+        "role": "selected",
+        "type_schema_sha256": "4cd0c1c8999384a88d2e0a0125a1a38a9118f61d20dcc270f5155a04c07aed44"
+      },
+      {
+        "graph_contract_sha256": "5f60910a22c5a998817974978a85a088a6de5c8a3482d6696840bfe5999c51ac",
+        "graph_id": "serve",
+        "role": "ancestor",
+        "type_schema_sha256": "30f49b45e889237b5bb310b878ab4e6706809d614eedd39946a3bc723ce1c6d4"
+      },
+      {
+        "graph_contract_sha256": "a5917ff3d5293756d216aaa4128f5f16cd2d80a322ee9f1e5e19dce16bee2c18",
+        "graph_id": "stream-token",
+        "role": "selected",
+        "type_schema_sha256": "c5df5aa72497161e83cc3032abfc909fbc9e1cddbc8c568c747e0d7aedbf5756"
+      },
+      {
+        "graph_contract_sha256": "941a792f839175e512f1d44f4d4010401fd289930184b302c9a436f568f6e4fa",
+        "graph_id": "tp-group",
+        "role": "selected",
+        "type_schema_sha256": "c9b92e83a751264b322323f0c8a3f2282fe07d4f31182dcf70b5e3a4a058d900"
+      }
+    ],
+    "selected_graph_ids": [
+      "kv-checkpoint",
+      "request-session",
+      "stream-token",
+      "tp-group"
+    ]
+  },
+  "status": "PASS",
+  "warning_count": 0,
+  "warnings": []
+}

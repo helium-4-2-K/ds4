@@ -1,0 +1,181 @@
+{
+  "schema": "blueprint-write-request/v11",
+  "action": "mutate",
+  "request_id": "mutate-state-terminal-outcomes-for-serve-l1-children",
+  "root": "/Users/helium/src/ds4-gb10x4-bcd/bdev",
+  "record_dir": "/Users/helium/src/ds4-gb10x4-bcd/dev-artifacts/03_record",
+  "expected_blueprint_sha256": "695873f03e215c4708000410734ad79606ad36eafe1faa93b33c4a10b42fd20d",
+  "validation_stage": "complete",
+  "operations": [
+    {
+      "verb": "add",
+      "entity": "semantic",
+      "graph_id": "request-session",
+      "params": {
+        "owner_kind": "graph",
+        "owner_id": "request-session",
+        "entry": {
+          "entry_id": "request-session-kv-bound-effect",
+          "key": "effect",
+          "value": "session KV state is bound or initialized for the accepted request",
+          "status": "supported",
+          "object_ref": {
+            "node_id": "s-kv"
+          },
+          "support_refs": [
+            {
+              "node_id": "s-kv"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "semantic",
+      "graph_id": "request-session",
+      "params": {
+        "owner_kind": "graph",
+        "owner_id": "request-session",
+        "entry": {
+          "entry_id": "request-session-prefill-queue-effect",
+          "key": "effect",
+          "value": "prefill queue state records the accepted session job",
+          "status": "supported",
+          "object_ref": {
+            "node_id": "s-prefill-queue"
+          },
+          "support_refs": [
+            {
+              "node_id": "s-prefill-queue"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "semantic",
+      "graph_id": "stream-token",
+      "params": {
+        "owner_kind": "graph",
+        "owner_id": "stream-token",
+        "entry": {
+          "entry_id": "stream-token-response-state-effect",
+          "key": "effect",
+          "value": "response stream state records delivered token and continuation decision",
+          "status": "supported",
+          "object_ref": {
+            "node_id": "s-response-stream"
+          },
+          "support_refs": [
+            {
+              "node_id": "s-response-stream"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "semantic",
+      "graph_id": "kv-checkpoint",
+      "params": {
+        "owner_kind": "graph",
+        "owner_id": "kv-checkpoint",
+        "entry": {
+          "entry_id": "kv-checkpoint-kv-state-effect",
+          "key": "effect",
+          "value": "KV checkpoint marker state is updated after durable shard writes",
+          "status": "supported",
+          "object_ref": {
+            "node_id": "s-kv"
+          },
+          "support_refs": [
+            {
+              "node_id": "s-kv"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "semantic",
+      "graph_id": "tp-group",
+      "params": {
+        "owner_kind": "graph",
+        "owner_id": "tp-group",
+        "entry": {
+          "entry_id": "tp-group-model-worker-read-no-effect",
+          "key": "no_effect",
+          "value": "resident model worker state is read to validate TP identity and placement without mutation",
+          "status": "supported",
+          "object_ref": {
+            "node_id": "s-model-worker"
+          },
+          "support_refs": [
+            {
+              "node_id": "s-model-worker"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "semantic",
+      "graph_id": "tp-group",
+      "params": {
+        "owner_kind": "graph",
+        "owner_id": "tp-group",
+        "entry": {
+          "entry_id": "tp-group-rank-plan-effect",
+          "key": "effect",
+          "value": "rank ownership plan state is bound for TP4/DCP4 execution",
+          "status": "supported",
+          "object_ref": {
+            "node_id": "s-rank-plan"
+          },
+          "support_refs": [
+            {
+              "node_id": "s-rank-plan"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "semantic",
+      "graph_id": "tp-group",
+      "params": {
+        "owner_kind": "graph",
+        "owner_id": "tp-group",
+        "entry": {
+          "entry_id": "tp-group-fabric-effect",
+          "key": "effect",
+          "value": "TP collective fabric state is established and published ready",
+          "status": "supported",
+          "object_ref": {
+            "node_id": "s-tp"
+          },
+          "support_refs": [
+            {
+              "node_id": "s-tp"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "contract_validation": {
+    "profile": "leaf",
+    "graph_ids": [
+      "request-session",
+      "stream-token",
+      "kv-checkpoint",
+      "tp-group"
+    ]
+  }
+}

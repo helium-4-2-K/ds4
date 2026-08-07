@@ -75,6 +75,13 @@ graphs {
   type_schema_sha256: "e0737d45c04db185ecaece51c263819e9309b007202df8c47c992d163154da03"
 }
 graphs {
+  graph_id: "kv-checkpoint"
+  graph_ref: "kv-checkpoint.graph.textproto"
+  type_schema_ref: "kv-checkpoint.types.proto"
+  graph_contract_sha256: "79f4d3207121b675cb0e16411cad0da3cb2833d8a3d2b4eca6aa2b5737da42cb"
+  type_schema_sha256: "268948e2d93680375e897bead2676d872928ebafd97a91928bb363de642ebcc6"
+}
+graphs {
   graph_id: "model-load"
   graph_ref: "model-load.graph.textproto"
   type_schema_ref: "model-load.types.proto"
@@ -96,13 +103,34 @@ graphs {
   type_schema_sha256: "99f8dc1bb18f75d78fbf7f0cc73245c44b01f2981e7a67b73269d53fdda1f07e"
 }
 graphs {
+  graph_id: "request-session"
+  graph_ref: "request-session.graph.textproto"
+  type_schema_ref: "request-session.types.proto"
+  graph_contract_sha256: "69a27144354c5ae9dad8fe743690491188da44d45ee273979a69fe87558d77a9"
+  type_schema_sha256: "4cd0c1c8999384a88d2e0a0125a1a38a9118f61d20dcc270f5155a04c07aed44"
+}
+graphs {
   graph_id: "serve"
   graph_ref: "serve.graph.textproto"
   type_schema_ref: "serve.types.proto"
-  graph_contract_sha256: "9212a3685de85a5df4e17c1471458e064e4c335988ae220f36f65731baca3c8a"
+  graph_contract_sha256: "5f60910a22c5a998817974978a85a088a6de5c8a3482d6696840bfe5999c51ac"
   type_schema_sha256: "30f49b45e889237b5bb310b878ab4e6706809d614eedd39946a3bc723ce1c6d4"
+}
+graphs {
+  graph_id: "stream-token"
+  graph_ref: "stream-token.graph.textproto"
+  type_schema_ref: "stream-token.types.proto"
+  graph_contract_sha256: "a5917ff3d5293756d216aaa4128f5f16cd2d80a322ee9f1e5e19dce16bee2c18"
+  type_schema_sha256: "c5df5aa72497161e83cc3032abfc909fbc9e1cddbc8c568c747e0d7aedbf5756"
+}
+graphs {
+  graph_id: "tp-group"
+  graph_ref: "tp-group.graph.textproto"
+  type_schema_ref: "tp-group.types.proto"
+  graph_contract_sha256: "941a792f839175e512f1d44f4d4010401fd289930184b302c9a436f568f6e4fa"
+  type_schema_sha256: "c9b92e83a751264b322323f0c8a3f2282fe07d4f31182dcf70b5e3a4a058d900"
 }
 canonical {
   schema_sha256: "9de5a18221a33a9379092d084dbae946af604b979dfe7caf07bdd65701b5ea9d"
-  blueprint_sha256: "3466079cab4a6e6d8011d675c3cf429d7cda2bc961c2d5ca006e3087af317b6c"
+  blueprint_sha256: "f5090c2f97f06122067f4b3c840bb2e6e581e52bccdbaf370c5a4bec47aa31ed"
 }

@@ -1,0 +1,729 @@
+schema_version: "blueprint-graph/v1"
+graph_id: "kv-checkpoint"
+display_name: "Checkpoint TP-aware KV shards"
+graph_version: "1.0"
+lifecycle: DRAFT
+schema_ref: "blueprint-schema/blueprint/v1/blueprint.proto"
+type_schema_ref: "kv-checkpoint.types.proto"
+graph {
+  overall_semantic {
+    overview: "Persist rank-local TP KV shards and replicated cursor metadata."
+    support_refs {
+      node_id: "a-publish-checkpoint"
+    }
+  }
+  semantics {
+    entry_id: "ck-ov"
+    key: "overview"
+    value: "Persist rank-local TP KV shards and replicated cursor metadata."
+    support_refs {
+      node_id: "a-publish-checkpoint"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "action-kv-checkpoint-no-input"
+    key: "no_input"
+    value: "This action has no typed data input port; state dependencies are declared in state_set."
+    support_refs {
+      node_id: "a-evaluate-checkpoint-policy"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "action-kv-checkpoint-no-output"
+    key: "no_output"
+    value: "This action has no typed data output port; state/effects are explicit."
+    support_refs {
+      node_id: "a-publish-checkpoint"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "ck-ef"
+    key: "effect"
+    value: "TP KV shards checkpointed durably"
+    support_refs {
+      node_id: "a-publish-checkpoint"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "kv-checkpoint-kv-state-effect"
+    key: "effect"
+    value: "KV checkpoint marker state is updated after durable shard writes"
+    object_ref {
+      node_id: "s-kv"
+    }
+    support_refs {
+      node_id: "s-kv"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "ck-exit"
+    key: "exit"
+    value: "checkpointed"
+    support_refs {
+      node_id: "a-publish-checkpoint"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "kv-checkpoint-arch"
+    key: "architecture_rationale"
+    value: "This child graph resolves the parent kv-checkpoint action into ordered code-unit seams while preserving the parent boundary."
+    support_refs {
+      node_id: "a-publish-checkpoint"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "ck-im"
+    key: "implementation_choice"
+    value: "fixed_by_target_tp4_design"
+    support_refs {
+      node_id: "a-publish-checkpoint"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "ck-nd"
+    key: "no_diagnostic"
+    value: "none"
+    support_refs {
+      node_id: "a-publish-checkpoint"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "kv-checkpoint-no-guide"
+    key: "no_implementation_guide"
+    value: "This child graph is a target-system contract; implementation planning lives outside the blueprint."
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "ck-state"
+    key: "state_update"
+    value: "Updates durable checkpoint state for each TP KV shard."
+    object_ref {
+      node_id: "s-kv"
+    }
+    support_refs {
+      node_id: "s-kv"
+    }
+    status: SUPPORTED
+  }
+  nodes {
+    id: "a-evaluate-checkpoint-policy"
+    kind: "ACTION"
+    label: "01 evaluate KV checkpoint policy"
+    output_ports {
+      port_id: "plan-checkpoint-out"
+      node_id: "d-checkpoint-plan"
+      type_ref: "blueprint.work.ds4_arch.kv_checkpoint_record"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "a-evaluate-checkpoint-policy-ov"
+      key: "overview"
+      value: "Read TP-aware KV state and decide whether this checkpoint epoch should persist live rank-local shard prefixes."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-evaluate-checkpoint-policy-no-input"
+      key: "no_input"
+      value: "This action has no typed data input port; state dependencies are declared in state_set."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "plan-checkpoint-out"
+      key: "output"
+      value: "Produces d-checkpoint-plan through plan-checkpoint-out."
+      object_ref {
+        node_id: "d-checkpoint-plan"
+      }
+      support_refs {
+        port {
+          node_id: "a-evaluate-checkpoint-policy"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "plan-checkpoint-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-evaluate-checkpoint-policy-effect"
+      key: "effect"
+      value: "Read TP-aware KV state and decide whether this checkpoint epoch should persist live rank-local shard prefixes."
+      support_refs {
+        node_id: "a-evaluate-checkpoint-policy"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-evaluate-checkpoint-policy-exit"
+      key: "exit"
+      value: "a-evaluate-checkpoint-policy-done"
+      support_refs {
+        node_id: "a-evaluate-checkpoint-policy"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-evaluate-checkpoint-policy-code"
+      key: "code_unit"
+      value: "ds4_glm52_checkpoint_plan"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-evaluate-checkpoint-policy-impl"
+      key: "implementation_choice"
+      value: "fixed_by_child_contract_from_parent_action"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-evaluate-checkpoint-policy-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "s-kv"
+      access: "read"
+      meaning: "read live KV length and session identity"
+    }
+    preconditions {
+      condition_id: "a-evaluate-checkpoint-policy-pre"
+      kind: "state"
+      text: "required input data and state are available"
+    }
+    postconditions {
+      condition_id: "a-evaluate-checkpoint-policy-post"
+      kind: "state"
+      text: "declared output, state, or effect has been established"
+    }
+  }
+  nodes {
+    id: "a-publish-checkpoint"
+    kind: "ACTION"
+    label: "03 publish replicated checkpoint marker"
+    input_ports {
+      port_id: "publish-checkpoint-record-in"
+      node_id: "d-checkpoint-record"
+      type_ref: "blueprint.work.ds4_arch.kv_checkpoint_record"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "a-publish-checkpoint-ov"
+      key: "overview"
+      value: "Publish the durable checkpoint marker so recovery can pair rank-local KV shard files with replicated session metadata."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "publish-checkpoint-record-in"
+      key: "input_use"
+      value: "Consumes d-checkpoint-record through publish-checkpoint-record-in."
+      object_ref {
+        node_id: "d-checkpoint-record"
+      }
+      support_refs {
+        port {
+          node_id: "a-publish-checkpoint"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "publish-checkpoint-record-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-publish-checkpoint-no-output"
+      key: "no_output"
+      value: "This action has no typed data output port; state/effects are explicit."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-publish-checkpoint-effect"
+      key: "effect"
+      value: "Publish the durable checkpoint marker so recovery can pair rank-local KV shard files with replicated session metadata."
+      support_refs {
+        node_id: "a-publish-checkpoint"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-publish-checkpoint-exit"
+      key: "exit"
+      value: "a-publish-checkpoint-done"
+      support_refs {
+        node_id: "a-publish-checkpoint"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-publish-checkpoint-code"
+      key: "code_unit"
+      value: "ds4_glm52_checkpoint_publish_marker"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-publish-checkpoint-impl"
+      key: "implementation_choice"
+      value: "fixed_by_child_contract_from_parent_action"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-publish-checkpoint-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "s-kv"
+      access: "update"
+      meaning: "publish checkpoint marker metadata"
+    }
+    preconditions {
+      condition_id: "a-publish-checkpoint-pre"
+      kind: "state"
+      text: "required input data and state are available"
+    }
+    postconditions {
+      condition_id: "a-publish-checkpoint-post"
+      kind: "state"
+      text: "declared output, state, or effect has been established"
+    }
+  }
+  nodes {
+    id: "a-write-rank-kv-shards"
+    kind: "ACTION"
+    label: "02 write rank-local KV shard prefixes"
+    input_ports {
+      port_id: "write-checkpoint-plan-in"
+      node_id: "d-checkpoint-plan"
+      type_ref: "blueprint.work.ds4_arch.kv_checkpoint_record"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "write-checkpoint-record-out"
+      node_id: "d-checkpoint-record"
+      type_ref: "blueprint.work.ds4_arch.kv_checkpoint_record"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "a-write-rank-kv-shards-ov"
+      key: "overview"
+      value: "Write the current rank\'s append-ordered KV shard prefix to durable storage without changing the live decode cursor."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "write-checkpoint-plan-in"
+      key: "input_use"
+      value: "Consumes d-checkpoint-plan through write-checkpoint-plan-in."
+      object_ref {
+        node_id: "d-checkpoint-plan"
+      }
+      support_refs {
+        port {
+          node_id: "a-write-rank-kv-shards"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "write-checkpoint-plan-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "write-checkpoint-record-out"
+      key: "output"
+      value: "Produces d-checkpoint-record through write-checkpoint-record-out."
+      object_ref {
+        node_id: "d-checkpoint-record"
+      }
+      support_refs {
+        port {
+          node_id: "a-write-rank-kv-shards"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "write-checkpoint-record-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-write-rank-kv-shards-effect"
+      key: "effect"
+      value: "Write the current rank\'s append-ordered KV shard prefix to durable storage without changing the live decode cursor."
+      support_refs {
+        node_id: "a-write-rank-kv-shards"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-write-rank-kv-shards-exit"
+      key: "exit"
+      value: "a-write-rank-kv-shards-done"
+      support_refs {
+        node_id: "a-write-rank-kv-shards"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-write-rank-kv-shards-code"
+      key: "code_unit"
+      value: "ds4_glm52_checkpoint_write_rank_shard"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-write-rank-kv-shards-impl"
+      key: "implementation_choice"
+      value: "fixed_by_child_contract_from_parent_action"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-write-rank-kv-shards-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "s-kv"
+      access: "update"
+      meaning: "record durable checkpoint marker for live KV shard"
+    }
+    preconditions {
+      condition_id: "a-write-rank-kv-shards-pre"
+      kind: "state"
+      text: "required input data and state are available"
+    }
+    postconditions {
+      condition_id: "a-write-rank-kv-shards-post"
+      kind: "state"
+      text: "declared output, state, or effect has been established"
+    }
+  }
+  nodes {
+    id: "d-checkpoint-plan"
+    kind: "DATA"
+    label: "checkpoint work plan"
+    data_type: "blueprint.work.ds4_arch.kv_checkpoint_record"
+    semantics {
+      entry_id: "d-checkpoint-plan-role"
+      key: "data_role"
+      value: "internal checkpoint work plan"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-checkpoint-plan-dist"
+      key: "distribution_scope"
+      value: "leader_only"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-checkpoint-plan-identity"
+      key: "identity"
+      value: "d-checkpoint-plan is the named occurrence in kv-checkpoint."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-checkpoint-plan-ordering"
+      key: "ordering"
+      value: "checkpoint epoch order"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-checkpoint-plan-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-checkpoint-plan-provenance"
+      key: "provenance"
+      value: "declared by source or producer edge."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "d-checkpoint-record"
+    kind: "DATA"
+    label: "published checkpoint record"
+    data_type: "blueprint.work.ds4_arch.kv_checkpoint_record"
+    semantics {
+      entry_id: "d-checkpoint-record-role"
+      key: "data_role"
+      value: "published durable checkpoint metadata"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-checkpoint-record-dist"
+      key: "distribution_scope"
+      value: "leader_only"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-checkpoint-record-identity"
+      key: "identity"
+      value: "d-checkpoint-record is the named occurrence in kv-checkpoint."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-checkpoint-record-ordering"
+      key: "ordering"
+      value: "checkpoint epoch order"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-checkpoint-record-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-checkpoint-record-provenance"
+      key: "provenance"
+      value: "declared by source or producer edge."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "s-kv"
+    kind: "STATE"
+    label: "same TP KV state"
+    data_type: "blueprint.work.ds4_arch.kv"
+    semantics {
+      entry_id: "s-kv-role"
+      key: "data_role"
+      value: "rank-local TP KV shards being checkpointed"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-dist"
+      key: "distribution_scope"
+      value: "rank_local_shard"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-identity"
+      key: "identity"
+      value: "s-kv is the same logical state as the parent serve occurrence."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-ordering"
+      key: "ordering"
+      value: "append-ordered by prompt/decode token position"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "serve"
+      state_node_id: "state-kv"
+      relation: "same logical state as serve root"
+      meaning: "kv-checkpoint reads or updates the parent state-kv state"
+    }
+  }
+  edges {
+    id: "e-plan-write"
+    source_node_id: "d-checkpoint-plan"
+    target_node_id: "a-write-rank-kv-shards"
+    kind: "write-input"
+    label: "checkpoint plan feeds rank shard writer"
+    semantics {
+      entry_id: "e-plan-write-rel"
+      key: "relationship"
+      value: "checkpoint plan feeds rank shard writer"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-policy-before-write"
+    source_node_id: "a-evaluate-checkpoint-policy"
+    target_node_id: "a-write-rank-kv-shards"
+    kind: "policy-before-write"
+    label: "policy selected before shard write"
+    semantics {
+      entry_id: "e-policy-before-write-rel"
+      key: "relationship"
+      value: "policy selected before shard write"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "e-policy-kv"
+    source_node_id: "a-evaluate-checkpoint-policy"
+    target_node_id: "s-kv"
+    kind: "state-access"
+    label: "read live TP KV state"
+    semantics {
+      entry_id: "e-policy-kv-rel"
+      key: "relationship"
+      value: "read live TP KV state"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-policy-kv-state"
+      key: "state_read"
+      value: "read live TP KV state"
+      object_ref {
+        node_id: "s-kv"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-policy-plan"
+    source_node_id: "a-evaluate-checkpoint-policy"
+    target_node_id: "d-checkpoint-plan"
+    kind: "checkpoint-plan"
+    label: "policy produces checkpoint plan"
+    semantics {
+      entry_id: "e-policy-plan-rel"
+      key: "relationship"
+      value: "policy produces checkpoint plan"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-publish-kv"
+    source_node_id: "a-publish-checkpoint"
+    target_node_id: "s-kv"
+    kind: "state-access"
+    label: "publish checkpoint marker metadata"
+    semantics {
+      entry_id: "e-publish-kv-rel"
+      key: "relationship"
+      value: "publish checkpoint marker metadata"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-publish-kv-state"
+      key: "state_update"
+      value: "publish checkpoint marker metadata"
+      object_ref {
+        node_id: "s-kv"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-record-publish"
+    source_node_id: "d-checkpoint-record"
+    target_node_id: "a-publish-checkpoint"
+    kind: "publish-input"
+    label: "checkpoint record feeds marker publication"
+    semantics {
+      entry_id: "e-record-publish-rel"
+      key: "relationship"
+      value: "checkpoint record feeds marker publication"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-write-before-publish"
+    source_node_id: "a-write-rank-kv-shards"
+    target_node_id: "a-publish-checkpoint"
+    kind: "write-before-publish"
+    label: "durable shard write precedes marker publication"
+    semantics {
+      entry_id: "e-write-before-publish-rel"
+      key: "relationship"
+      value: "durable shard write precedes marker publication"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "e-write-kv"
+    source_node_id: "a-write-rank-kv-shards"
+    target_node_id: "s-kv"
+    kind: "state-access"
+    label: "record rank-local KV checkpoint write"
+    semantics {
+      entry_id: "e-write-kv-rel"
+      key: "relationship"
+      value: "record rank-local KV checkpoint write"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-write-kv-state"
+      key: "state_update"
+      value: "record rank-local KV checkpoint write"
+      object_ref {
+        node_id: "s-kv"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-write-record"
+    source_node_id: "a-write-rank-kv-shards"
+    target_node_id: "d-checkpoint-record"
+    kind: "checkpoint-record"
+    label: "rank shard writer produces checkpoint record"
+    semantics {
+      entry_id: "e-write-record-rel"
+      key: "relationship"
+      value: "rank shard writer produces checkpoint record"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  operations {
+    operation_id: "op-kv-checkpoint"
+    name: "checkpoint-kv"
+    overview: "Checkpoint rank-local TP KV shards and metadata."
+    members {
+      ref {
+        node_id: "a-evaluate-checkpoint-policy"
+      }
+      role: "action step"
+    }
+    members {
+      ref {
+        node_id: "a-publish-checkpoint"
+      }
+      role: "action step"
+    }
+    members {
+      ref {
+        node_id: "a-write-rank-kv-shards"
+      }
+      role: "action step"
+    }
+    semantics {
+      entry_id: "op-kv-checkpoint-overview"
+      key: "overview"
+      value: "Checkpoint rank-local TP KV shards and metadata."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "op-kv-checkpoint-target"
+      key: "target_state"
+      value: "Checkpoint rank-local TP KV shards and metadata."
+      status: SUPPORTED
+    }
+  }
+}
+canonical {
+  schema_sha256: "9de5a18221a33a9379092d084dbae946af604b979dfe7caf07bdd65701b5ea9d"
+  type_schema_sha256: "268948e2d93680375e897bead2676d872928ebafd97a91928bb363de642ebcc6"
+  graph_sha256: "9e8338f0f84f7a1d3ed5f07c5cc92ed0dc502780f4895163d60e48df52ed9ee0"
+  graph_contract_sha256: "79f4d3207121b675cb0e16411cad0da3cb2833d8a3d2b4eca6aa2b5737da42cb"
+}

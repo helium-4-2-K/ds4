@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package blueprint.work.ds4_arch;
+
+import "blueprint/v1/blueprint.proto";
+import "serve.types.proto";
+
+message kv_checkpoint_record {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.kv_checkpoint_record"
+    represents: "Durable record for rank-local KV shard checkpoint plus replicated cursor metadata."
+    semantics {
+      entry_id: "t-kv-checkpoint-record"
+      key: "meaning"
+      value: "Durable record for rank-local KV shard checkpoint plus replicated cursor metadata."
+      status: SUPPORTED
+    }
+  };
+  string session_id = 1 [(blueprint.v1.field_contract) = { meaning: "checkpointed session id" }];
+  int32 rank = 2 [(blueprint.v1.field_contract) = { meaning: "rank-local shard owner" }];
+  int32 kv_length = 3 [(blueprint.v1.field_contract) = { meaning: "checkpointed KV length" }];
+  string checkpoint_id = 4 [(blueprint.v1.field_contract) = { meaning: "durable checkpoint identity" }];
+}

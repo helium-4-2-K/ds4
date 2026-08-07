@@ -1,0 +1,101 @@
+{
+  "artifact_integrity": {
+    "blueprint_sha256": "f5090c2f97f06122067f4b3c840bb2e6e581e52bccdbaf370c5a4bec47aa31ed",
+    "semantic_sha256": "d90ce8a6de0e834c605c043318e3806cf1b8186cac93a897698438f64da2b538"
+  },
+  "blueprint_id": "ds4-arch",
+  "graphs": [
+    {
+      "graph_contract_sha256": "2af92c0420b89ec8189e6c62009a4b879cb65a12c361d794476dd907904b0a1e",
+      "graph_id": "decode",
+      "type_schema_sha256": "11aed4b3949cb382442d88c9da0f49383f7a3e1d79ee196a83cb7696855e03be"
+    },
+    {
+      "graph_contract_sha256": "452cb393ac17a18501694f92c44a911039ec36603a686a13cebc199e575ac02a",
+      "graph_id": "decode-attn-allreduce-sum",
+      "type_schema_sha256": "08266f2fcccde1b28606200cb42e2a7613ef8f4bcb6ac7d36ff3c8f20fb38fde"
+    },
+    {
+      "graph_contract_sha256": "bf72d88fbd30997f02c075f95b90701cf15f025f76d7cb4572abde9796b0e3b7",
+      "graph_id": "decode-dcp-row-exchange",
+      "type_schema_sha256": "2d2b16fe1890d35da457577330f2ffc9c6b8ab474995d8c39f7cb1b823d55659"
+    },
+    {
+      "graph_contract_sha256": "2311682e85d881362a93c0be8eed1d36aad3e87844f612878ff85c816b3c3f24",
+      "graph_id": "decode-dcp-topk",
+      "type_schema_sha256": "f477d38322af6cab16352f2b1d2db21e9ad400f2b0afb3fae965f8e32efbbf63"
+    },
+    {
+      "graph_contract_sha256": "dceb0eea23489b200ec73819147b62ba311a246353a02fd00d023dd06d85e550",
+      "graph_id": "decode-expert-route",
+      "type_schema_sha256": "677de272efd37402cfe5506bae588520379cedba5a52cdcbeb1980da994494af"
+    },
+    {
+      "graph_contract_sha256": "a37addd65edffa7d255d67b5b9ace64e7c227742f57e3af90afa6ac18e31a510",
+      "graph_id": "decode-ffn-allreduce-sum",
+      "type_schema_sha256": "08b5ee97761ad247b0bfaac6f11fcc8840f5fefffc5092270c5d0d92c3074e47"
+    },
+    {
+      "graph_contract_sha256": "608d0bdebfcea667d567098944e1698a2a2c4d18b45314c8fb0679212770a2ac",
+      "graph_id": "decode-ffn-local",
+      "type_schema_sha256": "1042665ce70609530a4d9731c15b933fcb7199d88ef76ba4c4023814a02a30fe"
+    },
+    {
+      "graph_contract_sha256": "67c0d5567ce6f23bf484f135abd97ab874cfde66cf27ab7c660307c54890b726",
+      "graph_id": "decode-logits-gather-topk",
+      "type_schema_sha256": "c7461394b2ee74c7b77877bd470a9f7b7b3d143918295b92b915d46814558c8b"
+    },
+    {
+      "graph_contract_sha256": "a3e04f977f9d23da20d864df82ca561edbcfbd3e0e21ee8e7b3b41ca9f744e52",
+      "graph_id": "decode-qkv-mla",
+      "type_schema_sha256": "f8a1f21cb5ed9fa4fc3eebe243664bcf93042f7aa27ffc12ac9ad04e359ffd8f"
+    },
+    {
+      "graph_contract_sha256": "f8f0e873eeecdcc6c1f96ee7422804bb3765da6a2067345b1f2980cfa403f6cf",
+      "graph_id": "decode-sparse-attention",
+      "type_schema_sha256": "e0737d45c04db185ecaece51c263819e9309b007202df8c47c992d163154da03"
+    },
+    {
+      "graph_contract_sha256": "79f4d3207121b675cb0e16411cad0da3cb2833d8a3d2b4eca6aa2b5737da42cb",
+      "graph_id": "kv-checkpoint",
+      "type_schema_sha256": "268948e2d93680375e897bead2676d872928ebafd97a91928bb363de642ebcc6"
+    },
+    {
+      "graph_contract_sha256": "0d3a26146444d194a72ed4f843fabbd3f6275eeefa45873465f5b9e2ac63c215",
+      "graph_id": "model-load",
+      "type_schema_sha256": "35456e2c1ce4c6aa91b310933364f65541901eeb21051e874a5bb306beb57837"
+    },
+    {
+      "graph_contract_sha256": "eb05725c27670f0c0d9c3b90044c040e3ee5e6130eca1e09e8d1b26a202b911e",
+      "graph_id": "model-shard-layout",
+      "type_schema_sha256": "e0a05109bed2a28fa288ac7504105a5416d7f5fecc8d663d019382e7ca377abc"
+    },
+    {
+      "graph_contract_sha256": "69d5326e8445be49cf74c5bac68c8af381e4fd8121b5154ef688158d36a5db1a",
+      "graph_id": "prefill",
+      "type_schema_sha256": "99f8dc1bb18f75d78fbf7f0cc73245c44b01f2981e7a67b73269d53fdda1f07e"
+    },
+    {
+      "graph_contract_sha256": "69a27144354c5ae9dad8fe743690491188da44d45ee273979a69fe87558d77a9",
+      "graph_id": "request-session",
+      "type_schema_sha256": "4cd0c1c8999384a88d2e0a0125a1a38a9118f61d20dcc270f5155a04c07aed44"
+    },
+    {
+      "graph_contract_sha256": "5f60910a22c5a998817974978a85a088a6de5c8a3482d6696840bfe5999c51ac",
+      "graph_id": "serve",
+      "type_schema_sha256": "30f49b45e889237b5bb310b878ab4e6706809d614eedd39946a3bc723ce1c6d4"
+    },
+    {
+      "graph_contract_sha256": "a5917ff3d5293756d216aaa4128f5f16cd2d80a322ee9f1e5e19dce16bee2c18",
+      "graph_id": "stream-token",
+      "type_schema_sha256": "c5df5aa72497161e83cc3032abfc909fbc9e1cddbc8c568c747e0d7aedbf5756"
+    },
+    {
+      "graph_contract_sha256": "941a792f839175e512f1d44f4d4010401fd289930184b302c9a436f568f6e4fa",
+      "graph_id": "tp-group",
+      "type_schema_sha256": "c9b92e83a751264b322323f0c8a3f2282fe07d4f31182dcf70b5e3a4a058d900"
+    }
+  ],
+  "schema": "blueprint-write-status/v4",
+  "status": "PASS"
+}

@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package blueprint.work.ds4_arch;
+
+import "blueprint/v1/blueprint.proto";
+import "serve.types.proto";
+
+message request_session_job {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.request_session_job"
+    represents: "Coordinator-local accepted request bound to a session and ready for TP prefill."
+    semantics {
+      entry_id: "t-request-session-job"
+      key: "meaning"
+      value: "Coordinator-local accepted request bound to a session and ready for TP prefill."
+      status: SUPPORTED
+    }
+  };
+  string session_id = 1 [(blueprint.v1.field_contract) = { meaning: "bound session id" }];
+  int32 prompt_token_count = 2 [(blueprint.v1.field_contract) = { meaning: "prompt token count after request normalization" }];
+  int32 max_decode_tokens = 3 [(blueprint.v1.field_contract) = { meaning: "remaining generation budget" }];
+}

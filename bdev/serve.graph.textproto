@@ -338,12 +338,6 @@ graph {
       status: SUPPORTED
     }
     semantics {
-      entry_id: "ck-cu"
-      key: "code_unit"
-      value: "KV store live-prefix checkpoint / eviction"
-      status: SUPPORTED
-    }
-    semantics {
       entry_id: "ck-im"
       key: "implementation_choice"
       value: "fixed_by_target_tp4_design"
@@ -364,6 +358,7 @@ graph {
       }
       status: SUPPORTED
     }
+    expands_to_graph_id: "kv-checkpoint"
     state_set {
       state_node_id: "state-kv"
       access: "update"
@@ -421,12 +416,6 @@ graph {
       status: SUPPORTED
     }
     semantics {
-      entry_id: "acc-cu"
-      key: "code_unit"
-      value: "server request handler / enqueue"
-      status: SUPPORTED
-    }
-    semantics {
       entry_id: "acc-im"
       key: "implementation_choice"
       value: "fixed_by_target_tp4_design"
@@ -447,6 +436,7 @@ graph {
       }
       status: SUPPORTED
     }
+    expands_to_graph_id: "request-session"
     state_set {
       state_node_id: "state-kv"
       access: "read"
@@ -715,12 +705,6 @@ graph {
       status: SUPPORTED
     }
     semantics {
-      entry_id: "str-cu"
-      key: "code_unit"
-      value: "SSE/HTTP stream response"
-      status: SUPPORTED
-    }
-    semantics {
       entry_id: "str-im"
       key: "implementation_choice"
       value: "fixed_by_target_tp4_design"
@@ -732,6 +716,7 @@ graph {
       value: "none"
       status: SUPPORTED
     }
+    expands_to_graph_id: "stream-token"
   }
   nodes {
     id: "action-tp-group"
@@ -765,12 +750,6 @@ graph {
       entry_id: "tp-exit"
       key: "exit"
       value: "tp-group-ready"
-      status: SUPPORTED
-    }
-    semantics {
-      entry_id: "tp-cu"
-      key: "code_unit"
-      value: "new GLM 5.2 inter-machine TP group formation"
       status: SUPPORTED
     }
     semantics {
@@ -811,6 +790,7 @@ graph {
     }
     evidence_refs: "ev-code-glm52-shape"
     evidence_refs: "ev-readme-cuda-spark"
+    expands_to_graph_id: "tp-group"
     state_set {
       state_node_id: "state-model-worker"
       access: "read"
@@ -2270,6 +2250,6 @@ evidence_sources {
 canonical {
   schema_sha256: "9de5a18221a33a9379092d084dbae946af604b979dfe7caf07bdd65701b5ea9d"
   type_schema_sha256: "30f49b45e889237b5bb310b878ab4e6706809d614eedd39946a3bc723ce1c6d4"
-  graph_sha256: "0e8dd0dd74c100207a14ff148b2179dd7bd53bdc6cd9ca62f1c0bfc7c62734c0"
-  graph_contract_sha256: "9212a3685de85a5df4e17c1471458e064e4c335988ae220f36f65731baca3c8a"
+  graph_sha256: "85e05f5805e2d92e52c9e79f8ffb38fb0f65ac1d1f9e550ee1566f2877735345"
+  graph_contract_sha256: "5f60910a22c5a998817974978a85a088a6de5c8a3482d6696840bfe5999c51ac"
 }

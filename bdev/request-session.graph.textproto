@@ -1,0 +1,882 @@
+schema_version: "blueprint-graph/v1"
+graph_id: "request-session"
+display_name: "Accept and bind a GLM 5.2 TP4 request session"
+graph_version: "1.0"
+lifecycle: DRAFT
+schema_ref: "blueprint-schema/blueprint/v1/blueprint.proto"
+type_schema_ref: "request-session.types.proto"
+input_ports {
+  port_id: "accept-request-in"
+  node_id: "data-request"
+  type_ref: "blueprint.work.ds4_arch.ChatRequest"
+  cardinality: PORT_CARDINALITY_EXACTLY_ONE
+}
+graph {
+  overall_semantic {
+    overview: "Accept a chat request, bind it to a session id, and enqueue TP prefill/decode work."
+    support_refs {
+      node_id: "a-enqueue-prefill"
+    }
+  }
+  semantics {
+    entry_id: "acc-ov"
+    key: "overview"
+    value: "Accept a chat request, bind it to a session id, and enqueue TP prefill/decode work."
+    support_refs {
+      node_id: "a-enqueue-prefill"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "accept-request-in"
+    key: "input_use"
+    value: "Consumes the request through accept-request-in."
+    object_ref {
+      port {
+        graph_boundary {
+        }
+        direction: PORT_DIRECTION_INPUT
+        port_id: "accept-request-in"
+      }
+    }
+    support_refs {
+      node_id: "data-request"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "action-serve-accept-no-output"
+    key: "no_output"
+    value: "This action has no typed data output port; state/effects are explicit."
+    support_refs {
+      node_id: "a-enqueue-prefill"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "acc-ef"
+    key: "effect"
+    value: "request queued against its session"
+    support_refs {
+      node_id: "a-enqueue-prefill"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "request-session-kv-bound-effect"
+    key: "effect"
+    value: "session KV state is bound or initialized for the accepted request"
+    object_ref {
+      node_id: "s-kv"
+    }
+    support_refs {
+      node_id: "s-kv"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "request-session-prefill-queue-effect"
+    key: "effect"
+    value: "prefill queue state records the accepted session job"
+    object_ref {
+      node_id: "s-prefill-queue"
+    }
+    support_refs {
+      node_id: "s-prefill-queue"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "acc-exit"
+    key: "exit"
+    value: "queued"
+    support_refs {
+      node_id: "a-enqueue-prefill"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "request-session-arch"
+    key: "architecture_rationale"
+    value: "This child graph resolves the parent request-session action into ordered code-unit seams while preserving the parent boundary."
+    support_refs {
+      node_id: "a-enqueue-prefill"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "acc-im"
+    key: "implementation_choice"
+    value: "fixed_by_target_tp4_design"
+    support_refs {
+      node_id: "a-enqueue-prefill"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "acc-nd"
+    key: "no_diagnostic"
+    value: "none"
+    support_refs {
+      node_id: "a-enqueue-prefill"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "request-session-no-guide"
+    key: "no_implementation_guide"
+    value: "This child graph is a target-system contract; implementation planning lives outside the blueprint."
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "acc-state"
+    key: "state_dependency"
+    value: "Reads existing TP-aware KV state for the session."
+    object_ref {
+      node_id: "s-kv"
+    }
+    support_refs {
+      node_id: "s-kv"
+    }
+    status: SUPPORTED
+  }
+  nodes {
+    id: "a-bind-session"
+    kind: "ACTION"
+    label: "02 bind TP session state"
+    input_ports {
+      port_id: "bind-request-in"
+      node_id: "d-normalized-request"
+      type_ref: "blueprint.work.ds4_arch.ChatRequest"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "bind-session-job-out"
+      node_id: "d-session-job"
+      type_ref: "blueprint.work.ds4_arch.request_session_job"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "a-bind-session-ov"
+      key: "overview"
+      value: "Bind the normalized request to an existing TP-aware KV session or create an empty append-ordered session state for prefill."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "bind-request-in"
+      key: "input_use"
+      value: "Consumes d-normalized-request through bind-request-in."
+      object_ref {
+        node_id: "d-normalized-request"
+      }
+      support_refs {
+        port {
+          node_id: "a-bind-session"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "bind-request-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "bind-session-job-out"
+      key: "output"
+      value: "Produces d-session-job through bind-session-job-out."
+      object_ref {
+        node_id: "d-session-job"
+      }
+      support_refs {
+        port {
+          node_id: "a-bind-session"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "bind-session-job-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-bind-session-effect"
+      key: "effect"
+      value: "Bind the normalized request to an existing TP-aware KV session or create an empty append-ordered session state for prefill."
+      support_refs {
+        node_id: "a-bind-session"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-bind-session-exit"
+      key: "exit"
+      value: "a-bind-session-done"
+      support_refs {
+        node_id: "a-bind-session"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-bind-session-code"
+      key: "code_unit"
+      value: "ds4_glm52_request_bind_session"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-bind-session-impl"
+      key: "implementation_choice"
+      value: "fixed_by_child_contract_from_parent_action"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-bind-session-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "s-kv"
+      access: "update"
+      meaning: "create or bind empty TP-aware session KV state"
+    }
+    preconditions {
+      condition_id: "a-bind-session-pre"
+      kind: "state"
+      text: "required input data and state are available"
+    }
+    postconditions {
+      condition_id: "a-bind-session-post"
+      kind: "state"
+      text: "declared output, state, or effect has been established"
+    }
+  }
+  nodes {
+    id: "a-enqueue-prefill"
+    kind: "ACTION"
+    label: "03 enqueue prefill work"
+    input_ports {
+      port_id: "enqueue-session-job-in"
+      node_id: "d-session-job"
+      type_ref: "blueprint.work.ds4_arch.request_session_job"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "a-enqueue-prefill-ov"
+      key: "overview"
+      value: "Publish the bound session job to the rank0 prefill queue after session identity and KV state are consistent."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "enqueue-session-job-in"
+      key: "input_use"
+      value: "Consumes d-session-job through enqueue-session-job-in."
+      object_ref {
+        node_id: "d-session-job"
+      }
+      support_refs {
+        port {
+          node_id: "a-enqueue-prefill"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "enqueue-session-job-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-enqueue-prefill-no-output"
+      key: "no_output"
+      value: "This action has no typed data output port; state/effects are explicit."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-enqueue-prefill-effect"
+      key: "effect"
+      value: "Publish the bound session job to the rank0 prefill queue after session identity and KV state are consistent."
+      support_refs {
+        node_id: "a-enqueue-prefill"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-enqueue-prefill-exit"
+      key: "exit"
+      value: "a-enqueue-prefill-done"
+      support_refs {
+        node_id: "a-enqueue-prefill"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-enqueue-prefill-code"
+      key: "code_unit"
+      value: "ds4_glm52_request_enqueue_prefill"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-enqueue-prefill-impl"
+      key: "implementation_choice"
+      value: "fixed_by_child_contract_from_parent_action"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-enqueue-prefill-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "s-kv"
+      access: "read"
+      meaning: "confirm accepted session KV identity before queueing"
+    }
+    state_set {
+      state_node_id: "s-prefill-queue"
+      access: "update"
+      meaning: "publish queued prefill job"
+    }
+    preconditions {
+      condition_id: "a-enqueue-prefill-pre"
+      kind: "state"
+      text: "required input data and state are available"
+    }
+    postconditions {
+      condition_id: "a-enqueue-prefill-post"
+      kind: "state"
+      text: "declared output, state, or effect has been established"
+    }
+  }
+  nodes {
+    id: "a-validate-request"
+    kind: "ACTION"
+    label: "01 validate coordinator request"
+    input_ports {
+      port_id: "validate-request-in"
+      node_id: "data-request"
+      type_ref: "blueprint.work.ds4_arch.ChatRequest"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "validate-request-out"
+      node_id: "d-normalized-request"
+      type_ref: "blueprint.work.ds4_arch.ChatRequest"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "a-validate-request-ov"
+      key: "overview"
+      value: "Validate request syntax, session id, sampling settings, and max token budget before it can enter TP prefill."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "validate-request-in"
+      key: "input_use"
+      value: "Consumes data-request through validate-request-in."
+      object_ref {
+        node_id: "data-request"
+      }
+      support_refs {
+        port {
+          node_id: "a-validate-request"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "validate-request-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "validate-request-out"
+      key: "output"
+      value: "Produces d-normalized-request through validate-request-out."
+      object_ref {
+        node_id: "d-normalized-request"
+      }
+      support_refs {
+        port {
+          node_id: "a-validate-request"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "validate-request-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-validate-request-effect"
+      key: "effect"
+      value: "Validate request syntax, session id, sampling settings, and max token budget before it can enter TP prefill."
+      support_refs {
+        node_id: "a-validate-request"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-validate-request-exit"
+      key: "exit"
+      value: "a-validate-request-done"
+      support_refs {
+        node_id: "a-validate-request"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-validate-request-code"
+      key: "code_unit"
+      value: "ds4_glm52_request_validate"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-validate-request-impl"
+      key: "implementation_choice"
+      value: "fixed_by_child_contract_from_parent_action"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-validate-request-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    preconditions {
+      condition_id: "a-validate-request-pre"
+      kind: "state"
+      text: "required input data and state are available"
+    }
+    postconditions {
+      condition_id: "a-validate-request-post"
+      kind: "state"
+      text: "declared output, state, or effect has been established"
+    }
+  }
+  nodes {
+    id: "d-normalized-request"
+    kind: "DATA"
+    label: "normalized request"
+    data_type: "blueprint.work.ds4_arch.ChatRequest"
+    semantics {
+      entry_id: "d-normalized-request-role"
+      key: "data_role"
+      value: "request after syntax and budget validation"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-normalized-request-dist"
+      key: "distribution_scope"
+      value: "leader_only"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-normalized-request-identity"
+      key: "identity"
+      value: "d-normalized-request is the named occurrence in request-session."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-normalized-request-ordering"
+      key: "ordering"
+      value: "ordered by the owning action contract"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-normalized-request-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-normalized-request-provenance"
+      key: "provenance"
+      value: "declared by source or producer edge."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "d-session-job"
+    kind: "DATA"
+    label: "bound session prefill job"
+    data_type: "blueprint.work.ds4_arch.request_session_job"
+    semantics {
+      entry_id: "d-session-job-role"
+      key: "data_role"
+      value: "session-bound job queued for prefill"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-session-job-dist"
+      key: "distribution_scope"
+      value: "leader_only"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-session-job-identity"
+      key: "identity"
+      value: "d-session-job is the named occurrence in request-session."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-session-job-ordering"
+      key: "ordering"
+      value: "ordered by the owning action contract"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-session-job-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-session-job-provenance"
+      key: "provenance"
+      value: "declared by source or producer edge."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "data-request"
+    kind: "DATA"
+    label: "accepted request input"
+    data_type: "blueprint.work.ds4_arch.ChatRequest"
+    semantics {
+      entry_id: "data-request-role"
+      key: "data_role"
+      value: "request entering request/session binding"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "data-request-dist"
+      key: "distribution_scope"
+      value: "leader_only"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "data-request-identity"
+      key: "identity"
+      value: "data-request is the named occurrence in request-session."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "data-request-ordering"
+      key: "ordering"
+      value: "leader request arrival order"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "data-request-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "data-request-provenance"
+      key: "provenance"
+      value: "declared by source or producer edge."
+      status: SUPPORTED
+    }
+    sources {
+      source_id: "src-data-request"
+      kind: "graph_input"
+      source_ref: "accept-request-in"
+      graph_input_port_id: "accept-request-in"
+      meaning: "request enters through parent accept action input"
+    }
+  }
+  nodes {
+    id: "s-kv"
+    kind: "STATE"
+    label: "same session KV state"
+    data_type: "blueprint.work.ds4_arch.kv"
+    semantics {
+      entry_id: "s-kv-role"
+      key: "data_role"
+      value: "TP-aware session KV state inspected or initialized by request accept"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-dist"
+      key: "distribution_scope"
+      value: "rank_local_shard"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-identity"
+      key: "identity"
+      value: "s-kv is the same logical state as the parent serve occurrence."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-ordering"
+      key: "ordering"
+      value: "append-ordered by session cursor"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "serve"
+      state_node_id: "state-kv"
+      relation: "same logical state as serve root"
+      meaning: "request-session reads or updates the parent state-kv state"
+    }
+  }
+  nodes {
+    id: "s-prefill-queue"
+    kind: "STATE"
+    label: "rank0 prefill queue"
+    data_type: "blueprint.work.ds4_arch.request_session_job"
+    semantics {
+      entry_id: "s-prefill-queue-role"
+      key: "data_role"
+      value: "coordinator-local prefill queue entry created by accept"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-prefill-queue-dist"
+      key: "distribution_scope"
+      value: "leader_only"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-prefill-queue-identity"
+      key: "identity"
+      value: "s-prefill-queue is internal state for request-session."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-prefill-queue-ordering"
+      key: "ordering"
+      value: "ordered by request/token processing epoch"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-prefill-queue-presence"
+      key: "presence"
+      value: "required when the graph action runs"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-prefill-queue-provenance"
+      key: "provenance"
+      value: "declared by source list"
+      status: SUPPORTED
+    }
+    sources {
+      source_id: "src-s-prefill-queue"
+      kind: "runtime"
+      source_ref: "rank0 prefill queue"
+      meaning: "coordinator-local prefill queue entry created by accept"
+    }
+  }
+  edges {
+    id: "e-bind-before-enqueue"
+    source_node_id: "a-bind-session"
+    target_node_id: "a-enqueue-prefill"
+    kind: "bind-before-enqueue"
+    label: "session binding precedes enqueue"
+    semantics {
+      entry_id: "e-bind-before-enqueue-rel"
+      key: "relationship"
+      value: "session binding precedes enqueue"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "e-bind-job"
+    source_node_id: "a-bind-session"
+    target_node_id: "d-session-job"
+    kind: "job-output"
+    label: "session bind produces prefill job"
+    semantics {
+      entry_id: "e-bind-job-rel"
+      key: "relationship"
+      value: "session bind produces prefill job"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-bind-kv"
+    source_node_id: "a-bind-session"
+    target_node_id: "s-kv"
+    kind: "state-access"
+    label: "bind or create session KV state"
+    semantics {
+      entry_id: "e-bind-kv-rel"
+      key: "relationship"
+      value: "bind or create session KV state"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-bind-kv-state"
+      key: "state_update"
+      value: "bind or create session KV state"
+      object_ref {
+        node_id: "s-kv"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-enqueue-kv"
+    source_node_id: "a-enqueue-prefill"
+    target_node_id: "s-kv"
+    kind: "state-access"
+    label: "read session KV identity before enqueue"
+    semantics {
+      entry_id: "e-enqueue-kv-rel"
+      key: "relationship"
+      value: "read session KV identity before enqueue"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-enqueue-kv-state"
+      key: "state_read"
+      value: "read session KV identity before enqueue"
+      object_ref {
+        node_id: "s-kv"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-enqueue-queue"
+    source_node_id: "a-enqueue-prefill"
+    target_node_id: "s-prefill-queue"
+    kind: "state-access"
+    label: "publish prefill queue entry"
+    semantics {
+      entry_id: "e-enqueue-queue-rel"
+      key: "relationship"
+      value: "publish prefill queue entry"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-enqueue-queue-state"
+      key: "state_update"
+      value: "publish prefill queue entry"
+      object_ref {
+        node_id: "s-prefill-queue"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-job-enqueue"
+    source_node_id: "d-session-job"
+    target_node_id: "a-enqueue-prefill"
+    kind: "enqueue-input"
+    label: "prefill job feeds queue publish"
+    semantics {
+      entry_id: "e-job-enqueue-rel"
+      key: "relationship"
+      value: "prefill job feeds queue publish"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-normalized-bind"
+    source_node_id: "d-normalized-request"
+    target_node_id: "a-bind-session"
+    kind: "bind-input"
+    label: "normalized request feeds session bind"
+    semantics {
+      entry_id: "e-normalized-bind-rel"
+      key: "relationship"
+      value: "normalized request feeds session bind"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-request-validate"
+    source_node_id: "data-request"
+    target_node_id: "a-validate-request"
+    kind: "request-input"
+    label: "request feeds validation"
+    semantics {
+      entry_id: "e-request-validate-rel"
+      key: "relationship"
+      value: "request feeds validation"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-validate-before-bind"
+    source_node_id: "a-validate-request"
+    target_node_id: "a-bind-session"
+    kind: "validation-before-bind"
+    label: "request validation precedes session binding"
+    semantics {
+      entry_id: "e-validate-before-bind-rel"
+      key: "relationship"
+      value: "request validation precedes session binding"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "e-validated-bind"
+    source_node_id: "a-validate-request"
+    target_node_id: "d-normalized-request"
+    kind: "validated-request"
+    label: "validation produces normalized request"
+    semantics {
+      entry_id: "e-validated-bind-rel"
+      key: "relationship"
+      value: "validation produces normalized request"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  operations {
+    operation_id: "op-request-session"
+    name: "accept-bind-session"
+    overview: "Accept and bind a request session for TP4 prefill."
+    members {
+      ref {
+        node_id: "a-bind-session"
+      }
+      role: "action step"
+    }
+    members {
+      ref {
+        node_id: "a-enqueue-prefill"
+      }
+      role: "action step"
+    }
+    members {
+      ref {
+        node_id: "a-validate-request"
+      }
+      role: "action step"
+    }
+    semantics {
+      entry_id: "op-request-session-overview"
+      key: "overview"
+      value: "Accept and bind a request session for TP4 prefill."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "op-request-session-target"
+      key: "target_state"
+      value: "Accept and bind a request session for TP4 prefill."
+      status: SUPPORTED
+    }
+  }
+}
+canonical {
+  schema_sha256: "9de5a18221a33a9379092d084dbae946af604b979dfe7caf07bdd65701b5ea9d"
+  type_schema_sha256: "4cd0c1c8999384a88d2e0a0125a1a38a9118f61d20dcc270f5155a04c07aed44"
+  graph_sha256: "e8c64f42f0282768fdc732014ff88f07e13f3a77398be8f9fcc3accbf58562d4"
+  graph_contract_sha256: "69a27144354c5ae9dad8fe743690491188da44d45ee273979a69fe87558d77a9"
+}

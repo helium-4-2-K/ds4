@@ -1,0 +1,867 @@
+schema_version: "blueprint-graph/v1"
+graph_id: "tp-group"
+display_name: "Form TP4/DCP4 collective group"
+graph_version: "1.0"
+lifecycle: DRAFT
+schema_ref: "blueprint-schema/blueprint/v1/blueprint.proto"
+type_schema_ref: "tp-group.types.proto"
+graph {
+  overall_semantic {
+    overview: "Register four ranks into one TP collective group with broadcast, all-reduce, and logits-gather/top-k paths."
+    support_refs {
+      node_id: "a-publish-tp-ready"
+    }
+  }
+  semantics {
+    entry_id: "tp-ov"
+    key: "overview"
+    value: "Register four ranks into one TP collective group with broadcast, all-reduce, and logits-gather/top-k paths."
+    support_refs {
+      node_id: "a-publish-tp-ready"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "action-tp-group-no-input"
+    key: "no_input"
+    value: "This action has no typed data input port; state dependencies are declared in state_set."
+    support_refs {
+      node_id: "a-validate-rank-hello"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "action-tp-group-no-output"
+    key: "no_output"
+    value: "This action has no typed data output port; state/effects are explicit."
+    support_refs {
+      node_id: "a-publish-tp-ready"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "tp-ef"
+    key: "effect"
+    value: "TP=4 ranks connected and collective fabric ready"
+    support_refs {
+      node_id: "a-publish-tp-ready"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "tp-group-fabric-effect"
+    key: "effect"
+    value: "TP collective fabric state is established and published ready"
+    object_ref {
+      node_id: "s-tp"
+    }
+    support_refs {
+      node_id: "s-tp"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "tp-group-rank-plan-effect"
+    key: "effect"
+    value: "rank ownership plan state is bound for TP4/DCP4 execution"
+    object_ref {
+      node_id: "s-rank-plan"
+    }
+    support_refs {
+      node_id: "s-rank-plan"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "tp-group-model-worker-read-no-effect"
+    key: "no_effect"
+    value: "resident model worker state is read to validate TP identity and placement without mutation"
+    object_ref {
+      node_id: "s-model-worker"
+    }
+    support_refs {
+      node_id: "s-model-worker"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "tp-exit"
+    key: "exit"
+    value: "tp-group-ready"
+    support_refs {
+      node_id: "a-publish-tp-ready"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "tp-group-arch"
+    key: "architecture_rationale"
+    value: "This child graph resolves the parent tp-group action into ordered code-unit seams while preserving the parent boundary."
+    support_refs {
+      node_id: "a-publish-tp-ready"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "tp-im"
+    key: "implementation_choice"
+    value: "requires_new_glm52_tp4_support"
+    support_refs {
+      node_id: "a-establish-collective-fabric"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "tp-bird-ref"
+    key: "implementation_reference"
+    value: "Use Bird/vLLM NCCL/RoCE topology as the concrete four-node TP collective reference: TP4, PP1, DCP4, NCCL 2.30.4, four channels, both RoCE HCAs."
+    support_refs {
+      node_id: "a-establish-collective-fabric"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "tp-nd"
+    key: "no_diagnostic"
+    value: "none"
+    support_refs {
+      node_id: "a-publish-tp-ready"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "tp-group-no-guide"
+    key: "no_implementation_guide"
+    value: "This child graph is a target-system contract; implementation planning lives outside the blueprint."
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "tp-input"
+    key: "state_dependency"
+    value: "Reads resident rank TP shard state."
+    object_ref {
+      node_id: "s-model-worker"
+    }
+    support_refs {
+      node_id: "s-model-worker"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "tp-output"
+    key: "state_update"
+    value: "Produces collective group state used by prefill and decode."
+    object_ref {
+      node_id: "s-tp"
+    }
+    support_refs {
+      node_id: "s-tp"
+    }
+    status: SUPPORTED
+  }
+  nodes {
+    id: "a-bind-rank-plan"
+    kind: "ACTION"
+    label: "02 bind TP4 rank ownership plan"
+    semantics {
+      entry_id: "a-bind-rank-plan-ov"
+      key: "overview"
+      value: "Bind local Q-head, DCP row, expert, and vocab ownership spans for each rank after compatible registrations are known."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-bind-rank-plan-no-input"
+      key: "no_input"
+      value: "This action has no typed data input port; state dependencies are declared in state_set."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-bind-rank-plan-no-output"
+      key: "no_output"
+      value: "This action has no typed data output port; state/effects are explicit."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-bind-rank-plan-effect"
+      key: "effect"
+      value: "Bind local Q-head, DCP row, expert, and vocab ownership spans for each rank after compatible registrations are known."
+      support_refs {
+        node_id: "a-bind-rank-plan"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-bind-rank-plan-exit"
+      key: "exit"
+      value: "a-bind-rank-plan-done"
+      support_refs {
+        node_id: "a-bind-rank-plan"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-bind-rank-plan-code"
+      key: "code_unit"
+      value: "ds4_glm52_tp4_bind_rank_plan"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-bind-rank-plan-impl"
+      key: "implementation_choice"
+      value: "fixed_by_child_contract_from_parent_action"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-bind-rank-plan-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "s-model-worker"
+      access: "read"
+      meaning: "read rank-local model shard placement"
+    }
+    state_set {
+      state_node_id: "s-rank-plan"
+      access: "update"
+      meaning: "store TP4 ownership spans"
+    }
+    preconditions {
+      condition_id: "a-bind-rank-plan-pre"
+      kind: "state"
+      text: "required input data and state are available"
+    }
+    postconditions {
+      condition_id: "a-bind-rank-plan-post"
+      kind: "state"
+      text: "declared output, state, or effect has been established"
+    }
+  }
+  nodes {
+    id: "a-establish-collective-fabric"
+    kind: "ACTION"
+    label: "03 establish collective transport"
+    semantics {
+      entry_id: "a-establish-collective-fabric-ov"
+      key: "overview"
+      value: "Create or attach the four-rank transport group used for broadcast, all-reduce, logits gather/top-k, and DCP row exchange."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-establish-collective-fabric-no-input"
+      key: "no_input"
+      value: "This action has no typed data input port; state dependencies are declared in state_set."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-establish-collective-fabric-no-output"
+      key: "no_output"
+      value: "This action has no typed data output port; state/effects are explicit."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-establish-collective-fabric-effect"
+      key: "effect"
+      value: "Create or attach the four-rank transport group used for broadcast, all-reduce, logits gather/top-k, and DCP row exchange."
+      support_refs {
+        node_id: "a-establish-collective-fabric"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-establish-collective-fabric-exit"
+      key: "exit"
+      value: "a-establish-collective-fabric-done"
+      support_refs {
+        node_id: "a-establish-collective-fabric"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-establish-collective-fabric-code"
+      key: "code_unit"
+      value: "ds4_glm52_tp4_establish_collective_fabric"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-establish-collective-fabric-impl"
+      key: "implementation_choice"
+      value: "fixed_by_child_contract_from_parent_action"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-establish-collective-fabric-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "s-rank-plan"
+      access: "read"
+      meaning: "read rank ids and endpoints"
+    }
+    state_set {
+      state_node_id: "s-tp"
+      access: "update"
+      meaning: "store connected TP4/DCP4 collective fabric"
+    }
+    preconditions {
+      condition_id: "a-establish-collective-fabric-pre"
+      kind: "state"
+      text: "required input data and state are available"
+    }
+    postconditions {
+      condition_id: "a-establish-collective-fabric-post"
+      kind: "state"
+      text: "declared output, state, or effect has been established"
+    }
+  }
+  nodes {
+    id: "a-publish-tp-ready"
+    kind: "ACTION"
+    label: "04 publish TP group readiness"
+    semantics {
+      entry_id: "a-publish-tp-ready-ov"
+      key: "overview"
+      value: "Publish replicated TP fabric readiness only after all ranks have compatible identity, bound ownership spans, and live transport."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-publish-tp-ready-no-input"
+      key: "no_input"
+      value: "This action has no typed data input port; state dependencies are declared in state_set."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-publish-tp-ready-no-output"
+      key: "no_output"
+      value: "This action has no typed data output port; state/effects are explicit."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-publish-tp-ready-effect"
+      key: "effect"
+      value: "Publish replicated TP fabric readiness only after all ranks have compatible identity, bound ownership spans, and live transport."
+      support_refs {
+        node_id: "a-publish-tp-ready"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-publish-tp-ready-exit"
+      key: "exit"
+      value: "a-publish-tp-ready-done"
+      support_refs {
+        node_id: "a-publish-tp-ready"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-publish-tp-ready-code"
+      key: "code_unit"
+      value: "ds4_glm52_tp4_rank_group_publish_fabric"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-publish-tp-ready-impl"
+      key: "implementation_choice"
+      value: "fixed_by_child_contract_from_parent_action"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-publish-tp-ready-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "s-tp"
+      access: "update"
+      meaning: "publish TP group readiness marker"
+    }
+    state_set {
+      state_node_id: "s-rank-plan"
+      access: "read"
+      meaning: "confirm rank ownership spans before readiness"
+    }
+    preconditions {
+      condition_id: "a-publish-tp-ready-pre"
+      kind: "state"
+      text: "required input data and state are available"
+    }
+    postconditions {
+      condition_id: "a-publish-tp-ready-post"
+      kind: "state"
+      text: "declared output, state, or effect has been established"
+    }
+  }
+  nodes {
+    id: "a-validate-rank-hello"
+    kind: "ACTION"
+    label: "01 validate rank hello set"
+    semantics {
+      entry_id: "a-validate-rank-hello-ov"
+      key: "overview"
+      value: "Validate ranks 0..3 exactly once with matching TP4/DCP4/PP1, model hash, config hash, plan hash, and fabric endpoint identity."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-validate-rank-hello-no-input"
+      key: "no_input"
+      value: "This action has no typed data input port; state dependencies are declared in state_set."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-validate-rank-hello-no-output"
+      key: "no_output"
+      value: "This action has no typed data output port; state/effects are explicit."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-validate-rank-hello-effect"
+      key: "effect"
+      value: "Validate ranks 0..3 exactly once with matching TP4/DCP4/PP1, model hash, config hash, plan hash, and fabric endpoint identity."
+      support_refs {
+        node_id: "a-validate-rank-hello"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-validate-rank-hello-exit"
+      key: "exit"
+      value: "a-validate-rank-hello-done"
+      support_refs {
+        node_id: "a-validate-rank-hello"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-validate-rank-hello-code"
+      key: "code_unit"
+      value: "ds4_glm52_tp4_rank_group_register"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-validate-rank-hello-impl"
+      key: "implementation_choice"
+      value: "fixed_by_child_contract_from_parent_action"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-validate-rank-hello-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "s-model-worker"
+      access: "read"
+      meaning: "read resident shard identity from each rank"
+    }
+    preconditions {
+      condition_id: "a-validate-rank-hello-pre"
+      kind: "state"
+      text: "required input data and state are available"
+    }
+    postconditions {
+      condition_id: "a-validate-rank-hello-post"
+      kind: "state"
+      text: "declared output, state, or effect has been established"
+    }
+  }
+  nodes {
+    id: "s-model-worker"
+    kind: "STATE"
+    label: "same resident model worker state"
+    data_type: "blueprint.work.ds4_arch.model"
+    semantics {
+      entry_id: "s-model-worker-role"
+      key: "data_role"
+      value: "rank-local resident model shard state used for rank compatibility"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-model-worker-dist"
+      key: "distribution_scope"
+      value: "rank_local_shard"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-model-worker-identity"
+      key: "identity"
+      value: "s-model-worker is the same logical state as the parent serve occurrence."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-model-worker-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-model-worker-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-model-worker-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "serve"
+      state_node_id: "state-model-worker"
+      relation: "same logical state as serve root"
+      meaning: "tp-group reads or updates the parent state-model-worker state"
+    }
+  }
+  nodes {
+    id: "s-rank-plan"
+    kind: "STATE"
+    label: "same rank ownership plan"
+    data_type: "blueprint.work.ds4_arch.rank_plan"
+    semantics {
+      entry_id: "s-rank-plan-role"
+      key: "data_role"
+      value: "TP4 rank ownership spans produced by group formation"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-rank-plan-dist"
+      key: "distribution_scope"
+      value: "rank_local_shard"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-rank-plan-identity"
+      key: "identity"
+      value: "s-rank-plan is the same logical state as the parent serve occurrence."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-rank-plan-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-rank-plan-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-rank-plan-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "serve"
+      state_node_id: "state-rank-plan"
+      relation: "same logical state as serve root"
+      meaning: "tp-group reads or updates the parent state-rank-plan state"
+    }
+  }
+  nodes {
+    id: "s-tp"
+    kind: "STATE"
+    label: "same TP collective fabric"
+    data_type: "blueprint.work.ds4_arch.distlink"
+    semantics {
+      entry_id: "s-tp-role"
+      key: "data_role"
+      value: "replicated TP4/DCP4 collective fabric readiness"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-tp-dist"
+      key: "distribution_scope"
+      value: "replicated"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-tp-identity"
+      key: "identity"
+      value: "s-tp is the same logical state as the parent serve occurrence."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-tp-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-tp-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-tp-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "serve"
+      state_node_id: "state-tp"
+      relation: "same logical state as serve root"
+      meaning: "tp-group reads or updates the parent state-tp state"
+    }
+  }
+  edges {
+    id: "e-fabric-rank"
+    source_node_id: "a-establish-collective-fabric"
+    target_node_id: "s-rank-plan"
+    kind: "state-access"
+    label: "read rank endpoints and ownership spans"
+    semantics {
+      entry_id: "e-fabric-rank-rel"
+      key: "relationship"
+      value: "read rank endpoints and ownership spans"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-fabric-rank-state"
+      key: "state_read"
+      value: "read rank endpoints and ownership spans"
+      object_ref {
+        node_id: "s-rank-plan"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-fabric-ready"
+    source_node_id: "a-establish-collective-fabric"
+    target_node_id: "a-publish-tp-ready"
+    kind: "fabric-before-ready"
+    label: "fabric establishment precedes readiness publication"
+    semantics {
+      entry_id: "e-fabric-ready-rel"
+      key: "relationship"
+      value: "fabric establishment precedes readiness publication"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "e-fabric-tp"
+    source_node_id: "a-establish-collective-fabric"
+    target_node_id: "s-tp"
+    kind: "state-access"
+    label: "store collective fabric transport"
+    semantics {
+      entry_id: "e-fabric-tp-rel"
+      key: "relationship"
+      value: "store collective fabric transport"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-fabric-tp-state"
+      key: "state_update"
+      value: "store collective fabric transport"
+      object_ref {
+        node_id: "s-tp"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-hello-bind"
+    source_node_id: "a-validate-rank-hello"
+    target_node_id: "a-bind-rank-plan"
+    kind: "hello-before-plan"
+    label: "rank hello compatibility precedes rank plan binding"
+    semantics {
+      entry_id: "e-hello-bind-rel"
+      key: "relationship"
+      value: "rank hello compatibility precedes rank plan binding"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "e-hello-model"
+    source_node_id: "a-validate-rank-hello"
+    target_node_id: "s-model-worker"
+    kind: "state-access"
+    label: "read rank resident model identity"
+    semantics {
+      entry_id: "e-hello-model-rel"
+      key: "relationship"
+      value: "read rank resident model identity"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-hello-model-state"
+      key: "state_read"
+      value: "read rank resident model identity"
+      object_ref {
+        node_id: "s-model-worker"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-plan-fabric"
+    source_node_id: "a-bind-rank-plan"
+    target_node_id: "a-establish-collective-fabric"
+    kind: "plan-before-fabric"
+    label: "rank plan binding precedes fabric establishment"
+    semantics {
+      entry_id: "e-plan-fabric-rel"
+      key: "relationship"
+      value: "rank plan binding precedes fabric establishment"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "e-plan-model"
+    source_node_id: "a-bind-rank-plan"
+    target_node_id: "s-model-worker"
+    kind: "state-access"
+    label: "read model shard placement for rank plan"
+    semantics {
+      entry_id: "e-plan-model-rel"
+      key: "relationship"
+      value: "read model shard placement for rank plan"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-plan-model-state"
+      key: "state_read"
+      value: "read model shard placement for rank plan"
+      object_ref {
+        node_id: "s-model-worker"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-plan-rank"
+    source_node_id: "a-bind-rank-plan"
+    target_node_id: "s-rank-plan"
+    kind: "state-access"
+    label: "store TP4 rank ownership spans"
+    semantics {
+      entry_id: "e-plan-rank-rel"
+      key: "relationship"
+      value: "store TP4 rank ownership spans"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-plan-rank-state"
+      key: "state_update"
+      value: "store TP4 rank ownership spans"
+      object_ref {
+        node_id: "s-rank-plan"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-ready-rank"
+    source_node_id: "a-publish-tp-ready"
+    target_node_id: "s-rank-plan"
+    kind: "state-access"
+    label: "confirm ownership spans for readiness"
+    semantics {
+      entry_id: "e-ready-rank-rel"
+      key: "relationship"
+      value: "confirm ownership spans for readiness"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-ready-rank-state"
+      key: "state_read"
+      value: "confirm ownership spans for readiness"
+      object_ref {
+        node_id: "s-rank-plan"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-ready-tp"
+    source_node_id: "a-publish-tp-ready"
+    target_node_id: "s-tp"
+    kind: "state-access"
+    label: "publish TP group ready marker"
+    semantics {
+      entry_id: "e-ready-tp-rel"
+      key: "relationship"
+      value: "publish TP group ready marker"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-ready-tp-state"
+      key: "state_update"
+      value: "publish TP group ready marker"
+      object_ref {
+        node_id: "s-tp"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  operations {
+    operation_id: "op-tp-group"
+    name: "form-tp4-group"
+    overview: "Form and publish the TP4/DCP4 collective group."
+    members {
+      ref {
+        node_id: "a-bind-rank-plan"
+      }
+      role: "action step"
+    }
+    members {
+      ref {
+        node_id: "a-establish-collective-fabric"
+      }
+      role: "action step"
+    }
+    members {
+      ref {
+        node_id: "a-publish-tp-ready"
+      }
+      role: "action step"
+    }
+    members {
+      ref {
+        node_id: "a-validate-rank-hello"
+      }
+      role: "action step"
+    }
+    semantics {
+      entry_id: "op-tp-group-overview"
+      key: "overview"
+      value: "Form and publish the TP4/DCP4 collective group."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "op-tp-group-target"
+      key: "target_state"
+      value: "Form and publish the TP4/DCP4 collective group."
+      status: SUPPORTED
+    }
+  }
+}
+canonical {
+  schema_sha256: "9de5a18221a33a9379092d084dbae946af604b979dfe7caf07bdd65701b5ea9d"
+  type_schema_sha256: "c9b92e83a751264b322323f0c8a3f2282fe07d4f31182dcf70b5e3a4a058d900"
+  graph_sha256: "f3282cf7e787c0a8f2822ce2a6e48e162c0d9fc9f55f12a0dde10010ec415284"
+  graph_contract_sha256: "941a792f839175e512f1d44f4d4010401fd289930184b302c9a436f568f6e4fa"
+}

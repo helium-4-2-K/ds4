@@ -1,0 +1,563 @@
+schema_version: "blueprint-graph/v1"
+graph_id: "stream-token"
+display_name: "Stream sampled token and decide continuation"
+graph_version: "1.0"
+lifecycle: DRAFT
+schema_ref: "blueprint-schema/blueprint/v1/blueprint.proto"
+type_schema_ref: "stream-token.types.proto"
+input_ports {
+  port_id: "stream-token-in"
+  node_id: "data-token"
+  type_ref: "blueprint.work.ds4_arch.Token"
+  cardinality: PORT_CARDINALITY_EXACTLY_ONE
+}
+graph {
+  overall_semantic {
+    overview: "Stream sampled token to the client and choose whether to continue."
+    support_refs {
+      node_id: "a-evaluate-continuation"
+    }
+  }
+  semantics {
+    entry_id: "str-ov"
+    key: "overview"
+    value: "Stream sampled token to the client and choose whether to continue."
+    support_refs {
+      node_id: "a-evaluate-continuation"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "stream-token-in"
+    key: "input_use"
+    value: "Consumes sampled token through stream-token-in."
+    object_ref {
+      port {
+        graph_boundary {
+        }
+        direction: PORT_DIRECTION_INPUT
+        port_id: "stream-token-in"
+      }
+    }
+    support_refs {
+      node_id: "data-token"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "action-stream-token-no-output"
+    key: "no_output"
+    value: "This action has no typed data output port; state/effects are explicit."
+    support_refs {
+      node_id: "a-evaluate-continuation"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "str-ef"
+    key: "effect"
+    value: "token delivered over API stream"
+    support_refs {
+      node_id: "a-write-token"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "stream-token-response-state-effect"
+    key: "effect"
+    value: "response stream state records delivered token and continuation decision"
+    object_ref {
+      node_id: "s-response-stream"
+    }
+    support_refs {
+      node_id: "s-response-stream"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "str-exit"
+    key: "exit"
+    value: "streamed"
+    support_refs {
+      node_id: "a-evaluate-continuation"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "stream-token-arch"
+    key: "architecture_rationale"
+    value: "This child graph resolves the parent stream-token action into ordered code-unit seams while preserving the parent boundary."
+    support_refs {
+      node_id: "a-evaluate-continuation"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "str-im"
+    key: "implementation_choice"
+    value: "fixed_by_target_tp4_design"
+    support_refs {
+      node_id: "a-evaluate-continuation"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "str-nd"
+    key: "no_diagnostic"
+    value: "none"
+    support_refs {
+      node_id: "a-evaluate-continuation"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "stream-token-no-guide"
+    key: "no_implementation_guide"
+    value: "This child graph is a target-system contract; implementation planning lives outside the blueprint."
+    status: SUPPORTED
+  }
+  nodes {
+    id: "a-evaluate-continuation"
+    kind: "ACTION"
+    label: "02 evaluate stop and checkpoint guards"
+    input_ports {
+      port_id: "policy-stream-event-in"
+      node_id: "d-stream-event"
+      type_ref: "blueprint.work.ds4_arch.stream_event"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "a-evaluate-continuation-ov"
+      key: "overview"
+      value: "Evaluate stop-token, max-token, cancellation, and checkpoint policy guards that select the parent loop, stop, or checkpoint branch."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "policy-stream-event-in"
+      key: "input_use"
+      value: "Consumes d-stream-event through policy-stream-event-in."
+      object_ref {
+        node_id: "d-stream-event"
+      }
+      support_refs {
+        port {
+          node_id: "a-evaluate-continuation"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "policy-stream-event-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-evaluate-continuation-no-output"
+      key: "no_output"
+      value: "This action has no typed data output port; state/effects are explicit."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-evaluate-continuation-effect"
+      key: "effect"
+      value: "Evaluate stop-token, max-token, cancellation, and checkpoint policy guards that select the parent loop, stop, or checkpoint branch."
+      support_refs {
+        node_id: "a-evaluate-continuation"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-evaluate-continuation-exit"
+      key: "exit"
+      value: "a-evaluate-continuation-done"
+      support_refs {
+        node_id: "a-evaluate-continuation"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-evaluate-continuation-code"
+      key: "code_unit"
+      value: "ds4_glm52_stream_evaluate_policy"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-evaluate-continuation-impl"
+      key: "implementation_choice"
+      value: "fixed_by_child_contract_from_parent_action"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-evaluate-continuation-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "s-response-stream"
+      access: "update"
+      meaning: "record delivered token and selected continuation branch"
+    }
+    preconditions {
+      condition_id: "a-evaluate-continuation-pre"
+      kind: "state"
+      text: "required input data and state are available"
+    }
+    postconditions {
+      condition_id: "a-evaluate-continuation-post"
+      kind: "state"
+      text: "declared output, state, or effect has been established"
+    }
+  }
+  nodes {
+    id: "a-write-token"
+    kind: "ACTION"
+    label: "01 write token to response stream"
+    input_ports {
+      port_id: "write-token-in"
+      node_id: "data-token"
+      type_ref: "blueprint.work.ds4_arch.Token"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "write-stream-event-out"
+      node_id: "d-stream-event"
+      type_ref: "blueprint.work.ds4_arch.stream_event"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "a-write-token-ov"
+      key: "overview"
+      value: "Write the sampled token bytes to the client-visible HTTP/SSE stream exactly once."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "write-token-in"
+      key: "input_use"
+      value: "Consumes data-token through write-token-in."
+      object_ref {
+        node_id: "data-token"
+      }
+      support_refs {
+        port {
+          node_id: "a-write-token"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "write-token-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "write-stream-event-out"
+      key: "output"
+      value: "Produces d-stream-event through write-stream-event-out."
+      object_ref {
+        node_id: "d-stream-event"
+      }
+      support_refs {
+        port {
+          node_id: "a-write-token"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "write-stream-event-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-write-token-effect"
+      key: "effect"
+      value: "Write the sampled token bytes to the client-visible HTTP/SSE stream exactly once."
+      support_refs {
+        node_id: "a-write-token"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-write-token-exit"
+      key: "exit"
+      value: "a-write-token-done"
+      support_refs {
+        node_id: "a-write-token"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-write-token-code"
+      key: "code_unit"
+      value: "ds4_glm52_stream_write_token"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-write-token-impl"
+      key: "implementation_choice"
+      value: "fixed_by_child_contract_from_parent_action"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-write-token-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    preconditions {
+      condition_id: "a-write-token-pre"
+      kind: "state"
+      text: "required input data and state are available"
+    }
+    postconditions {
+      condition_id: "a-write-token-post"
+      kind: "state"
+      text: "declared output, state, or effect has been established"
+    }
+  }
+  nodes {
+    id: "d-stream-event"
+    kind: "DATA"
+    label: "streamed token event"
+    data_type: "blueprint.work.ds4_arch.stream_event"
+    semantics {
+      entry_id: "d-stream-event-role"
+      key: "data_role"
+      value: "internal stream event after delivery"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-stream-event-dist"
+      key: "distribution_scope"
+      value: "leader_only"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-stream-event-identity"
+      key: "identity"
+      value: "d-stream-event is the named occurrence in stream-token."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-stream-event-ordering"
+      key: "ordering"
+      value: "token position order"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-stream-event-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-stream-event-provenance"
+      key: "provenance"
+      value: "declared by source or producer edge."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "data-token"
+    kind: "DATA"
+    label: "sampled token input"
+    data_type: "blueprint.work.ds4_arch.Token"
+    semantics {
+      entry_id: "data-token-role"
+      key: "data_role"
+      value: "sampled token from decode"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "data-token-dist"
+      key: "distribution_scope"
+      value: "leader_only"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "data-token-identity"
+      key: "identity"
+      value: "data-token is the named occurrence in stream-token."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "data-token-ordering"
+      key: "ordering"
+      value: "token position order"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "data-token-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "data-token-provenance"
+      key: "provenance"
+      value: "declared by source or producer edge."
+      status: SUPPORTED
+    }
+    sources {
+      source_id: "src-data-token"
+      kind: "graph_input"
+      source_ref: "stream-token-in"
+      graph_input_port_id: "stream-token-in"
+      meaning: "sampled token enters through parent stream action input"
+    }
+  }
+  nodes {
+    id: "s-response-stream"
+    kind: "STATE"
+    label: "client response stream"
+    data_type: "blueprint.work.ds4_arch.stream_event"
+    semantics {
+      entry_id: "s-response-stream-role"
+      key: "data_role"
+      value: "coordinator response stream lifecycle state"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-response-stream-dist"
+      key: "distribution_scope"
+      value: "leader_only"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-response-stream-identity"
+      key: "identity"
+      value: "s-response-stream is internal state for stream-token."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-response-stream-ordering"
+      key: "ordering"
+      value: "ordered by request/token processing epoch"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-response-stream-presence"
+      key: "presence"
+      value: "required when the graph action runs"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-response-stream-provenance"
+      key: "provenance"
+      value: "declared by source list"
+      status: SUPPORTED
+    }
+    sources {
+      source_id: "src-s-response-stream"
+      kind: "runtime"
+      source_ref: "client response stream"
+      meaning: "coordinator response stream lifecycle state"
+    }
+  }
+  edges {
+    id: "e-event-policy"
+    source_node_id: "d-stream-event"
+    target_node_id: "a-evaluate-continuation"
+    kind: "policy-input"
+    label: "stream event feeds continuation policy"
+    semantics {
+      entry_id: "e-event-policy-rel"
+      key: "relationship"
+      value: "stream event feeds continuation policy"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-policy-stream"
+    source_node_id: "a-evaluate-continuation"
+    target_node_id: "s-response-stream"
+    kind: "state-access"
+    label: "record stream delivery and branch decision"
+    semantics {
+      entry_id: "e-policy-stream-rel"
+      key: "relationship"
+      value: "record stream delivery and branch decision"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-policy-stream-state"
+      key: "state_update"
+      value: "record stream delivery and branch decision"
+      object_ref {
+        node_id: "s-response-stream"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-token-write"
+    source_node_id: "data-token"
+    target_node_id: "a-write-token"
+    kind: "token-input"
+    label: "sampled token feeds stream write"
+    semantics {
+      entry_id: "e-token-write-rel"
+      key: "relationship"
+      value: "sampled token feeds stream write"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-write-before-policy"
+    source_node_id: "a-write-token"
+    target_node_id: "a-evaluate-continuation"
+    kind: "write-before-policy"
+    label: "token is written before policy branch is selected"
+    semantics {
+      entry_id: "e-write-before-policy-rel"
+      key: "relationship"
+      value: "token is written before policy branch is selected"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "e-write-event"
+    source_node_id: "a-write-token"
+    target_node_id: "d-stream-event"
+    kind: "stream-event"
+    label: "stream write produces event"
+    semantics {
+      entry_id: "e-write-event-rel"
+      key: "relationship"
+      value: "stream write produces event"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  operations {
+    operation_id: "op-stream-token"
+    name: "stream-token"
+    overview: "Stream one sampled token and select the next parent branch."
+    members {
+      ref {
+        node_id: "a-evaluate-continuation"
+      }
+      role: "action step"
+    }
+    members {
+      ref {
+        node_id: "a-write-token"
+      }
+      role: "action step"
+    }
+    semantics {
+      entry_id: "op-stream-token-overview"
+      key: "overview"
+      value: "Stream one sampled token and select the next parent branch."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "op-stream-token-target"
+      key: "target_state"
+      value: "Stream one sampled token and select the next parent branch."
+      status: SUPPORTED
+    }
+  }
+}
+canonical {
+  schema_sha256: "9de5a18221a33a9379092d084dbae946af604b979dfe7caf07bdd65701b5ea9d"
+  type_schema_sha256: "c5df5aa72497161e83cc3032abfc909fbc9e1cddbc8c568c747e0d7aedbf5756"
+  graph_sha256: "728a1070e516fd361df8a3c44cb3dbc7518df69b7177c7039dcf8712ad5a4469"
+  graph_contract_sha256: "a5917ff3d5293756d216aaa4128f5f16cd2d80a322ee9f1e5e19dce16bee2c18"
+}

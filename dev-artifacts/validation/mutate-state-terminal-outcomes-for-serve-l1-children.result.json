@@ -1,0 +1,93 @@
+{
+  "action": "mutate",
+  "added_graph_ids": [],
+  "after_artifact_integrity": {
+    "blueprint_sha256": "f5090c2f97f06122067f4b3c840bb2e6e581e52bccdbaf370c5a4bec47aa31ed",
+    "semantic_sha256": "d90ce8a6de0e834c605c043318e3806cf1b8186cac93a897698438f64da2b538"
+  },
+  "before_artifact_integrity": {
+    "blueprint_sha256": "695873f03e215c4708000410734ad79606ad36eafe1faa93b33c4a10b42fd20d",
+    "semantic_sha256": "04e679de080b56b8bd1a1d77f5eb45f18ac9d738c2cf023acb33f4589b300e9f"
+  },
+  "changed_graph_ids": [
+    "kv-checkpoint",
+    "request-session",
+    "stream-token",
+    "tp-group"
+  ],
+  "contract_validation": {
+    "error_count": 0,
+    "errors": [],
+    "graph_ids": [
+      "kv-checkpoint",
+      "request-session",
+      "stream-token",
+      "tp-group"
+    ],
+    "profile": "leaf",
+    "schema": "blueprint-contract-validation/v4",
+    "snapshot": {
+      "artifact_integrity": {
+        "blueprint_sha256": "f5090c2f97f06122067f4b3c840bb2e6e581e52bccdbaf370c5a4bec47aa31ed",
+        "semantic_sha256": "d90ce8a6de0e834c605c043318e3806cf1b8186cac93a897698438f64da2b538"
+      },
+      "covered_graphs": [
+        {
+          "graph_contract_sha256": "79f4d3207121b675cb0e16411cad0da3cb2833d8a3d2b4eca6aa2b5737da42cb",
+          "graph_id": "kv-checkpoint",
+          "role": "selected",
+          "type_schema_sha256": "268948e2d93680375e897bead2676d872928ebafd97a91928bb363de642ebcc6"
+        },
+        {
+          "graph_contract_sha256": "69a27144354c5ae9dad8fe743690491188da44d45ee273979a69fe87558d77a9",
+          "graph_id": "request-session",
+          "role": "selected",
+          "type_schema_sha256": "4cd0c1c8999384a88d2e0a0125a1a38a9118f61d20dcc270f5155a04c07aed44"
+        },
+        {
+          "graph_contract_sha256": "5f60910a22c5a998817974978a85a088a6de5c8a3482d6696840bfe5999c51ac",
+          "graph_id": "serve",
+          "role": "ancestor",
+          "type_schema_sha256": "30f49b45e889237b5bb310b878ab4e6706809d614eedd39946a3bc723ce1c6d4"
+        },
+        {
+          "graph_contract_sha256": "a5917ff3d5293756d216aaa4128f5f16cd2d80a322ee9f1e5e19dce16bee2c18",
+          "graph_id": "stream-token",
+          "role": "selected",
+          "type_schema_sha256": "c5df5aa72497161e83cc3032abfc909fbc9e1cddbc8c568c747e0d7aedbf5756"
+        },
+        {
+          "graph_contract_sha256": "941a792f839175e512f1d44f4d4010401fd289930184b302c9a436f568f6e4fa",
+          "graph_id": "tp-group",
+          "role": "selected",
+          "type_schema_sha256": "c9b92e83a751264b322323f0c8a3f2282fe07d4f31182dcf70b5e3a4a058d900"
+        }
+      ],
+      "selected_graph_ids": [
+        "kv-checkpoint",
+        "request-session",
+        "stream-token",
+        "tp-group"
+      ]
+    },
+    "status": "PASS",
+    "warning_count": 0,
+    "warnings": []
+  },
+  "request_id": "mutate-state-terminal-outcomes-for-serve-l1-children",
+  "schema": "blueprint-write-result/v4",
+  "status": "PASS",
+  "validation": {
+    "blueprint_id": "ds4-arch",
+    "blueprint_sha256": "f5090c2f97f06122067f4b3c840bb2e6e581e52bccdbaf370c5a4bec47aa31ed",
+    "error_count": 0,
+    "errors": [],
+    "graph_count": 18,
+    "schema": "blueprint-artifact-validation@1",
+    "semantic_sha256": "d90ce8a6de0e834c605c043318e3806cf1b8186cac93a897698438f64da2b538",
+    "stage": "complete",
+    "status": "PASS",
+    "warning_count": 0,
+    "warnings": []
+  }
+}

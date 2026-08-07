@@ -1,0 +1,3186 @@
+{
+  "schema": "blueprint-write-request/v11",
+  "action": "simulate_contract",
+  "request_id": "simulate-serve-l1-children-full-trace",
+  "root": "/Users/helium/src/ds4-gb10x4-bcd/bdev",
+  "record_dir": "/Users/helium/src/ds4-gb10x4-bcd/dev-artifacts/03_record",
+  "params": {
+    "profile": "leaf",
+    "graph_ids": [
+      "request-session",
+      "stream-token",
+      "kv-checkpoint",
+      "tp-group"
+    ],
+    "cases": [
+      {
+        "case_id": "request-session-full-success",
+        "graph_id": "request-session",
+        "initial_node_ids": [
+          "data-request"
+        ],
+        "active_edge_ids": [
+          "e-bind-before-enqueue",
+          "e-bind-job",
+          "e-bind-kv",
+          "e-enqueue-kv",
+          "e-enqueue-queue",
+          "e-job-enqueue",
+          "e-normalized-bind",
+          "e-request-validate",
+          "e-validate-before-bind",
+          "e-validated-bind"
+        ],
+        "terminal_node_ids": [
+          "s-kv",
+          "s-prefill-queue"
+        ],
+        "assumption_entry_ids": [],
+        "outcome_entry_ids": [
+          "a-bind-session-effect",
+          "a-bind-session-exit",
+          "a-enqueue-prefill-effect",
+          "a-enqueue-prefill-exit",
+          "a-enqueue-prefill-no-output",
+          "a-validate-request-effect",
+          "a-validate-request-exit",
+          "acc-ef",
+          "acc-exit",
+          "action-serve-accept-no-output",
+          "bind-session-job-out",
+          "request-session-kv-bound-effect",
+          "request-session-prefill-queue-effect",
+          "validate-request-out"
+        ],
+        "obligation_entry_ids": [
+          "a-bind-session-impl",
+          "a-bind-session-nd",
+          "a-enqueue-prefill-impl",
+          "a-enqueue-prefill-nd",
+          "a-validate-request-impl",
+          "a-validate-request-nd",
+          "acc-im",
+          "acc-nd",
+          "acc-state",
+          "accept-request-in",
+          "bind-request-in",
+          "d-normalized-request-dist",
+          "d-session-job-dist",
+          "data-request-dist",
+          "e-bind-kv-state",
+          "e-enqueue-kv-state",
+          "e-enqueue-queue-state",
+          "enqueue-session-job-in",
+          "s-kv-dist",
+          "s-prefill-queue-dist",
+          "validate-request-in"
+        ],
+        "bounded_cycle_entry_ids": [],
+        "property_flows": [
+          {
+            "target_entry_id": "d-normalized-request-identity",
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_entry_id": "d-normalized-request-ordering",
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_entry_id": "d-normalized-request-presence",
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_entry_id": "d-normalized-request-provenance",
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_entry_id": "d-session-job-identity",
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_entry_id": "d-session-job-ordering",
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_entry_id": "d-session-job-presence",
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_entry_id": "d-session-job-provenance",
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_entry_id": "s-kv-identity",
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_entry_id": "s-kv-ordering",
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_entry_id": "s-kv-presence",
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_entry_id": "s-kv-provenance",
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_entry_id": "s-prefill-queue-identity",
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_entry_id": "s-prefill-queue-ordering",
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_entry_id": "s-prefill-queue-presence",
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_entry_id": "s-prefill-queue-provenance",
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          }
+        ],
+        "field_flows": [
+          {
+            "target_node_id": "d-normalized-request",
+            "target_field_path": "max_tokens",
+            "source_value_refs": [
+              {
+                "node_id": "data-request",
+                "field_path": "max_tokens"
+              }
+            ],
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_node_id": "d-normalized-request",
+            "target_field_path": "messages",
+            "source_value_refs": [
+              {
+                "node_id": "data-request",
+                "field_path": "messages"
+              }
+            ],
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_node_id": "d-normalized-request",
+            "target_field_path": "session_id",
+            "source_value_refs": [
+              {
+                "node_id": "data-request",
+                "field_path": "session_id"
+              }
+            ],
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_node_id": "d-normalized-request",
+            "target_field_path": "temperature",
+            "source_value_refs": [
+              {
+                "node_id": "data-request",
+                "field_path": "temperature"
+              }
+            ],
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_node_id": "d-session-job",
+            "target_field_path": "max_decode_tokens",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_node_id": "d-session-job",
+            "target_field_path": "prompt_token_count",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_node_id": "d-session-job",
+            "target_field_path": "session_id",
+            "source_value_refs": [
+              {
+                "node_id": "data-request",
+                "field_path": "session_id"
+              }
+            ],
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_node_id": "s-kv",
+            "target_field_path": "head_or_latent_end",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_node_id": "s-kv",
+            "target_field_path": "head_or_latent_start",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_node_id": "s-kv",
+            "target_field_path": "length",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_node_id": "s-kv",
+            "target_field_path": "replicated_metadata",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_node_id": "s-kv",
+            "target_field_path": "session_id",
+            "source_value_refs": [
+              {
+                "node_id": "data-request",
+                "field_path": "session_id"
+              }
+            ],
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_node_id": "s-kv",
+            "target_field_path": "tp_rank",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_node_id": "s-prefill-queue",
+            "target_field_path": "max_decode_tokens",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_node_id": "s-prefill-queue",
+            "target_field_path": "prompt_token_count",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          },
+          {
+            "target_node_id": "s-prefill-queue",
+            "target_field_path": "session_id",
+            "source_value_refs": [
+              {
+                "node_id": "data-request",
+                "field_path": "session_id"
+              }
+            ],
+            "source_entry_ids": [
+              "data-request-presence",
+              "data-request-provenance"
+            ],
+            "via_entry_ids": [
+              "e-bind-before-enqueue-rel",
+              "e-bind-job-rel",
+              "e-bind-kv-rel",
+              "e-bind-kv-state",
+              "e-enqueue-kv-rel",
+              "e-enqueue-kv-state",
+              "e-enqueue-queue-rel",
+              "e-enqueue-queue-state",
+              "e-job-enqueue-rel",
+              "e-normalized-bind-rel",
+              "e-request-validate-rel",
+              "e-validate-before-bind-rel",
+              "e-validated-bind-rel"
+            ]
+          }
+        ],
+        "absent_fields": []
+      },
+      {
+        "case_id": "stream-token-full-success",
+        "graph_id": "stream-token",
+        "initial_node_ids": [
+          "data-token"
+        ],
+        "active_edge_ids": [
+          "e-event-policy",
+          "e-policy-stream",
+          "e-token-write",
+          "e-write-before-policy",
+          "e-write-event"
+        ],
+        "terminal_node_ids": [
+          "s-response-stream"
+        ],
+        "assumption_entry_ids": [],
+        "outcome_entry_ids": [
+          "a-evaluate-continuation-effect",
+          "a-evaluate-continuation-exit",
+          "a-evaluate-continuation-no-output",
+          "a-write-token-effect",
+          "a-write-token-exit",
+          "action-stream-token-no-output",
+          "str-ef",
+          "str-exit",
+          "stream-token-response-state-effect",
+          "write-stream-event-out"
+        ],
+        "obligation_entry_ids": [
+          "a-evaluate-continuation-impl",
+          "a-evaluate-continuation-nd",
+          "a-write-token-impl",
+          "a-write-token-nd",
+          "d-stream-event-dist",
+          "data-token-dist",
+          "e-policy-stream-state",
+          "policy-stream-event-in",
+          "s-response-stream-dist",
+          "str-im",
+          "str-nd",
+          "stream-token-in",
+          "write-token-in"
+        ],
+        "bounded_cycle_entry_ids": [],
+        "property_flows": [
+          {
+            "target_entry_id": "d-stream-event-identity",
+            "source_entry_ids": [
+              "data-token-presence",
+              "data-token-provenance"
+            ],
+            "via_entry_ids": [
+              "e-event-policy-rel",
+              "e-policy-stream-rel",
+              "e-policy-stream-state",
+              "e-token-write-rel",
+              "e-write-before-policy-rel",
+              "e-write-event-rel"
+            ]
+          },
+          {
+            "target_entry_id": "d-stream-event-ordering",
+            "source_entry_ids": [
+              "data-token-presence",
+              "data-token-provenance"
+            ],
+            "via_entry_ids": [
+              "e-event-policy-rel",
+              "e-policy-stream-rel",
+              "e-policy-stream-state",
+              "e-token-write-rel",
+              "e-write-before-policy-rel",
+              "e-write-event-rel"
+            ]
+          },
+          {
+            "target_entry_id": "d-stream-event-presence",
+            "source_entry_ids": [
+              "data-token-presence",
+              "data-token-provenance"
+            ],
+            "via_entry_ids": [
+              "e-event-policy-rel",
+              "e-policy-stream-rel",
+              "e-policy-stream-state",
+              "e-token-write-rel",
+              "e-write-before-policy-rel",
+              "e-write-event-rel"
+            ]
+          },
+          {
+            "target_entry_id": "d-stream-event-provenance",
+            "source_entry_ids": [
+              "data-token-presence",
+              "data-token-provenance"
+            ],
+            "via_entry_ids": [
+              "e-event-policy-rel",
+              "e-policy-stream-rel",
+              "e-policy-stream-state",
+              "e-token-write-rel",
+              "e-write-before-policy-rel",
+              "e-write-event-rel"
+            ]
+          },
+          {
+            "target_entry_id": "s-response-stream-identity",
+            "source_entry_ids": [
+              "data-token-presence",
+              "data-token-provenance"
+            ],
+            "via_entry_ids": [
+              "e-event-policy-rel",
+              "e-policy-stream-rel",
+              "e-policy-stream-state",
+              "e-token-write-rel",
+              "e-write-before-policy-rel",
+              "e-write-event-rel"
+            ]
+          },
+          {
+            "target_entry_id": "s-response-stream-ordering",
+            "source_entry_ids": [
+              "data-token-presence",
+              "data-token-provenance"
+            ],
+            "via_entry_ids": [
+              "e-event-policy-rel",
+              "e-policy-stream-rel",
+              "e-policy-stream-state",
+              "e-token-write-rel",
+              "e-write-before-policy-rel",
+              "e-write-event-rel"
+            ]
+          },
+          {
+            "target_entry_id": "s-response-stream-presence",
+            "source_entry_ids": [
+              "data-token-presence",
+              "data-token-provenance"
+            ],
+            "via_entry_ids": [
+              "e-event-policy-rel",
+              "e-policy-stream-rel",
+              "e-policy-stream-state",
+              "e-token-write-rel",
+              "e-write-before-policy-rel",
+              "e-write-event-rel"
+            ]
+          },
+          {
+            "target_entry_id": "s-response-stream-provenance",
+            "source_entry_ids": [
+              "data-token-presence",
+              "data-token-provenance"
+            ],
+            "via_entry_ids": [
+              "e-event-policy-rel",
+              "e-policy-stream-rel",
+              "e-policy-stream-state",
+              "e-token-write-rel",
+              "e-write-before-policy-rel",
+              "e-write-event-rel"
+            ]
+          }
+        ],
+        "field_flows": [
+          {
+            "target_node_id": "d-stream-event",
+            "target_field_path": "position",
+            "source_value_refs": [
+              {
+                "node_id": "data-token",
+                "field_path": "position"
+              }
+            ],
+            "source_entry_ids": [
+              "data-token-presence",
+              "data-token-provenance"
+            ],
+            "via_entry_ids": [
+              "e-event-policy-rel",
+              "e-policy-stream-rel",
+              "e-policy-stream-state",
+              "e-token-write-rel",
+              "e-write-before-policy-rel",
+              "e-write-event-rel"
+            ]
+          },
+          {
+            "target_node_id": "d-stream-event",
+            "target_field_path": "stop",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "data-token-presence",
+              "data-token-provenance"
+            ],
+            "via_entry_ids": [
+              "e-event-policy-rel",
+              "e-policy-stream-rel",
+              "e-policy-stream-state",
+              "e-token-write-rel",
+              "e-write-before-policy-rel",
+              "e-write-event-rel"
+            ]
+          },
+          {
+            "target_node_id": "d-stream-event",
+            "target_field_path": "token_id",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "data-token-presence",
+              "data-token-provenance"
+            ],
+            "via_entry_ids": [
+              "e-event-policy-rel",
+              "e-policy-stream-rel",
+              "e-policy-stream-state",
+              "e-token-write-rel",
+              "e-write-before-policy-rel",
+              "e-write-event-rel"
+            ]
+          },
+          {
+            "target_node_id": "s-response-stream",
+            "target_field_path": "position",
+            "source_value_refs": [
+              {
+                "node_id": "data-token",
+                "field_path": "position"
+              }
+            ],
+            "source_entry_ids": [
+              "data-token-presence",
+              "data-token-provenance"
+            ],
+            "via_entry_ids": [
+              "e-event-policy-rel",
+              "e-policy-stream-rel",
+              "e-policy-stream-state",
+              "e-token-write-rel",
+              "e-write-before-policy-rel",
+              "e-write-event-rel"
+            ]
+          },
+          {
+            "target_node_id": "s-response-stream",
+            "target_field_path": "stop",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "data-token-presence",
+              "data-token-provenance"
+            ],
+            "via_entry_ids": [
+              "e-event-policy-rel",
+              "e-policy-stream-rel",
+              "e-policy-stream-state",
+              "e-token-write-rel",
+              "e-write-before-policy-rel",
+              "e-write-event-rel"
+            ]
+          },
+          {
+            "target_node_id": "s-response-stream",
+            "target_field_path": "token_id",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "data-token-presence",
+              "data-token-provenance"
+            ],
+            "via_entry_ids": [
+              "e-event-policy-rel",
+              "e-policy-stream-rel",
+              "e-policy-stream-state",
+              "e-token-write-rel",
+              "e-write-before-policy-rel",
+              "e-write-event-rel"
+            ]
+          }
+        ],
+        "absent_fields": []
+      },
+      {
+        "case_id": "kv-checkpoint-full-success",
+        "graph_id": "kv-checkpoint",
+        "initial_node_ids": [
+          "a-evaluate-checkpoint-policy"
+        ],
+        "active_edge_ids": [
+          "e-plan-write",
+          "e-policy-before-write",
+          "e-policy-kv",
+          "e-policy-plan",
+          "e-publish-kv",
+          "e-record-publish",
+          "e-write-before-publish",
+          "e-write-kv",
+          "e-write-record"
+        ],
+        "terminal_node_ids": [
+          "s-kv"
+        ],
+        "assumption_entry_ids": [],
+        "outcome_entry_ids": [
+          "a-evaluate-checkpoint-policy-effect",
+          "a-evaluate-checkpoint-policy-exit",
+          "a-publish-checkpoint-effect",
+          "a-publish-checkpoint-exit",
+          "a-publish-checkpoint-no-output",
+          "a-write-rank-kv-shards-effect",
+          "a-write-rank-kv-shards-exit",
+          "action-kv-checkpoint-no-output",
+          "ck-ef",
+          "ck-exit",
+          "kv-checkpoint-kv-state-effect",
+          "plan-checkpoint-out",
+          "write-checkpoint-record-out"
+        ],
+        "obligation_entry_ids": [
+          "a-evaluate-checkpoint-policy-impl",
+          "a-evaluate-checkpoint-policy-nd",
+          "a-evaluate-checkpoint-policy-no-input",
+          "a-publish-checkpoint-impl",
+          "a-publish-checkpoint-nd",
+          "a-write-rank-kv-shards-impl",
+          "a-write-rank-kv-shards-nd",
+          "action-kv-checkpoint-no-input",
+          "ck-im",
+          "ck-nd",
+          "ck-state",
+          "d-checkpoint-plan-dist",
+          "d-checkpoint-record-dist",
+          "e-policy-kv-state",
+          "e-publish-kv-state",
+          "e-write-kv-state",
+          "publish-checkpoint-record-in",
+          "s-kv-dist",
+          "write-checkpoint-plan-in"
+        ],
+        "bounded_cycle_entry_ids": [],
+        "property_flows": [
+          {
+            "target_entry_id": "d-checkpoint-plan-identity",
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          },
+          {
+            "target_entry_id": "d-checkpoint-plan-ordering",
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          },
+          {
+            "target_entry_id": "d-checkpoint-plan-presence",
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          },
+          {
+            "target_entry_id": "d-checkpoint-plan-provenance",
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          },
+          {
+            "target_entry_id": "d-checkpoint-record-identity",
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          },
+          {
+            "target_entry_id": "d-checkpoint-record-ordering",
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          },
+          {
+            "target_entry_id": "d-checkpoint-record-presence",
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          },
+          {
+            "target_entry_id": "d-checkpoint-record-provenance",
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          },
+          {
+            "target_entry_id": "s-kv-identity",
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          },
+          {
+            "target_entry_id": "s-kv-ordering",
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          },
+          {
+            "target_entry_id": "s-kv-presence",
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          },
+          {
+            "target_entry_id": "s-kv-provenance",
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          }
+        ],
+        "field_flows": [
+          {
+            "target_node_id": "d-checkpoint-plan",
+            "target_field_path": "checkpoint_id",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          },
+          {
+            "target_node_id": "d-checkpoint-plan",
+            "target_field_path": "kv_length",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          },
+          {
+            "target_node_id": "d-checkpoint-plan",
+            "target_field_path": "rank",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          },
+          {
+            "target_node_id": "d-checkpoint-plan",
+            "target_field_path": "session_id",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          },
+          {
+            "target_node_id": "d-checkpoint-record",
+            "target_field_path": "checkpoint_id",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          },
+          {
+            "target_node_id": "d-checkpoint-record",
+            "target_field_path": "kv_length",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          },
+          {
+            "target_node_id": "d-checkpoint-record",
+            "target_field_path": "rank",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          },
+          {
+            "target_node_id": "d-checkpoint-record",
+            "target_field_path": "session_id",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          },
+          {
+            "target_node_id": "s-kv",
+            "target_field_path": "head_or_latent_end",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          },
+          {
+            "target_node_id": "s-kv",
+            "target_field_path": "head_or_latent_start",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          },
+          {
+            "target_node_id": "s-kv",
+            "target_field_path": "length",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          },
+          {
+            "target_node_id": "s-kv",
+            "target_field_path": "replicated_metadata",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          },
+          {
+            "target_node_id": "s-kv",
+            "target_field_path": "session_id",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          },
+          {
+            "target_node_id": "s-kv",
+            "target_field_path": "tp_rank",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-evaluate-checkpoint-policy-effect",
+              "a-evaluate-checkpoint-policy-no-input"
+            ],
+            "via_entry_ids": [
+              "e-plan-write-rel",
+              "e-policy-before-write-rel",
+              "e-policy-kv-rel",
+              "e-policy-kv-state",
+              "e-policy-plan-rel",
+              "e-publish-kv-rel",
+              "e-publish-kv-state",
+              "e-record-publish-rel",
+              "e-write-before-publish-rel",
+              "e-write-kv-rel",
+              "e-write-kv-state",
+              "e-write-record-rel"
+            ]
+          }
+        ],
+        "absent_fields": []
+      },
+      {
+        "case_id": "tp-group-full-success",
+        "graph_id": "tp-group",
+        "initial_node_ids": [
+          "a-validate-rank-hello"
+        ],
+        "active_edge_ids": [
+          "e-fabric-rank",
+          "e-fabric-ready",
+          "e-fabric-tp",
+          "e-hello-bind",
+          "e-hello-model",
+          "e-plan-fabric",
+          "e-plan-model",
+          "e-plan-rank",
+          "e-ready-rank",
+          "e-ready-tp"
+        ],
+        "terminal_node_ids": [
+          "s-model-worker",
+          "s-rank-plan",
+          "s-tp"
+        ],
+        "assumption_entry_ids": [],
+        "outcome_entry_ids": [
+          "a-bind-rank-plan-effect",
+          "a-bind-rank-plan-exit",
+          "a-bind-rank-plan-no-output",
+          "a-establish-collective-fabric-effect",
+          "a-establish-collective-fabric-exit",
+          "a-establish-collective-fabric-no-output",
+          "a-publish-tp-ready-effect",
+          "a-publish-tp-ready-exit",
+          "a-publish-tp-ready-no-output",
+          "a-validate-rank-hello-effect",
+          "a-validate-rank-hello-exit",
+          "a-validate-rank-hello-no-output",
+          "action-tp-group-no-output",
+          "tp-ef",
+          "tp-exit",
+          "tp-group-fabric-effect",
+          "tp-group-model-worker-read-no-effect",
+          "tp-group-rank-plan-effect"
+        ],
+        "obligation_entry_ids": [
+          "a-bind-rank-plan-impl",
+          "a-bind-rank-plan-nd",
+          "a-bind-rank-plan-no-input",
+          "a-establish-collective-fabric-impl",
+          "a-establish-collective-fabric-nd",
+          "a-establish-collective-fabric-no-input",
+          "a-publish-tp-ready-impl",
+          "a-publish-tp-ready-nd",
+          "a-publish-tp-ready-no-input",
+          "a-validate-rank-hello-impl",
+          "a-validate-rank-hello-nd",
+          "a-validate-rank-hello-no-input",
+          "action-tp-group-no-input",
+          "e-fabric-rank-state",
+          "e-fabric-tp-state",
+          "e-hello-model-state",
+          "e-plan-model-state",
+          "e-plan-rank-state",
+          "e-ready-rank-state",
+          "e-ready-tp-state",
+          "s-model-worker-dist",
+          "s-rank-plan-dist",
+          "s-tp-dist",
+          "tp-bird-ref",
+          "tp-im",
+          "tp-input",
+          "tp-nd",
+          "tp-output"
+        ],
+        "bounded_cycle_entry_ids": [],
+        "property_flows": [
+          {
+            "target_entry_id": "s-model-worker-identity",
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_entry_id": "s-model-worker-presence",
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_entry_id": "s-model-worker-provenance",
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_entry_id": "s-rank-plan-identity",
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_entry_id": "s-rank-plan-presence",
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_entry_id": "s-rank-plan-provenance",
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_entry_id": "s-tp-identity",
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_entry_id": "s-tp-presence",
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_entry_id": "s-tp-provenance",
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          }
+        ],
+        "field_flows": [
+          {
+            "target_node_id": "s-model-worker",
+            "target_field_path": "bird_vllm_commit",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-model-worker",
+            "target_field_path": "checkpoint_revision",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-model-worker",
+            "target_field_path": "expert_shard_axis",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-model-worker",
+            "target_field_path": "model_name",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-model-worker",
+            "target_field_path": "n_embd",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-model-worker",
+            "target_field_path": "n_expert",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-model-worker",
+            "target_field_path": "n_expert_used",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-model-worker",
+            "target_field_path": "n_head",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-model-worker",
+            "target_field_path": "n_head_kv",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-model-worker",
+            "target_field_path": "n_layer",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-model-worker",
+            "target_field_path": "qkv_shard_axis",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-model-worker",
+            "target_field_path": "rank_count",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-model-worker",
+            "target_field_path": "reference_runtime",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-model-worker",
+            "target_field_path": "served_model_name",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-model-worker",
+            "target_field_path": "speculator",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-model-worker",
+            "target_field_path": "tp_degree",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-model-worker",
+            "target_field_path": "vocab_shard_axis",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-rank-plan",
+            "target_field_path": "dcp_rank",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-rank-plan",
+            "target_field_path": "expert_end",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-rank-plan",
+            "target_field_path": "expert_start",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-rank-plan",
+            "target_field_path": "q_head_end",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-rank-plan",
+            "target_field_path": "q_head_start",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-rank-plan",
+            "target_field_path": "rank",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-rank-plan",
+            "target_field_path": "tp_size",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-rank-plan",
+            "target_field_path": "vocab_end",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-rank-plan",
+            "target_field_path": "vocab_start",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "all_reduce_count_per_layer",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "attention_backend",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "broadcast_count_per_token",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "collective_backend",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "dcp_degree",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "gather_count_per_token",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "kv_cache_dtype",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "nccl_channels",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "nccl_version",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "pp_degree",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "roce_hcas",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "tp_degree",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "transport",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "a-validate-rank-hello-effect",
+              "a-validate-rank-hello-no-input"
+            ],
+            "via_entry_ids": [
+              "e-fabric-rank-rel",
+              "e-fabric-rank-state",
+              "e-fabric-ready-rel",
+              "e-fabric-tp-rel",
+              "e-fabric-tp-state",
+              "e-hello-bind-rel",
+              "e-hello-model-rel",
+              "e-hello-model-state",
+              "e-plan-fabric-rel",
+              "e-plan-model-rel",
+              "e-plan-model-state",
+              "e-plan-rank-rel",
+              "e-plan-rank-state",
+              "e-ready-rank-rel",
+              "e-ready-rank-state",
+              "e-ready-tp-rel",
+              "e-ready-tp-state"
+            ]
+          }
+        ],
+        "absent_fields": []
+      }
+    ]
+  }
+}

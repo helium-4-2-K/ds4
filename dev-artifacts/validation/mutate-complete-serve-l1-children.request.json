@@ -1,0 +1,4019 @@
+{
+  "schema": "blueprint-write-request/v11",
+  "action": "mutate",
+  "request_id": "mutate-complete-serve-l1-children",
+  "root": "/Users/helium/src/ds4-gb10x4-bcd/bdev",
+  "record_dir": "/Users/helium/src/ds4-gb10x4-bcd/dev-artifacts/03_record",
+  "expected_blueprint_sha256": "3466079cab4a6e6d8011d675c3cf429d7cda2bc961c2d5ca006e3087af317b6c",
+  "validation_stage": "complete",
+  "operations": [
+    {
+      "verb": "remove",
+      "entity": "semantic",
+      "graph_id": "serve",
+      "entity_id": "acc-cu",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "action-serve-accept"
+      }
+    },
+    {
+      "verb": "remove",
+      "entity": "semantic",
+      "graph_id": "serve",
+      "entity_id": "str-cu",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "action-stream-token"
+      }
+    },
+    {
+      "verb": "remove",
+      "entity": "semantic",
+      "graph_id": "serve",
+      "entity_id": "ck-cu",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "action-kv-checkpoint"
+      }
+    },
+    {
+      "verb": "remove",
+      "entity": "semantic",
+      "graph_id": "serve",
+      "entity_id": "tp-cu",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "action-tp-group"
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "graph",
+      "graph_id": "request-session",
+      "params": {
+        "display_name": "Accept and bind a GLM 5.2 TP4 request session",
+        "graph_version": "1.0",
+        "package": "blueprint.work.ds4_arch",
+        "overall_semantic": {
+          "overview": "Accept a chat request, bind it to a session id, and enqueue TP prefill/decode work.",
+          "support_refs": [
+            {
+              "node_id": "a-enqueue-prefill"
+            }
+          ]
+        },
+        "architecture_rationale": {
+          "entry_id": "request-session-arch",
+          "value": "This child graph resolves the parent request-session action into ordered code-unit seams while preserving the parent boundary.",
+          "support_refs": [
+            {
+              "node_id": "a-enqueue-prefill"
+            }
+          ]
+        },
+        "semantics": [
+          {
+            "entry_id": "acc-ov",
+            "key": "overview",
+            "value": "Accept a chat request, bind it to a session id, and enqueue TP prefill/decode work.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-enqueue-prefill"
+              }
+            ]
+          },
+          {
+            "entry_id": "accept-request-in",
+            "key": "input_use",
+            "value": "Consumes the request through accept-request-in.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "data-request"
+              }
+            ],
+            "object_ref": {
+              "port": {
+                "owner": "graph",
+                "direction": "input",
+                "port_id": "accept-request-in"
+              }
+            }
+          },
+          {
+            "entry_id": "action-serve-accept-no-output",
+            "key": "no_output",
+            "value": "This action has no typed data output port; state/effects are explicit.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-enqueue-prefill"
+              }
+            ]
+          },
+          {
+            "entry_id": "acc-ef",
+            "key": "effect",
+            "value": "request queued against its session",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-enqueue-prefill"
+              }
+            ]
+          },
+          {
+            "entry_id": "acc-exit",
+            "key": "exit",
+            "value": "queued",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-enqueue-prefill"
+              }
+            ]
+          },
+          {
+            "entry_id": "acc-im",
+            "key": "implementation_choice",
+            "value": "fixed_by_target_tp4_design",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-enqueue-prefill"
+              }
+            ]
+          },
+          {
+            "entry_id": "acc-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-enqueue-prefill"
+              }
+            ]
+          },
+          {
+            "entry_id": "acc-state",
+            "key": "state_dependency",
+            "value": "Reads existing TP-aware KV state for the session.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "s-kv"
+              }
+            ],
+            "object_ref": {
+              "node_id": "s-kv"
+            }
+          },
+          {
+            "entry_id": "request-session-no-guide",
+            "key": "no_implementation_guide",
+            "value": "This child graph is a target-system contract; implementation planning lives outside the blueprint.",
+            "status": "supported"
+          }
+        ],
+        "input_ports": [
+          {
+            "port_id": "accept-request-in",
+            "node_id": "data-request",
+            "type_ref": "blueprint.work.ds4_arch.ChatRequest",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": []
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "type_import",
+      "graph_id": "request-session",
+      "params": {
+        "import_path": "serve.types.proto"
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "message_type",
+      "graph_id": "request-session",
+      "params": {
+        "name": "request_session_job",
+        "contract": {
+          "type_id": "blueprint.work.ds4_arch.request_session_job",
+          "represents": "Coordinator-local accepted request bound to a session and ready for TP prefill.",
+          "semantics": [
+            {
+              "entry_id": "t-request-session-job",
+              "key": "meaning",
+              "value": "Coordinator-local accepted request bound to a session and ready for TP prefill.",
+              "status": "supported"
+            }
+          ],
+          "operations": []
+        },
+        "fields": [
+          {
+            "name": "session_id",
+            "number": 1,
+            "type_ref": "string",
+            "contract": {
+              "meaning": "bound session id",
+              "semantics": []
+            }
+          },
+          {
+            "name": "prompt_token_count",
+            "number": 2,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "prompt token count after request normalization",
+              "semantics": []
+            }
+          },
+          {
+            "name": "max_decode_tokens",
+            "number": 3,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "remaining generation budget",
+              "semantics": []
+            }
+          }
+        ],
+        "oneofs": [],
+        "reserved_numbers": [],
+        "reserved_names": []
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "data",
+      "graph_id": "request-session",
+      "params": {
+        "id": "data-request",
+        "kind": "DATA",
+        "label": "accepted request input",
+        "data_type": "blueprint.work.ds4_arch.ChatRequest",
+        "sources": [
+          {
+            "source_id": "src-data-request",
+            "kind": "graph_input",
+            "source_ref": "accept-request-in",
+            "graph_input_port_id": "accept-request-in",
+            "meaning": "request enters through parent accept action input"
+          }
+        ],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "data-request-role",
+            "key": "data_role",
+            "value": "request entering request/session binding",
+            "status": "supported"
+          },
+          {
+            "entry_id": "data-request-dist",
+            "key": "distribution_scope",
+            "value": "leader_only",
+            "status": "supported"
+          },
+          {
+            "entry_id": "data-request-identity",
+            "key": "identity",
+            "value": "data-request is the named occurrence in request-session.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "data-request-ordering",
+            "key": "ordering",
+            "value": "leader request arrival order",
+            "status": "supported"
+          },
+          {
+            "entry_id": "data-request-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "data-request-provenance",
+            "key": "provenance",
+            "value": "declared by source or producer edge.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "data",
+      "graph_id": "request-session",
+      "params": {
+        "id": "d-normalized-request",
+        "kind": "DATA",
+        "label": "normalized request",
+        "data_type": "blueprint.work.ds4_arch.ChatRequest",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "d-normalized-request-role",
+            "key": "data_role",
+            "value": "request after syntax and budget validation",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-normalized-request-dist",
+            "key": "distribution_scope",
+            "value": "leader_only",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-normalized-request-identity",
+            "key": "identity",
+            "value": "d-normalized-request is the named occurrence in request-session.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-normalized-request-ordering",
+            "key": "ordering",
+            "value": "ordered by the owning action contract",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-normalized-request-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-normalized-request-provenance",
+            "key": "provenance",
+            "value": "declared by source or producer edge.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "data",
+      "graph_id": "request-session",
+      "params": {
+        "id": "d-session-job",
+        "kind": "DATA",
+        "label": "bound session prefill job",
+        "data_type": "blueprint.work.ds4_arch.request_session_job",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "d-session-job-role",
+            "key": "data_role",
+            "value": "session-bound job queued for prefill",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-session-job-dist",
+            "key": "distribution_scope",
+            "value": "leader_only",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-session-job-identity",
+            "key": "identity",
+            "value": "d-session-job is the named occurrence in request-session.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-session-job-ordering",
+            "key": "ordering",
+            "value": "ordered by the owning action contract",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-session-job-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-session-job-provenance",
+            "key": "provenance",
+            "value": "declared by source or producer edge.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "state",
+      "graph_id": "request-session",
+      "params": {
+        "id": "s-kv",
+        "kind": "STATE",
+        "label": "same session KV state",
+        "data_type": "blueprint.work.ds4_arch.kv",
+        "sources": [],
+        "same_state_as": [
+          {
+            "graph_id": "serve",
+            "state_node_id": "state-kv",
+            "relation": "same logical state as serve root",
+            "meaning": "request-session reads or updates the parent state-kv state"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "s-kv-role",
+            "key": "data_role",
+            "value": "TP-aware session KV state inspected or initialized by request accept",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-kv-dist",
+            "key": "distribution_scope",
+            "value": "rank_local_shard",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-kv-identity",
+            "key": "identity",
+            "value": "s-kv is the same logical state as the parent serve occurrence.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-kv-ordering",
+            "key": "ordering",
+            "value": "append-ordered by session cursor",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-kv-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-kv-provenance",
+            "key": "provenance",
+            "value": "declared by same_state_as link.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "state",
+      "graph_id": "request-session",
+      "params": {
+        "id": "s-prefill-queue",
+        "kind": "STATE",
+        "label": "rank0 prefill queue",
+        "data_type": "blueprint.work.ds4_arch.request_session_job",
+        "sources": [
+          {
+            "source_id": "src-s-prefill-queue",
+            "kind": "runtime",
+            "source_ref": "rank0 prefill queue",
+            "meaning": "coordinator-local prefill queue entry created by accept"
+          }
+        ],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "s-prefill-queue-role",
+            "key": "data_role",
+            "value": "coordinator-local prefill queue entry created by accept",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-prefill-queue-dist",
+            "key": "distribution_scope",
+            "value": "leader_only",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-prefill-queue-identity",
+            "key": "identity",
+            "value": "s-prefill-queue is internal state for request-session.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-prefill-queue-ordering",
+            "key": "ordering",
+            "value": "ordered by request/token processing epoch",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-prefill-queue-presence",
+            "key": "presence",
+            "value": "required when the graph action runs",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-prefill-queue-provenance",
+            "key": "provenance",
+            "value": "declared by source list",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "action",
+      "graph_id": "request-session",
+      "params": {
+        "id": "a-validate-request",
+        "kind": "ACTION",
+        "label": "01 validate coordinator request",
+        "input_ports": [
+          {
+            "port_id": "validate-request-in",
+            "node_id": "data-request",
+            "type_ref": "blueprint.work.ds4_arch.ChatRequest",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "validate-request-out",
+            "node_id": "d-normalized-request",
+            "type_ref": "blueprint.work.ds4_arch.ChatRequest",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "a-validate-request-ov",
+            "key": "overview",
+            "value": "Validate request syntax, session id, sampling settings, and max token budget before it can enter TP prefill.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "validate-request-in",
+            "key": "input_use",
+            "value": "Consumes data-request through validate-request-in.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-validate-request"
+                  },
+                  "direction": "input",
+                  "port_id": "validate-request-in"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "data-request"
+            }
+          },
+          {
+            "entry_id": "validate-request-out",
+            "key": "output",
+            "value": "Produces d-normalized-request through validate-request-out.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-validate-request"
+                  },
+                  "direction": "output",
+                  "port_id": "validate-request-out"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-normalized-request"
+            }
+          },
+          {
+            "entry_id": "a-validate-request-effect",
+            "key": "effect",
+            "value": "Validate request syntax, session id, sampling settings, and max token budget before it can enter TP prefill.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-validate-request"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-validate-request-exit",
+            "key": "exit",
+            "value": "a-validate-request-done",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-validate-request"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-validate-request-code",
+            "key": "code_unit",
+            "value": "ds4_glm52_request_validate",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-validate-request-impl",
+            "key": "implementation_choice",
+            "value": "fixed_by_child_contract_from_parent_action",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-validate-request-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          }
+        ],
+        "state_set": [],
+        "preconditions": [
+          {
+            "condition_id": "a-validate-request-pre",
+            "kind": "state",
+            "text": "required input data and state are available"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "a-validate-request-post",
+            "kind": "state",
+            "text": "declared output, state, or effect has been established"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "action",
+      "graph_id": "request-session",
+      "params": {
+        "id": "a-bind-session",
+        "kind": "ACTION",
+        "label": "02 bind TP session state",
+        "input_ports": [
+          {
+            "port_id": "bind-request-in",
+            "node_id": "d-normalized-request",
+            "type_ref": "blueprint.work.ds4_arch.ChatRequest",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "bind-session-job-out",
+            "node_id": "d-session-job",
+            "type_ref": "blueprint.work.ds4_arch.request_session_job",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "a-bind-session-ov",
+            "key": "overview",
+            "value": "Bind the normalized request to an existing TP-aware KV session or create an empty append-ordered session state for prefill.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "bind-request-in",
+            "key": "input_use",
+            "value": "Consumes d-normalized-request through bind-request-in.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-bind-session"
+                  },
+                  "direction": "input",
+                  "port_id": "bind-request-in"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-normalized-request"
+            }
+          },
+          {
+            "entry_id": "bind-session-job-out",
+            "key": "output",
+            "value": "Produces d-session-job through bind-session-job-out.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-bind-session"
+                  },
+                  "direction": "output",
+                  "port_id": "bind-session-job-out"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-session-job"
+            }
+          },
+          {
+            "entry_id": "a-bind-session-effect",
+            "key": "effect",
+            "value": "Bind the normalized request to an existing TP-aware KV session or create an empty append-ordered session state for prefill.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-bind-session"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-bind-session-exit",
+            "key": "exit",
+            "value": "a-bind-session-done",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-bind-session"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-bind-session-code",
+            "key": "code_unit",
+            "value": "ds4_glm52_request_bind_session",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-bind-session-impl",
+            "key": "implementation_choice",
+            "value": "fixed_by_child_contract_from_parent_action",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-bind-session-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          }
+        ],
+        "state_set": [
+          {
+            "state_node_id": "s-kv",
+            "access": "update",
+            "meaning": "create or bind empty TP-aware session KV state"
+          }
+        ],
+        "preconditions": [
+          {
+            "condition_id": "a-bind-session-pre",
+            "kind": "state",
+            "text": "required input data and state are available"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "a-bind-session-post",
+            "kind": "state",
+            "text": "declared output, state, or effect has been established"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "action",
+      "graph_id": "request-session",
+      "params": {
+        "id": "a-enqueue-prefill",
+        "kind": "ACTION",
+        "label": "03 enqueue prefill work",
+        "input_ports": [
+          {
+            "port_id": "enqueue-session-job-in",
+            "node_id": "d-session-job",
+            "type_ref": "blueprint.work.ds4_arch.request_session_job",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [],
+        "semantics": [
+          {
+            "entry_id": "a-enqueue-prefill-ov",
+            "key": "overview",
+            "value": "Publish the bound session job to the rank0 prefill queue after session identity and KV state are consistent.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "enqueue-session-job-in",
+            "key": "input_use",
+            "value": "Consumes d-session-job through enqueue-session-job-in.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-enqueue-prefill"
+                  },
+                  "direction": "input",
+                  "port_id": "enqueue-session-job-in"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-session-job"
+            }
+          },
+          {
+            "entry_id": "a-enqueue-prefill-no-output",
+            "key": "no_output",
+            "value": "This action has no typed data output port; state/effects are explicit.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-enqueue-prefill-effect",
+            "key": "effect",
+            "value": "Publish the bound session job to the rank0 prefill queue after session identity and KV state are consistent.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-enqueue-prefill"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-enqueue-prefill-exit",
+            "key": "exit",
+            "value": "a-enqueue-prefill-done",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-enqueue-prefill"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-enqueue-prefill-code",
+            "key": "code_unit",
+            "value": "ds4_glm52_request_enqueue_prefill",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-enqueue-prefill-impl",
+            "key": "implementation_choice",
+            "value": "fixed_by_child_contract_from_parent_action",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-enqueue-prefill-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          }
+        ],
+        "state_set": [
+          {
+            "state_node_id": "s-kv",
+            "access": "read",
+            "meaning": "confirm accepted session KV identity before queueing"
+          },
+          {
+            "state_node_id": "s-prefill-queue",
+            "access": "update",
+            "meaning": "publish queued prefill job"
+          }
+        ],
+        "preconditions": [
+          {
+            "condition_id": "a-enqueue-prefill-pre",
+            "kind": "state",
+            "text": "required input data and state are available"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "a-enqueue-prefill-post",
+            "kind": "state",
+            "text": "declared output, state, or effect has been established"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "request-session",
+      "params": {
+        "id": "e-request-validate",
+        "source_node_id": "data-request",
+        "target_node_id": "a-validate-request",
+        "family": "dataflow",
+        "kind": "request-input",
+        "label": "request feeds validation",
+        "semantics": [
+          {
+            "entry_id": "e-request-validate-rel",
+            "key": "relationship",
+            "value": "request feeds validation",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "request-session",
+      "params": {
+        "id": "e-validated-bind",
+        "source_node_id": "a-validate-request",
+        "target_node_id": "d-normalized-request",
+        "family": "dataflow",
+        "kind": "validated-request",
+        "label": "validation produces normalized request",
+        "semantics": [
+          {
+            "entry_id": "e-validated-bind-rel",
+            "key": "relationship",
+            "value": "validation produces normalized request",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "request-session",
+      "params": {
+        "id": "e-normalized-bind",
+        "source_node_id": "d-normalized-request",
+        "target_node_id": "a-bind-session",
+        "family": "dataflow",
+        "kind": "bind-input",
+        "label": "normalized request feeds session bind",
+        "semantics": [
+          {
+            "entry_id": "e-normalized-bind-rel",
+            "key": "relationship",
+            "value": "normalized request feeds session bind",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "request-session",
+      "params": {
+        "id": "e-bind-job",
+        "source_node_id": "a-bind-session",
+        "target_node_id": "d-session-job",
+        "family": "dataflow",
+        "kind": "job-output",
+        "label": "session bind produces prefill job",
+        "semantics": [
+          {
+            "entry_id": "e-bind-job-rel",
+            "key": "relationship",
+            "value": "session bind produces prefill job",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "request-session",
+      "params": {
+        "id": "e-job-enqueue",
+        "source_node_id": "d-session-job",
+        "target_node_id": "a-enqueue-prefill",
+        "family": "dataflow",
+        "kind": "enqueue-input",
+        "label": "prefill job feeds queue publish",
+        "semantics": [
+          {
+            "entry_id": "e-job-enqueue-rel",
+            "key": "relationship",
+            "value": "prefill job feeds queue publish",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "request-session",
+      "params": {
+        "id": "e-validate-before-bind",
+        "source_node_id": "a-validate-request",
+        "target_node_id": "a-bind-session",
+        "family": "causal",
+        "kind": "validation-before-bind",
+        "label": "request validation precedes session binding",
+        "semantics": [
+          {
+            "entry_id": "e-validate-before-bind-rel",
+            "key": "relationship",
+            "value": "request validation precedes session binding",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "request-session",
+      "params": {
+        "id": "e-bind-before-enqueue",
+        "source_node_id": "a-bind-session",
+        "target_node_id": "a-enqueue-prefill",
+        "family": "causal",
+        "kind": "bind-before-enqueue",
+        "label": "session binding precedes enqueue",
+        "semantics": [
+          {
+            "entry_id": "e-bind-before-enqueue-rel",
+            "key": "relationship",
+            "value": "session binding precedes enqueue",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "request-session",
+      "params": {
+        "id": "e-bind-kv",
+        "source_node_id": "a-bind-session",
+        "target_node_id": "s-kv",
+        "family": "state",
+        "kind": "state-access",
+        "label": "bind or create session KV state",
+        "semantics": [
+          {
+            "entry_id": "e-bind-kv-rel",
+            "key": "relationship",
+            "value": "bind or create session KV state",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-bind-kv-state",
+            "key": "state_update",
+            "value": "bind or create session KV state",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "s-kv"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "request-session",
+      "params": {
+        "id": "e-enqueue-kv",
+        "source_node_id": "a-enqueue-prefill",
+        "target_node_id": "s-kv",
+        "family": "state",
+        "kind": "state-access",
+        "label": "read session KV identity before enqueue",
+        "semantics": [
+          {
+            "entry_id": "e-enqueue-kv-rel",
+            "key": "relationship",
+            "value": "read session KV identity before enqueue",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-enqueue-kv-state",
+            "key": "state_read",
+            "value": "read session KV identity before enqueue",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "s-kv"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "request-session",
+      "params": {
+        "id": "e-enqueue-queue",
+        "source_node_id": "a-enqueue-prefill",
+        "target_node_id": "s-prefill-queue",
+        "family": "state",
+        "kind": "state-access",
+        "label": "publish prefill queue entry",
+        "semantics": [
+          {
+            "entry_id": "e-enqueue-queue-rel",
+            "key": "relationship",
+            "value": "publish prefill queue entry",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-enqueue-queue-state",
+            "key": "state_update",
+            "value": "publish prefill queue entry",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "s-prefill-queue"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "operation",
+      "graph_id": "request-session",
+      "params": {
+        "operation_id": "op-request-session",
+        "name": "accept-bind-session",
+        "overview": "Accept and bind a request session for TP4 prefill.",
+        "members": [
+          {
+            "ref": {
+              "node_id": "a-validate-request"
+            },
+            "role": "action step"
+          },
+          {
+            "ref": {
+              "node_id": "a-bind-session"
+            },
+            "role": "action step"
+          },
+          {
+            "ref": {
+              "node_id": "a-enqueue-prefill"
+            },
+            "role": "action step"
+          }
+        ],
+        "data_flow_ids": [],
+        "semantics": [
+          {
+            "entry_id": "op-request-session-overview",
+            "key": "overview",
+            "value": "Accept and bind a request session for TP4 prefill.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "op-request-session-target",
+            "key": "target_state",
+            "value": "Accept and bind a request session for TP4 prefill.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "expansion",
+      "graph_id": "serve",
+      "entity_id": "action-serve-accept",
+      "params": {
+        "child_graph_id": "request-session"
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "graph",
+      "graph_id": "stream-token",
+      "params": {
+        "display_name": "Stream sampled token and decide continuation",
+        "graph_version": "1.0",
+        "package": "blueprint.work.ds4_arch",
+        "overall_semantic": {
+          "overview": "Stream sampled token to the client and choose whether to continue.",
+          "support_refs": [
+            {
+              "node_id": "a-evaluate-continuation"
+            }
+          ]
+        },
+        "architecture_rationale": {
+          "entry_id": "stream-token-arch",
+          "value": "This child graph resolves the parent stream-token action into ordered code-unit seams while preserving the parent boundary.",
+          "support_refs": [
+            {
+              "node_id": "a-evaluate-continuation"
+            }
+          ]
+        },
+        "semantics": [
+          {
+            "entry_id": "str-ov",
+            "key": "overview",
+            "value": "Stream sampled token to the client and choose whether to continue.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-evaluate-continuation"
+              }
+            ]
+          },
+          {
+            "entry_id": "stream-token-in",
+            "key": "input_use",
+            "value": "Consumes sampled token through stream-token-in.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "data-token"
+              }
+            ],
+            "object_ref": {
+              "port": {
+                "owner": "graph",
+                "direction": "input",
+                "port_id": "stream-token-in"
+              }
+            }
+          },
+          {
+            "entry_id": "action-stream-token-no-output",
+            "key": "no_output",
+            "value": "This action has no typed data output port; state/effects are explicit.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-evaluate-continuation"
+              }
+            ]
+          },
+          {
+            "entry_id": "str-ef",
+            "key": "effect",
+            "value": "token delivered over API stream",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-write-token"
+              }
+            ]
+          },
+          {
+            "entry_id": "str-exit",
+            "key": "exit",
+            "value": "streamed",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-evaluate-continuation"
+              }
+            ]
+          },
+          {
+            "entry_id": "str-im",
+            "key": "implementation_choice",
+            "value": "fixed_by_target_tp4_design",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-evaluate-continuation"
+              }
+            ]
+          },
+          {
+            "entry_id": "str-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-evaluate-continuation"
+              }
+            ]
+          },
+          {
+            "entry_id": "stream-token-no-guide",
+            "key": "no_implementation_guide",
+            "value": "This child graph is a target-system contract; implementation planning lives outside the blueprint.",
+            "status": "supported"
+          }
+        ],
+        "input_ports": [
+          {
+            "port_id": "stream-token-in",
+            "node_id": "data-token",
+            "type_ref": "blueprint.work.ds4_arch.Token",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": []
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "type_import",
+      "graph_id": "stream-token",
+      "params": {
+        "import_path": "serve.types.proto"
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "message_type",
+      "graph_id": "stream-token",
+      "params": {
+        "name": "stream_event",
+        "contract": {
+          "type_id": "blueprint.work.ds4_arch.stream_event",
+          "represents": "Coordinator-visible record that one sampled token was delivered and evaluated for continuation.",
+          "semantics": [
+            {
+              "entry_id": "t-stream-event",
+              "key": "meaning",
+              "value": "Coordinator-visible record that one sampled token was delivered and evaluated for continuation.",
+              "status": "supported"
+            }
+          ],
+          "operations": []
+        },
+        "fields": [
+          {
+            "name": "token_id",
+            "number": 1,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "delivered token id",
+              "semantics": []
+            }
+          },
+          {
+            "name": "position",
+            "number": 2,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "delivered token position",
+              "semantics": []
+            }
+          },
+          {
+            "name": "stop",
+            "number": 3,
+            "type_ref": "bool",
+            "contract": {
+              "meaning": "true when generation stops after this token",
+              "semantics": []
+            }
+          }
+        ],
+        "oneofs": [],
+        "reserved_numbers": [],
+        "reserved_names": []
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "data",
+      "graph_id": "stream-token",
+      "params": {
+        "id": "data-token",
+        "kind": "DATA",
+        "label": "sampled token input",
+        "data_type": "blueprint.work.ds4_arch.Token",
+        "sources": [
+          {
+            "source_id": "src-data-token",
+            "kind": "graph_input",
+            "source_ref": "stream-token-in",
+            "graph_input_port_id": "stream-token-in",
+            "meaning": "sampled token enters through parent stream action input"
+          }
+        ],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "data-token-role",
+            "key": "data_role",
+            "value": "sampled token from decode",
+            "status": "supported"
+          },
+          {
+            "entry_id": "data-token-dist",
+            "key": "distribution_scope",
+            "value": "leader_only",
+            "status": "supported"
+          },
+          {
+            "entry_id": "data-token-identity",
+            "key": "identity",
+            "value": "data-token is the named occurrence in stream-token.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "data-token-ordering",
+            "key": "ordering",
+            "value": "token position order",
+            "status": "supported"
+          },
+          {
+            "entry_id": "data-token-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "data-token-provenance",
+            "key": "provenance",
+            "value": "declared by source or producer edge.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "data",
+      "graph_id": "stream-token",
+      "params": {
+        "id": "d-stream-event",
+        "kind": "DATA",
+        "label": "streamed token event",
+        "data_type": "blueprint.work.ds4_arch.stream_event",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "d-stream-event-role",
+            "key": "data_role",
+            "value": "internal stream event after delivery",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-stream-event-dist",
+            "key": "distribution_scope",
+            "value": "leader_only",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-stream-event-identity",
+            "key": "identity",
+            "value": "d-stream-event is the named occurrence in stream-token.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-stream-event-ordering",
+            "key": "ordering",
+            "value": "token position order",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-stream-event-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-stream-event-provenance",
+            "key": "provenance",
+            "value": "declared by source or producer edge.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "state",
+      "graph_id": "stream-token",
+      "params": {
+        "id": "s-response-stream",
+        "kind": "STATE",
+        "label": "client response stream",
+        "data_type": "blueprint.work.ds4_arch.stream_event",
+        "sources": [
+          {
+            "source_id": "src-s-response-stream",
+            "kind": "runtime",
+            "source_ref": "client response stream",
+            "meaning": "coordinator response stream lifecycle state"
+          }
+        ],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "s-response-stream-role",
+            "key": "data_role",
+            "value": "coordinator response stream lifecycle state",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-response-stream-dist",
+            "key": "distribution_scope",
+            "value": "leader_only",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-response-stream-identity",
+            "key": "identity",
+            "value": "s-response-stream is internal state for stream-token.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-response-stream-ordering",
+            "key": "ordering",
+            "value": "ordered by request/token processing epoch",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-response-stream-presence",
+            "key": "presence",
+            "value": "required when the graph action runs",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-response-stream-provenance",
+            "key": "provenance",
+            "value": "declared by source list",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "action",
+      "graph_id": "stream-token",
+      "params": {
+        "id": "a-write-token",
+        "kind": "ACTION",
+        "label": "01 write token to response stream",
+        "input_ports": [
+          {
+            "port_id": "write-token-in",
+            "node_id": "data-token",
+            "type_ref": "blueprint.work.ds4_arch.Token",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "write-stream-event-out",
+            "node_id": "d-stream-event",
+            "type_ref": "blueprint.work.ds4_arch.stream_event",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "a-write-token-ov",
+            "key": "overview",
+            "value": "Write the sampled token bytes to the client-visible HTTP/SSE stream exactly once.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "write-token-in",
+            "key": "input_use",
+            "value": "Consumes data-token through write-token-in.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-write-token"
+                  },
+                  "direction": "input",
+                  "port_id": "write-token-in"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "data-token"
+            }
+          },
+          {
+            "entry_id": "write-stream-event-out",
+            "key": "output",
+            "value": "Produces d-stream-event through write-stream-event-out.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-write-token"
+                  },
+                  "direction": "output",
+                  "port_id": "write-stream-event-out"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-stream-event"
+            }
+          },
+          {
+            "entry_id": "a-write-token-effect",
+            "key": "effect",
+            "value": "Write the sampled token bytes to the client-visible HTTP/SSE stream exactly once.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-write-token"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-write-token-exit",
+            "key": "exit",
+            "value": "a-write-token-done",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-write-token"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-write-token-code",
+            "key": "code_unit",
+            "value": "ds4_glm52_stream_write_token",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-write-token-impl",
+            "key": "implementation_choice",
+            "value": "fixed_by_child_contract_from_parent_action",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-write-token-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          }
+        ],
+        "state_set": [],
+        "preconditions": [
+          {
+            "condition_id": "a-write-token-pre",
+            "kind": "state",
+            "text": "required input data and state are available"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "a-write-token-post",
+            "kind": "state",
+            "text": "declared output, state, or effect has been established"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "action",
+      "graph_id": "stream-token",
+      "params": {
+        "id": "a-evaluate-continuation",
+        "kind": "ACTION",
+        "label": "02 evaluate stop and checkpoint guards",
+        "input_ports": [
+          {
+            "port_id": "policy-stream-event-in",
+            "node_id": "d-stream-event",
+            "type_ref": "blueprint.work.ds4_arch.stream_event",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [],
+        "semantics": [
+          {
+            "entry_id": "a-evaluate-continuation-ov",
+            "key": "overview",
+            "value": "Evaluate stop-token, max-token, cancellation, and checkpoint policy guards that select the parent loop, stop, or checkpoint branch.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "policy-stream-event-in",
+            "key": "input_use",
+            "value": "Consumes d-stream-event through policy-stream-event-in.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-evaluate-continuation"
+                  },
+                  "direction": "input",
+                  "port_id": "policy-stream-event-in"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-stream-event"
+            }
+          },
+          {
+            "entry_id": "a-evaluate-continuation-no-output",
+            "key": "no_output",
+            "value": "This action has no typed data output port; state/effects are explicit.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-evaluate-continuation-effect",
+            "key": "effect",
+            "value": "Evaluate stop-token, max-token, cancellation, and checkpoint policy guards that select the parent loop, stop, or checkpoint branch.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-evaluate-continuation"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-evaluate-continuation-exit",
+            "key": "exit",
+            "value": "a-evaluate-continuation-done",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-evaluate-continuation"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-evaluate-continuation-code",
+            "key": "code_unit",
+            "value": "ds4_glm52_stream_evaluate_policy",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-evaluate-continuation-impl",
+            "key": "implementation_choice",
+            "value": "fixed_by_child_contract_from_parent_action",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-evaluate-continuation-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          }
+        ],
+        "state_set": [
+          {
+            "state_node_id": "s-response-stream",
+            "access": "update",
+            "meaning": "record delivered token and selected continuation branch"
+          }
+        ],
+        "preconditions": [
+          {
+            "condition_id": "a-evaluate-continuation-pre",
+            "kind": "state",
+            "text": "required input data and state are available"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "a-evaluate-continuation-post",
+            "kind": "state",
+            "text": "declared output, state, or effect has been established"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "stream-token",
+      "params": {
+        "id": "e-token-write",
+        "source_node_id": "data-token",
+        "target_node_id": "a-write-token",
+        "family": "dataflow",
+        "kind": "token-input",
+        "label": "sampled token feeds stream write",
+        "semantics": [
+          {
+            "entry_id": "e-token-write-rel",
+            "key": "relationship",
+            "value": "sampled token feeds stream write",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "stream-token",
+      "params": {
+        "id": "e-write-event",
+        "source_node_id": "a-write-token",
+        "target_node_id": "d-stream-event",
+        "family": "dataflow",
+        "kind": "stream-event",
+        "label": "stream write produces event",
+        "semantics": [
+          {
+            "entry_id": "e-write-event-rel",
+            "key": "relationship",
+            "value": "stream write produces event",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "stream-token",
+      "params": {
+        "id": "e-event-policy",
+        "source_node_id": "d-stream-event",
+        "target_node_id": "a-evaluate-continuation",
+        "family": "dataflow",
+        "kind": "policy-input",
+        "label": "stream event feeds continuation policy",
+        "semantics": [
+          {
+            "entry_id": "e-event-policy-rel",
+            "key": "relationship",
+            "value": "stream event feeds continuation policy",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "stream-token",
+      "params": {
+        "id": "e-write-before-policy",
+        "source_node_id": "a-write-token",
+        "target_node_id": "a-evaluate-continuation",
+        "family": "causal",
+        "kind": "write-before-policy",
+        "label": "token is written before policy branch is selected",
+        "semantics": [
+          {
+            "entry_id": "e-write-before-policy-rel",
+            "key": "relationship",
+            "value": "token is written before policy branch is selected",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "stream-token",
+      "params": {
+        "id": "e-policy-stream",
+        "source_node_id": "a-evaluate-continuation",
+        "target_node_id": "s-response-stream",
+        "family": "state",
+        "kind": "state-access",
+        "label": "record stream delivery and branch decision",
+        "semantics": [
+          {
+            "entry_id": "e-policy-stream-rel",
+            "key": "relationship",
+            "value": "record stream delivery and branch decision",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-policy-stream-state",
+            "key": "state_update",
+            "value": "record stream delivery and branch decision",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "s-response-stream"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "operation",
+      "graph_id": "stream-token",
+      "params": {
+        "operation_id": "op-stream-token",
+        "name": "stream-token",
+        "overview": "Stream one sampled token and select the next parent branch.",
+        "members": [
+          {
+            "ref": {
+              "node_id": "a-write-token"
+            },
+            "role": "action step"
+          },
+          {
+            "ref": {
+              "node_id": "a-evaluate-continuation"
+            },
+            "role": "action step"
+          }
+        ],
+        "data_flow_ids": [],
+        "semantics": [
+          {
+            "entry_id": "op-stream-token-overview",
+            "key": "overview",
+            "value": "Stream one sampled token and select the next parent branch.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "op-stream-token-target",
+            "key": "target_state",
+            "value": "Stream one sampled token and select the next parent branch.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "expansion",
+      "graph_id": "serve",
+      "entity_id": "action-stream-token",
+      "params": {
+        "child_graph_id": "stream-token"
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "graph",
+      "graph_id": "kv-checkpoint",
+      "params": {
+        "display_name": "Checkpoint TP-aware KV shards",
+        "graph_version": "1.0",
+        "package": "blueprint.work.ds4_arch",
+        "overall_semantic": {
+          "overview": "Persist rank-local TP KV shards and replicated cursor metadata.",
+          "support_refs": [
+            {
+              "node_id": "a-publish-checkpoint"
+            }
+          ]
+        },
+        "architecture_rationale": {
+          "entry_id": "kv-checkpoint-arch",
+          "value": "This child graph resolves the parent kv-checkpoint action into ordered code-unit seams while preserving the parent boundary.",
+          "support_refs": [
+            {
+              "node_id": "a-publish-checkpoint"
+            }
+          ]
+        },
+        "semantics": [
+          {
+            "entry_id": "ck-ov",
+            "key": "overview",
+            "value": "Persist rank-local TP KV shards and replicated cursor metadata.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-publish-checkpoint"
+              }
+            ]
+          },
+          {
+            "entry_id": "action-kv-checkpoint-no-input",
+            "key": "no_input",
+            "value": "This action has no typed data input port; state dependencies are declared in state_set.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-evaluate-checkpoint-policy"
+              }
+            ]
+          },
+          {
+            "entry_id": "action-kv-checkpoint-no-output",
+            "key": "no_output",
+            "value": "This action has no typed data output port; state/effects are explicit.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-publish-checkpoint"
+              }
+            ]
+          },
+          {
+            "entry_id": "ck-ef",
+            "key": "effect",
+            "value": "TP KV shards checkpointed durably",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-publish-checkpoint"
+              }
+            ]
+          },
+          {
+            "entry_id": "ck-exit",
+            "key": "exit",
+            "value": "checkpointed",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-publish-checkpoint"
+              }
+            ]
+          },
+          {
+            "entry_id": "ck-im",
+            "key": "implementation_choice",
+            "value": "fixed_by_target_tp4_design",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-publish-checkpoint"
+              }
+            ]
+          },
+          {
+            "entry_id": "ck-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-publish-checkpoint"
+              }
+            ]
+          },
+          {
+            "entry_id": "ck-state",
+            "key": "state_update",
+            "value": "Updates durable checkpoint state for each TP KV shard.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "s-kv"
+              }
+            ],
+            "object_ref": {
+              "node_id": "s-kv"
+            }
+          },
+          {
+            "entry_id": "kv-checkpoint-no-guide",
+            "key": "no_implementation_guide",
+            "value": "This child graph is a target-system contract; implementation planning lives outside the blueprint.",
+            "status": "supported"
+          }
+        ],
+        "input_ports": [],
+        "output_ports": []
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "type_import",
+      "graph_id": "kv-checkpoint",
+      "params": {
+        "import_path": "serve.types.proto"
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "message_type",
+      "graph_id": "kv-checkpoint",
+      "params": {
+        "name": "kv_checkpoint_record",
+        "contract": {
+          "type_id": "blueprint.work.ds4_arch.kv_checkpoint_record",
+          "represents": "Durable record for rank-local KV shard checkpoint plus replicated cursor metadata.",
+          "semantics": [
+            {
+              "entry_id": "t-kv-checkpoint-record",
+              "key": "meaning",
+              "value": "Durable record for rank-local KV shard checkpoint plus replicated cursor metadata.",
+              "status": "supported"
+            }
+          ],
+          "operations": []
+        },
+        "fields": [
+          {
+            "name": "session_id",
+            "number": 1,
+            "type_ref": "string",
+            "contract": {
+              "meaning": "checkpointed session id",
+              "semantics": []
+            }
+          },
+          {
+            "name": "rank",
+            "number": 2,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "rank-local shard owner",
+              "semantics": []
+            }
+          },
+          {
+            "name": "kv_length",
+            "number": 3,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "checkpointed KV length",
+              "semantics": []
+            }
+          },
+          {
+            "name": "checkpoint_id",
+            "number": 4,
+            "type_ref": "string",
+            "contract": {
+              "meaning": "durable checkpoint identity",
+              "semantics": []
+            }
+          }
+        ],
+        "oneofs": [],
+        "reserved_numbers": [],
+        "reserved_names": []
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "data",
+      "graph_id": "kv-checkpoint",
+      "params": {
+        "id": "d-checkpoint-plan",
+        "kind": "DATA",
+        "label": "checkpoint work plan",
+        "data_type": "blueprint.work.ds4_arch.kv_checkpoint_record",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "d-checkpoint-plan-role",
+            "key": "data_role",
+            "value": "internal checkpoint work plan",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-checkpoint-plan-dist",
+            "key": "distribution_scope",
+            "value": "leader_only",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-checkpoint-plan-identity",
+            "key": "identity",
+            "value": "d-checkpoint-plan is the named occurrence in kv-checkpoint.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-checkpoint-plan-ordering",
+            "key": "ordering",
+            "value": "checkpoint epoch order",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-checkpoint-plan-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-checkpoint-plan-provenance",
+            "key": "provenance",
+            "value": "declared by source or producer edge.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "data",
+      "graph_id": "kv-checkpoint",
+      "params": {
+        "id": "d-checkpoint-record",
+        "kind": "DATA",
+        "label": "published checkpoint record",
+        "data_type": "blueprint.work.ds4_arch.kv_checkpoint_record",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "d-checkpoint-record-role",
+            "key": "data_role",
+            "value": "published durable checkpoint metadata",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-checkpoint-record-dist",
+            "key": "distribution_scope",
+            "value": "leader_only",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-checkpoint-record-identity",
+            "key": "identity",
+            "value": "d-checkpoint-record is the named occurrence in kv-checkpoint.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-checkpoint-record-ordering",
+            "key": "ordering",
+            "value": "checkpoint epoch order",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-checkpoint-record-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-checkpoint-record-provenance",
+            "key": "provenance",
+            "value": "declared by source or producer edge.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "state",
+      "graph_id": "kv-checkpoint",
+      "params": {
+        "id": "s-kv",
+        "kind": "STATE",
+        "label": "same TP KV state",
+        "data_type": "blueprint.work.ds4_arch.kv",
+        "sources": [],
+        "same_state_as": [
+          {
+            "graph_id": "serve",
+            "state_node_id": "state-kv",
+            "relation": "same logical state as serve root",
+            "meaning": "kv-checkpoint reads or updates the parent state-kv state"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "s-kv-role",
+            "key": "data_role",
+            "value": "rank-local TP KV shards being checkpointed",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-kv-dist",
+            "key": "distribution_scope",
+            "value": "rank_local_shard",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-kv-identity",
+            "key": "identity",
+            "value": "s-kv is the same logical state as the parent serve occurrence.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-kv-ordering",
+            "key": "ordering",
+            "value": "append-ordered by prompt/decode token position",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-kv-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-kv-provenance",
+            "key": "provenance",
+            "value": "declared by same_state_as link.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "action",
+      "graph_id": "kv-checkpoint",
+      "params": {
+        "id": "a-evaluate-checkpoint-policy",
+        "kind": "ACTION",
+        "label": "01 evaluate KV checkpoint policy",
+        "input_ports": [],
+        "output_ports": [
+          {
+            "port_id": "plan-checkpoint-out",
+            "node_id": "d-checkpoint-plan",
+            "type_ref": "blueprint.work.ds4_arch.kv_checkpoint_record",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "a-evaluate-checkpoint-policy-ov",
+            "key": "overview",
+            "value": "Read TP-aware KV state and decide whether this checkpoint epoch should persist live rank-local shard prefixes.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-evaluate-checkpoint-policy-no-input",
+            "key": "no_input",
+            "value": "This action has no typed data input port; state dependencies are declared in state_set.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "plan-checkpoint-out",
+            "key": "output",
+            "value": "Produces d-checkpoint-plan through plan-checkpoint-out.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-evaluate-checkpoint-policy"
+                  },
+                  "direction": "output",
+                  "port_id": "plan-checkpoint-out"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-checkpoint-plan"
+            }
+          },
+          {
+            "entry_id": "a-evaluate-checkpoint-policy-effect",
+            "key": "effect",
+            "value": "Read TP-aware KV state and decide whether this checkpoint epoch should persist live rank-local shard prefixes.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-evaluate-checkpoint-policy"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-evaluate-checkpoint-policy-exit",
+            "key": "exit",
+            "value": "a-evaluate-checkpoint-policy-done",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-evaluate-checkpoint-policy"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-evaluate-checkpoint-policy-code",
+            "key": "code_unit",
+            "value": "ds4_glm52_checkpoint_plan",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-evaluate-checkpoint-policy-impl",
+            "key": "implementation_choice",
+            "value": "fixed_by_child_contract_from_parent_action",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-evaluate-checkpoint-policy-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          }
+        ],
+        "state_set": [
+          {
+            "state_node_id": "s-kv",
+            "access": "read",
+            "meaning": "read live KV length and session identity"
+          }
+        ],
+        "preconditions": [
+          {
+            "condition_id": "a-evaluate-checkpoint-policy-pre",
+            "kind": "state",
+            "text": "required input data and state are available"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "a-evaluate-checkpoint-policy-post",
+            "kind": "state",
+            "text": "declared output, state, or effect has been established"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "action",
+      "graph_id": "kv-checkpoint",
+      "params": {
+        "id": "a-write-rank-kv-shards",
+        "kind": "ACTION",
+        "label": "02 write rank-local KV shard prefixes",
+        "input_ports": [
+          {
+            "port_id": "write-checkpoint-plan-in",
+            "node_id": "d-checkpoint-plan",
+            "type_ref": "blueprint.work.ds4_arch.kv_checkpoint_record",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "write-checkpoint-record-out",
+            "node_id": "d-checkpoint-record",
+            "type_ref": "blueprint.work.ds4_arch.kv_checkpoint_record",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "a-write-rank-kv-shards-ov",
+            "key": "overview",
+            "value": "Write the current rank's append-ordered KV shard prefix to durable storage without changing the live decode cursor.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "write-checkpoint-plan-in",
+            "key": "input_use",
+            "value": "Consumes d-checkpoint-plan through write-checkpoint-plan-in.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-write-rank-kv-shards"
+                  },
+                  "direction": "input",
+                  "port_id": "write-checkpoint-plan-in"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-checkpoint-plan"
+            }
+          },
+          {
+            "entry_id": "write-checkpoint-record-out",
+            "key": "output",
+            "value": "Produces d-checkpoint-record through write-checkpoint-record-out.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-write-rank-kv-shards"
+                  },
+                  "direction": "output",
+                  "port_id": "write-checkpoint-record-out"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-checkpoint-record"
+            }
+          },
+          {
+            "entry_id": "a-write-rank-kv-shards-effect",
+            "key": "effect",
+            "value": "Write the current rank's append-ordered KV shard prefix to durable storage without changing the live decode cursor.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-write-rank-kv-shards"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-write-rank-kv-shards-exit",
+            "key": "exit",
+            "value": "a-write-rank-kv-shards-done",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-write-rank-kv-shards"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-write-rank-kv-shards-code",
+            "key": "code_unit",
+            "value": "ds4_glm52_checkpoint_write_rank_shard",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-write-rank-kv-shards-impl",
+            "key": "implementation_choice",
+            "value": "fixed_by_child_contract_from_parent_action",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-write-rank-kv-shards-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          }
+        ],
+        "state_set": [
+          {
+            "state_node_id": "s-kv",
+            "access": "update",
+            "meaning": "record durable checkpoint marker for live KV shard"
+          }
+        ],
+        "preconditions": [
+          {
+            "condition_id": "a-write-rank-kv-shards-pre",
+            "kind": "state",
+            "text": "required input data and state are available"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "a-write-rank-kv-shards-post",
+            "kind": "state",
+            "text": "declared output, state, or effect has been established"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "action",
+      "graph_id": "kv-checkpoint",
+      "params": {
+        "id": "a-publish-checkpoint",
+        "kind": "ACTION",
+        "label": "03 publish replicated checkpoint marker",
+        "input_ports": [
+          {
+            "port_id": "publish-checkpoint-record-in",
+            "node_id": "d-checkpoint-record",
+            "type_ref": "blueprint.work.ds4_arch.kv_checkpoint_record",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [],
+        "semantics": [
+          {
+            "entry_id": "a-publish-checkpoint-ov",
+            "key": "overview",
+            "value": "Publish the durable checkpoint marker so recovery can pair rank-local KV shard files with replicated session metadata.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "publish-checkpoint-record-in",
+            "key": "input_use",
+            "value": "Consumes d-checkpoint-record through publish-checkpoint-record-in.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-publish-checkpoint"
+                  },
+                  "direction": "input",
+                  "port_id": "publish-checkpoint-record-in"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-checkpoint-record"
+            }
+          },
+          {
+            "entry_id": "a-publish-checkpoint-no-output",
+            "key": "no_output",
+            "value": "This action has no typed data output port; state/effects are explicit.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-publish-checkpoint-effect",
+            "key": "effect",
+            "value": "Publish the durable checkpoint marker so recovery can pair rank-local KV shard files with replicated session metadata.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-publish-checkpoint"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-publish-checkpoint-exit",
+            "key": "exit",
+            "value": "a-publish-checkpoint-done",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-publish-checkpoint"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-publish-checkpoint-code",
+            "key": "code_unit",
+            "value": "ds4_glm52_checkpoint_publish_marker",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-publish-checkpoint-impl",
+            "key": "implementation_choice",
+            "value": "fixed_by_child_contract_from_parent_action",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-publish-checkpoint-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          }
+        ],
+        "state_set": [
+          {
+            "state_node_id": "s-kv",
+            "access": "update",
+            "meaning": "publish checkpoint marker metadata"
+          }
+        ],
+        "preconditions": [
+          {
+            "condition_id": "a-publish-checkpoint-pre",
+            "kind": "state",
+            "text": "required input data and state are available"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "a-publish-checkpoint-post",
+            "kind": "state",
+            "text": "declared output, state, or effect has been established"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "kv-checkpoint",
+      "params": {
+        "id": "e-policy-plan",
+        "source_node_id": "a-evaluate-checkpoint-policy",
+        "target_node_id": "d-checkpoint-plan",
+        "family": "dataflow",
+        "kind": "checkpoint-plan",
+        "label": "policy produces checkpoint plan",
+        "semantics": [
+          {
+            "entry_id": "e-policy-plan-rel",
+            "key": "relationship",
+            "value": "policy produces checkpoint plan",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "kv-checkpoint",
+      "params": {
+        "id": "e-plan-write",
+        "source_node_id": "d-checkpoint-plan",
+        "target_node_id": "a-write-rank-kv-shards",
+        "family": "dataflow",
+        "kind": "write-input",
+        "label": "checkpoint plan feeds rank shard writer",
+        "semantics": [
+          {
+            "entry_id": "e-plan-write-rel",
+            "key": "relationship",
+            "value": "checkpoint plan feeds rank shard writer",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "kv-checkpoint",
+      "params": {
+        "id": "e-write-record",
+        "source_node_id": "a-write-rank-kv-shards",
+        "target_node_id": "d-checkpoint-record",
+        "family": "dataflow",
+        "kind": "checkpoint-record",
+        "label": "rank shard writer produces checkpoint record",
+        "semantics": [
+          {
+            "entry_id": "e-write-record-rel",
+            "key": "relationship",
+            "value": "rank shard writer produces checkpoint record",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "kv-checkpoint",
+      "params": {
+        "id": "e-record-publish",
+        "source_node_id": "d-checkpoint-record",
+        "target_node_id": "a-publish-checkpoint",
+        "family": "dataflow",
+        "kind": "publish-input",
+        "label": "checkpoint record feeds marker publication",
+        "semantics": [
+          {
+            "entry_id": "e-record-publish-rel",
+            "key": "relationship",
+            "value": "checkpoint record feeds marker publication",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "kv-checkpoint",
+      "params": {
+        "id": "e-policy-before-write",
+        "source_node_id": "a-evaluate-checkpoint-policy",
+        "target_node_id": "a-write-rank-kv-shards",
+        "family": "causal",
+        "kind": "policy-before-write",
+        "label": "policy selected before shard write",
+        "semantics": [
+          {
+            "entry_id": "e-policy-before-write-rel",
+            "key": "relationship",
+            "value": "policy selected before shard write",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "kv-checkpoint",
+      "params": {
+        "id": "e-write-before-publish",
+        "source_node_id": "a-write-rank-kv-shards",
+        "target_node_id": "a-publish-checkpoint",
+        "family": "causal",
+        "kind": "write-before-publish",
+        "label": "durable shard write precedes marker publication",
+        "semantics": [
+          {
+            "entry_id": "e-write-before-publish-rel",
+            "key": "relationship",
+            "value": "durable shard write precedes marker publication",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "kv-checkpoint",
+      "params": {
+        "id": "e-policy-kv",
+        "source_node_id": "a-evaluate-checkpoint-policy",
+        "target_node_id": "s-kv",
+        "family": "state",
+        "kind": "state-access",
+        "label": "read live TP KV state",
+        "semantics": [
+          {
+            "entry_id": "e-policy-kv-rel",
+            "key": "relationship",
+            "value": "read live TP KV state",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-policy-kv-state",
+            "key": "state_read",
+            "value": "read live TP KV state",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "s-kv"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "kv-checkpoint",
+      "params": {
+        "id": "e-write-kv",
+        "source_node_id": "a-write-rank-kv-shards",
+        "target_node_id": "s-kv",
+        "family": "state",
+        "kind": "state-access",
+        "label": "record rank-local KV checkpoint write",
+        "semantics": [
+          {
+            "entry_id": "e-write-kv-rel",
+            "key": "relationship",
+            "value": "record rank-local KV checkpoint write",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-write-kv-state",
+            "key": "state_update",
+            "value": "record rank-local KV checkpoint write",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "s-kv"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "kv-checkpoint",
+      "params": {
+        "id": "e-publish-kv",
+        "source_node_id": "a-publish-checkpoint",
+        "target_node_id": "s-kv",
+        "family": "state",
+        "kind": "state-access",
+        "label": "publish checkpoint marker metadata",
+        "semantics": [
+          {
+            "entry_id": "e-publish-kv-rel",
+            "key": "relationship",
+            "value": "publish checkpoint marker metadata",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-publish-kv-state",
+            "key": "state_update",
+            "value": "publish checkpoint marker metadata",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "s-kv"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "operation",
+      "graph_id": "kv-checkpoint",
+      "params": {
+        "operation_id": "op-kv-checkpoint",
+        "name": "checkpoint-kv",
+        "overview": "Checkpoint rank-local TP KV shards and metadata.",
+        "members": [
+          {
+            "ref": {
+              "node_id": "a-evaluate-checkpoint-policy"
+            },
+            "role": "action step"
+          },
+          {
+            "ref": {
+              "node_id": "a-write-rank-kv-shards"
+            },
+            "role": "action step"
+          },
+          {
+            "ref": {
+              "node_id": "a-publish-checkpoint"
+            },
+            "role": "action step"
+          }
+        ],
+        "data_flow_ids": [],
+        "semantics": [
+          {
+            "entry_id": "op-kv-checkpoint-overview",
+            "key": "overview",
+            "value": "Checkpoint rank-local TP KV shards and metadata.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "op-kv-checkpoint-target",
+            "key": "target_state",
+            "value": "Checkpoint rank-local TP KV shards and metadata.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "expansion",
+      "graph_id": "serve",
+      "entity_id": "action-kv-checkpoint",
+      "params": {
+        "child_graph_id": "kv-checkpoint"
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "graph",
+      "graph_id": "tp-group",
+      "params": {
+        "display_name": "Form TP4/DCP4 collective group",
+        "graph_version": "1.0",
+        "package": "blueprint.work.ds4_arch",
+        "overall_semantic": {
+          "overview": "Register four ranks into one TP collective group with broadcast, all-reduce, and logits-gather/top-k paths.",
+          "support_refs": [
+            {
+              "node_id": "a-publish-tp-ready"
+            }
+          ]
+        },
+        "architecture_rationale": {
+          "entry_id": "tp-group-arch",
+          "value": "This child graph resolves the parent tp-group action into ordered code-unit seams while preserving the parent boundary.",
+          "support_refs": [
+            {
+              "node_id": "a-publish-tp-ready"
+            }
+          ]
+        },
+        "semantics": [
+          {
+            "entry_id": "tp-ov",
+            "key": "overview",
+            "value": "Register four ranks into one TP collective group with broadcast, all-reduce, and logits-gather/top-k paths.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-publish-tp-ready"
+              }
+            ]
+          },
+          {
+            "entry_id": "action-tp-group-no-input",
+            "key": "no_input",
+            "value": "This action has no typed data input port; state dependencies are declared in state_set.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-validate-rank-hello"
+              }
+            ]
+          },
+          {
+            "entry_id": "action-tp-group-no-output",
+            "key": "no_output",
+            "value": "This action has no typed data output port; state/effects are explicit.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-publish-tp-ready"
+              }
+            ]
+          },
+          {
+            "entry_id": "tp-ef",
+            "key": "effect",
+            "value": "TP=4 ranks connected and collective fabric ready",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-publish-tp-ready"
+              }
+            ]
+          },
+          {
+            "entry_id": "tp-exit",
+            "key": "exit",
+            "value": "tp-group-ready",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-publish-tp-ready"
+              }
+            ]
+          },
+          {
+            "entry_id": "tp-im",
+            "key": "implementation_choice",
+            "value": "requires_new_glm52_tp4_support",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-establish-collective-fabric"
+              }
+            ]
+          },
+          {
+            "entry_id": "tp-bird-ref",
+            "key": "implementation_reference",
+            "value": "Use Bird/vLLM NCCL/RoCE topology as the concrete four-node TP collective reference: TP4, PP1, DCP4, NCCL 2.30.4, four channels, both RoCE HCAs.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-establish-collective-fabric"
+              }
+            ]
+          },
+          {
+            "entry_id": "tp-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-publish-tp-ready"
+              }
+            ]
+          },
+          {
+            "entry_id": "tp-input",
+            "key": "state_dependency",
+            "value": "Reads resident rank TP shard state.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "s-model-worker"
+              }
+            ],
+            "object_ref": {
+              "node_id": "s-model-worker"
+            }
+          },
+          {
+            "entry_id": "tp-output",
+            "key": "state_update",
+            "value": "Produces collective group state used by prefill and decode.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "s-tp"
+              }
+            ],
+            "object_ref": {
+              "node_id": "s-tp"
+            }
+          },
+          {
+            "entry_id": "tp-group-no-guide",
+            "key": "no_implementation_guide",
+            "value": "This child graph is a target-system contract; implementation planning lives outside the blueprint.",
+            "status": "supported"
+          }
+        ],
+        "input_ports": [],
+        "output_ports": []
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "type_import",
+      "graph_id": "tp-group",
+      "params": {
+        "import_path": "serve.types.proto"
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "state",
+      "graph_id": "tp-group",
+      "params": {
+        "id": "s-model-worker",
+        "kind": "STATE",
+        "label": "same resident model worker state",
+        "data_type": "blueprint.work.ds4_arch.model",
+        "sources": [],
+        "same_state_as": [
+          {
+            "graph_id": "serve",
+            "state_node_id": "state-model-worker",
+            "relation": "same logical state as serve root",
+            "meaning": "tp-group reads or updates the parent state-model-worker state"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "s-model-worker-role",
+            "key": "data_role",
+            "value": "rank-local resident model shard state used for rank compatibility",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-model-worker-dist",
+            "key": "distribution_scope",
+            "value": "rank_local_shard",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-model-worker-identity",
+            "key": "identity",
+            "value": "s-model-worker is the same logical state as the parent serve occurrence.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-model-worker-ordering",
+            "key": "no_ordering",
+            "value": "not a stream-ordered data item",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-model-worker-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-model-worker-provenance",
+            "key": "provenance",
+            "value": "declared by same_state_as link.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "state",
+      "graph_id": "tp-group",
+      "params": {
+        "id": "s-rank-plan",
+        "kind": "STATE",
+        "label": "same rank ownership plan",
+        "data_type": "blueprint.work.ds4_arch.rank_plan",
+        "sources": [],
+        "same_state_as": [
+          {
+            "graph_id": "serve",
+            "state_node_id": "state-rank-plan",
+            "relation": "same logical state as serve root",
+            "meaning": "tp-group reads or updates the parent state-rank-plan state"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "s-rank-plan-role",
+            "key": "data_role",
+            "value": "TP4 rank ownership spans produced by group formation",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-rank-plan-dist",
+            "key": "distribution_scope",
+            "value": "rank_local_shard",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-rank-plan-identity",
+            "key": "identity",
+            "value": "s-rank-plan is the same logical state as the parent serve occurrence.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-rank-plan-ordering",
+            "key": "no_ordering",
+            "value": "not a stream-ordered data item",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-rank-plan-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-rank-plan-provenance",
+            "key": "provenance",
+            "value": "declared by same_state_as link.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "state",
+      "graph_id": "tp-group",
+      "params": {
+        "id": "s-tp",
+        "kind": "STATE",
+        "label": "same TP collective fabric",
+        "data_type": "blueprint.work.ds4_arch.distlink",
+        "sources": [],
+        "same_state_as": [
+          {
+            "graph_id": "serve",
+            "state_node_id": "state-tp",
+            "relation": "same logical state as serve root",
+            "meaning": "tp-group reads or updates the parent state-tp state"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "s-tp-role",
+            "key": "data_role",
+            "value": "replicated TP4/DCP4 collective fabric readiness",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-tp-dist",
+            "key": "distribution_scope",
+            "value": "replicated",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-tp-identity",
+            "key": "identity",
+            "value": "s-tp is the same logical state as the parent serve occurrence.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-tp-ordering",
+            "key": "no_ordering",
+            "value": "not a stream-ordered data item",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-tp-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "s-tp-provenance",
+            "key": "provenance",
+            "value": "declared by same_state_as link.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "action",
+      "graph_id": "tp-group",
+      "params": {
+        "id": "a-validate-rank-hello",
+        "kind": "ACTION",
+        "label": "01 validate rank hello set",
+        "input_ports": [],
+        "output_ports": [],
+        "semantics": [
+          {
+            "entry_id": "a-validate-rank-hello-ov",
+            "key": "overview",
+            "value": "Validate ranks 0..3 exactly once with matching TP4/DCP4/PP1, model hash, config hash, plan hash, and fabric endpoint identity.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-validate-rank-hello-no-input",
+            "key": "no_input",
+            "value": "This action has no typed data input port; state dependencies are declared in state_set.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-validate-rank-hello-no-output",
+            "key": "no_output",
+            "value": "This action has no typed data output port; state/effects are explicit.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-validate-rank-hello-effect",
+            "key": "effect",
+            "value": "Validate ranks 0..3 exactly once with matching TP4/DCP4/PP1, model hash, config hash, plan hash, and fabric endpoint identity.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-validate-rank-hello"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-validate-rank-hello-exit",
+            "key": "exit",
+            "value": "a-validate-rank-hello-done",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-validate-rank-hello"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-validate-rank-hello-code",
+            "key": "code_unit",
+            "value": "ds4_glm52_tp4_rank_group_register",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-validate-rank-hello-impl",
+            "key": "implementation_choice",
+            "value": "fixed_by_child_contract_from_parent_action",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-validate-rank-hello-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          }
+        ],
+        "state_set": [
+          {
+            "state_node_id": "s-model-worker",
+            "access": "read",
+            "meaning": "read resident shard identity from each rank"
+          }
+        ],
+        "preconditions": [
+          {
+            "condition_id": "a-validate-rank-hello-pre",
+            "kind": "state",
+            "text": "required input data and state are available"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "a-validate-rank-hello-post",
+            "kind": "state",
+            "text": "declared output, state, or effect has been established"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "action",
+      "graph_id": "tp-group",
+      "params": {
+        "id": "a-bind-rank-plan",
+        "kind": "ACTION",
+        "label": "02 bind TP4 rank ownership plan",
+        "input_ports": [],
+        "output_ports": [],
+        "semantics": [
+          {
+            "entry_id": "a-bind-rank-plan-ov",
+            "key": "overview",
+            "value": "Bind local Q-head, DCP row, expert, and vocab ownership spans for each rank after compatible registrations are known.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-bind-rank-plan-no-input",
+            "key": "no_input",
+            "value": "This action has no typed data input port; state dependencies are declared in state_set.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-bind-rank-plan-no-output",
+            "key": "no_output",
+            "value": "This action has no typed data output port; state/effects are explicit.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-bind-rank-plan-effect",
+            "key": "effect",
+            "value": "Bind local Q-head, DCP row, expert, and vocab ownership spans for each rank after compatible registrations are known.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-bind-rank-plan"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-bind-rank-plan-exit",
+            "key": "exit",
+            "value": "a-bind-rank-plan-done",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-bind-rank-plan"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-bind-rank-plan-code",
+            "key": "code_unit",
+            "value": "ds4_glm52_tp4_bind_rank_plan",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-bind-rank-plan-impl",
+            "key": "implementation_choice",
+            "value": "fixed_by_child_contract_from_parent_action",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-bind-rank-plan-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          }
+        ],
+        "state_set": [
+          {
+            "state_node_id": "s-model-worker",
+            "access": "read",
+            "meaning": "read rank-local model shard placement"
+          },
+          {
+            "state_node_id": "s-rank-plan",
+            "access": "update",
+            "meaning": "store TP4 ownership spans"
+          }
+        ],
+        "preconditions": [
+          {
+            "condition_id": "a-bind-rank-plan-pre",
+            "kind": "state",
+            "text": "required input data and state are available"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "a-bind-rank-plan-post",
+            "kind": "state",
+            "text": "declared output, state, or effect has been established"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "action",
+      "graph_id": "tp-group",
+      "params": {
+        "id": "a-establish-collective-fabric",
+        "kind": "ACTION",
+        "label": "03 establish collective transport",
+        "input_ports": [],
+        "output_ports": [],
+        "semantics": [
+          {
+            "entry_id": "a-establish-collective-fabric-ov",
+            "key": "overview",
+            "value": "Create or attach the four-rank transport group used for broadcast, all-reduce, logits gather/top-k, and DCP row exchange.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-establish-collective-fabric-no-input",
+            "key": "no_input",
+            "value": "This action has no typed data input port; state dependencies are declared in state_set.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-establish-collective-fabric-no-output",
+            "key": "no_output",
+            "value": "This action has no typed data output port; state/effects are explicit.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-establish-collective-fabric-effect",
+            "key": "effect",
+            "value": "Create or attach the four-rank transport group used for broadcast, all-reduce, logits gather/top-k, and DCP row exchange.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-establish-collective-fabric"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-establish-collective-fabric-exit",
+            "key": "exit",
+            "value": "a-establish-collective-fabric-done",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-establish-collective-fabric"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-establish-collective-fabric-code",
+            "key": "code_unit",
+            "value": "ds4_glm52_tp4_establish_collective_fabric",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-establish-collective-fabric-impl",
+            "key": "implementation_choice",
+            "value": "fixed_by_child_contract_from_parent_action",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-establish-collective-fabric-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          }
+        ],
+        "state_set": [
+          {
+            "state_node_id": "s-rank-plan",
+            "access": "read",
+            "meaning": "read rank ids and endpoints"
+          },
+          {
+            "state_node_id": "s-tp",
+            "access": "update",
+            "meaning": "store connected TP4/DCP4 collective fabric"
+          }
+        ],
+        "preconditions": [
+          {
+            "condition_id": "a-establish-collective-fabric-pre",
+            "kind": "state",
+            "text": "required input data and state are available"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "a-establish-collective-fabric-post",
+            "kind": "state",
+            "text": "declared output, state, or effect has been established"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "action",
+      "graph_id": "tp-group",
+      "params": {
+        "id": "a-publish-tp-ready",
+        "kind": "ACTION",
+        "label": "04 publish TP group readiness",
+        "input_ports": [],
+        "output_ports": [],
+        "semantics": [
+          {
+            "entry_id": "a-publish-tp-ready-ov",
+            "key": "overview",
+            "value": "Publish replicated TP fabric readiness only after all ranks have compatible identity, bound ownership spans, and live transport.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-publish-tp-ready-no-input",
+            "key": "no_input",
+            "value": "This action has no typed data input port; state dependencies are declared in state_set.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-publish-tp-ready-no-output",
+            "key": "no_output",
+            "value": "This action has no typed data output port; state/effects are explicit.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-publish-tp-ready-effect",
+            "key": "effect",
+            "value": "Publish replicated TP fabric readiness only after all ranks have compatible identity, bound ownership spans, and live transport.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-publish-tp-ready"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-publish-tp-ready-exit",
+            "key": "exit",
+            "value": "a-publish-tp-ready-done",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-publish-tp-ready"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-publish-tp-ready-code",
+            "key": "code_unit",
+            "value": "ds4_glm52_tp4_rank_group_publish_fabric",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-publish-tp-ready-impl",
+            "key": "implementation_choice",
+            "value": "fixed_by_child_contract_from_parent_action",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-publish-tp-ready-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          }
+        ],
+        "state_set": [
+          {
+            "state_node_id": "s-tp",
+            "access": "update",
+            "meaning": "publish TP group readiness marker"
+          },
+          {
+            "state_node_id": "s-rank-plan",
+            "access": "read",
+            "meaning": "confirm rank ownership spans before readiness"
+          }
+        ],
+        "preconditions": [
+          {
+            "condition_id": "a-publish-tp-ready-pre",
+            "kind": "state",
+            "text": "required input data and state are available"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "a-publish-tp-ready-post",
+            "kind": "state",
+            "text": "declared output, state, or effect has been established"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "tp-group",
+      "params": {
+        "id": "e-hello-bind",
+        "source_node_id": "a-validate-rank-hello",
+        "target_node_id": "a-bind-rank-plan",
+        "family": "causal",
+        "kind": "hello-before-plan",
+        "label": "rank hello compatibility precedes rank plan binding",
+        "semantics": [
+          {
+            "entry_id": "e-hello-bind-rel",
+            "key": "relationship",
+            "value": "rank hello compatibility precedes rank plan binding",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "tp-group",
+      "params": {
+        "id": "e-plan-fabric",
+        "source_node_id": "a-bind-rank-plan",
+        "target_node_id": "a-establish-collective-fabric",
+        "family": "causal",
+        "kind": "plan-before-fabric",
+        "label": "rank plan binding precedes fabric establishment",
+        "semantics": [
+          {
+            "entry_id": "e-plan-fabric-rel",
+            "key": "relationship",
+            "value": "rank plan binding precedes fabric establishment",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "tp-group",
+      "params": {
+        "id": "e-fabric-ready",
+        "source_node_id": "a-establish-collective-fabric",
+        "target_node_id": "a-publish-tp-ready",
+        "family": "causal",
+        "kind": "fabric-before-ready",
+        "label": "fabric establishment precedes readiness publication",
+        "semantics": [
+          {
+            "entry_id": "e-fabric-ready-rel",
+            "key": "relationship",
+            "value": "fabric establishment precedes readiness publication",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "tp-group",
+      "params": {
+        "id": "e-hello-model",
+        "source_node_id": "a-validate-rank-hello",
+        "target_node_id": "s-model-worker",
+        "family": "state",
+        "kind": "state-access",
+        "label": "read rank resident model identity",
+        "semantics": [
+          {
+            "entry_id": "e-hello-model-rel",
+            "key": "relationship",
+            "value": "read rank resident model identity",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-hello-model-state",
+            "key": "state_read",
+            "value": "read rank resident model identity",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "s-model-worker"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "tp-group",
+      "params": {
+        "id": "e-plan-model",
+        "source_node_id": "a-bind-rank-plan",
+        "target_node_id": "s-model-worker",
+        "family": "state",
+        "kind": "state-access",
+        "label": "read model shard placement for rank plan",
+        "semantics": [
+          {
+            "entry_id": "e-plan-model-rel",
+            "key": "relationship",
+            "value": "read model shard placement for rank plan",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-plan-model-state",
+            "key": "state_read",
+            "value": "read model shard placement for rank plan",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "s-model-worker"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "tp-group",
+      "params": {
+        "id": "e-plan-rank",
+        "source_node_id": "a-bind-rank-plan",
+        "target_node_id": "s-rank-plan",
+        "family": "state",
+        "kind": "state-access",
+        "label": "store TP4 rank ownership spans",
+        "semantics": [
+          {
+            "entry_id": "e-plan-rank-rel",
+            "key": "relationship",
+            "value": "store TP4 rank ownership spans",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-plan-rank-state",
+            "key": "state_update",
+            "value": "store TP4 rank ownership spans",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "s-rank-plan"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "tp-group",
+      "params": {
+        "id": "e-fabric-rank",
+        "source_node_id": "a-establish-collective-fabric",
+        "target_node_id": "s-rank-plan",
+        "family": "state",
+        "kind": "state-access",
+        "label": "read rank endpoints and ownership spans",
+        "semantics": [
+          {
+            "entry_id": "e-fabric-rank-rel",
+            "key": "relationship",
+            "value": "read rank endpoints and ownership spans",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-fabric-rank-state",
+            "key": "state_read",
+            "value": "read rank endpoints and ownership spans",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "s-rank-plan"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "tp-group",
+      "params": {
+        "id": "e-fabric-tp",
+        "source_node_id": "a-establish-collective-fabric",
+        "target_node_id": "s-tp",
+        "family": "state",
+        "kind": "state-access",
+        "label": "store collective fabric transport",
+        "semantics": [
+          {
+            "entry_id": "e-fabric-tp-rel",
+            "key": "relationship",
+            "value": "store collective fabric transport",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-fabric-tp-state",
+            "key": "state_update",
+            "value": "store collective fabric transport",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "s-tp"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "tp-group",
+      "params": {
+        "id": "e-ready-tp",
+        "source_node_id": "a-publish-tp-ready",
+        "target_node_id": "s-tp",
+        "family": "state",
+        "kind": "state-access",
+        "label": "publish TP group ready marker",
+        "semantics": [
+          {
+            "entry_id": "e-ready-tp-rel",
+            "key": "relationship",
+            "value": "publish TP group ready marker",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-ready-tp-state",
+            "key": "state_update",
+            "value": "publish TP group ready marker",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "s-tp"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "tp-group",
+      "params": {
+        "id": "e-ready-rank",
+        "source_node_id": "a-publish-tp-ready",
+        "target_node_id": "s-rank-plan",
+        "family": "state",
+        "kind": "state-access",
+        "label": "confirm ownership spans for readiness",
+        "semantics": [
+          {
+            "entry_id": "e-ready-rank-rel",
+            "key": "relationship",
+            "value": "confirm ownership spans for readiness",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-ready-rank-state",
+            "key": "state_read",
+            "value": "confirm ownership spans for readiness",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "s-rank-plan"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "operation",
+      "graph_id": "tp-group",
+      "params": {
+        "operation_id": "op-tp-group",
+        "name": "form-tp4-group",
+        "overview": "Form and publish the TP4/DCP4 collective group.",
+        "members": [
+          {
+            "ref": {
+              "node_id": "a-validate-rank-hello"
+            },
+            "role": "action step"
+          },
+          {
+            "ref": {
+              "node_id": "a-bind-rank-plan"
+            },
+            "role": "action step"
+          },
+          {
+            "ref": {
+              "node_id": "a-establish-collective-fabric"
+            },
+            "role": "action step"
+          },
+          {
+            "ref": {
+              "node_id": "a-publish-tp-ready"
+            },
+            "role": "action step"
+          }
+        ],
+        "data_flow_ids": [],
+        "semantics": [
+          {
+            "entry_id": "op-tp-group-overview",
+            "key": "overview",
+            "value": "Form and publish the TP4/DCP4 collective group.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "op-tp-group-target",
+            "key": "target_state",
+            "value": "Form and publish the TP4/DCP4 collective group.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "expansion",
+      "graph_id": "serve",
+      "entity_id": "action-tp-group",
+      "params": {
+        "child_graph_id": "tp-group"
+      }
+    }
+  ],
+  "contract_validation": {
+    "profile": "l0",
+    "graph_ids": [
+      "serve"
+    ]
+  }
+}
