@@ -1,0 +1,72 @@
+{
+  "action": "mutate",
+  "added_graph_ids": [],
+  "after_artifact_integrity": {
+    "blueprint_sha256": "7a418e404b71025e468fcbc7d6e106083aa3b56f3429375cc39280a6d4b421ac",
+    "semantic_sha256": "eca6b29d058d483c5fa84d6eca95cf25fb71f6125b055ef0bd0945b1769e75cc"
+  },
+  "before_artifact_integrity": {
+    "blueprint_sha256": "7e368072fc54ea561c1b3889dc25e737ba0d05dd879edd05b78d9cc88475555e",
+    "semantic_sha256": "a95d1eef4132492f2230aa884687b16e45282787dfdf5893d7698b2b85b7e9eb"
+  },
+  "changed_graph_ids": [
+    "model-shard-layout"
+  ],
+  "contract_validation": {
+    "error_count": 0,
+    "errors": [],
+    "graph_ids": [
+      "model-shard-layout"
+    ],
+    "profile": "leaf",
+    "schema": "blueprint-contract-validation/v4",
+    "snapshot": {
+      "artifact_integrity": {
+        "blueprint_sha256": "7a418e404b71025e468fcbc7d6e106083aa3b56f3429375cc39280a6d4b421ac",
+        "semantic_sha256": "eca6b29d058d483c5fa84d6eca95cf25fb71f6125b055ef0bd0945b1769e75cc"
+      },
+      "covered_graphs": [
+        {
+          "graph_contract_sha256": "0d3a26146444d194a72ed4f843fabbd3f6275eeefa45873465f5b9e2ac63c215",
+          "graph_id": "model-load",
+          "role": "ancestor",
+          "type_schema_sha256": "35456e2c1ce4c6aa91b310933364f65541901eeb21051e874a5bb306beb57837"
+        },
+        {
+          "graph_contract_sha256": "09c40a1bf34640677e4023bfccb1f7d46228dde7a99f342f50cbf2fee93fc084",
+          "graph_id": "model-shard-layout",
+          "role": "selected",
+          "type_schema_sha256": "e0a05109bed2a28fa288ac7504105a5416d7f5fecc8d663d019382e7ca377abc"
+        },
+        {
+          "graph_contract_sha256": "9212a3685de85a5df4e17c1471458e064e4c335988ae220f36f65731baca3c8a",
+          "graph_id": "serve",
+          "role": "ancestor",
+          "type_schema_sha256": "30f49b45e889237b5bb310b878ab4e6706809d614eedd39946a3bc723ce1c6d4"
+        }
+      ],
+      "selected_graph_ids": [
+        "model-shard-layout"
+      ]
+    },
+    "status": "PASS",
+    "warning_count": 0,
+    "warnings": []
+  },
+  "request_id": "mutate-model-shard-layout-code-units",
+  "schema": "blueprint-write-result/v4",
+  "status": "PASS",
+  "validation": {
+    "blueprint_id": "ds4-arch",
+    "blueprint_sha256": "7a418e404b71025e468fcbc7d6e106083aa3b56f3429375cc39280a6d4b421ac",
+    "error_count": 0,
+    "errors": [],
+    "graph_count": 10,
+    "schema": "blueprint-artifact-validation@1",
+    "semantic_sha256": "eca6b29d058d483c5fa84d6eca95cf25fb71f6125b055ef0bd0945b1769e75cc",
+    "stage": "complete",
+    "status": "PASS",
+    "warning_count": 0,
+    "warnings": []
+  }
+}

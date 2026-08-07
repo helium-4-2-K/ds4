@@ -1,0 +1,3801 @@
+schema_version: "blueprint-graph/v1"
+graph_id: "decode"
+display_name: "Decode token j with GLM 5.2 TP=4"
+graph_version: "3.0"
+lifecycle: DRAFT
+schema_ref: "blueprint-schema/blueprint/v1/blueprint.proto"
+type_schema_ref: "decode.types.proto"
+input_ports {
+  port_id: "token-in"
+  node_id: "d-token-in"
+  type_ref: "blueprint.work.ds4_arch.Token"
+  cardinality: PORT_CARDINALITY_EXACTLY_ONE
+}
+output_ports {
+  port_id: "token-out"
+  node_id: "d-token-out"
+  type_ref: "blueprint.work.ds4_arch.Token"
+  cardinality: PORT_CARDINALITY_EXACTLY_ONE
+}
+graph {
+  overall_semantic {
+    overview: "Given token j-1, broadcast replicated hidden to TP ranks, run every GLM 5.2 layer with rank-local Q/head/expert shards and explicit ATTN/FFN collectives, gather logits shards, and sample token j."
+    support_refs {
+      node_id: "a-attn-allreduce"
+    }
+    support_refs {
+      node_id: "a-embed-broadcast"
+    }
+    support_refs {
+      node_id: "a-ffn-allreduce"
+    }
+    support_refs {
+      node_id: "a-logits-gather"
+    }
+    support_refs {
+      node_id: "a-qkv-shard"
+    }
+    support_refs {
+      node_id: "a-sample"
+    }
+  }
+  semantics {
+    entry_id: "token-in"
+    key: "input_use"
+    value: "Consumes exactly one previous token through token-in."
+    object_ref {
+      port {
+        graph_boundary {
+        }
+        direction: PORT_DIRECTION_INPUT
+        port_id: "token-in"
+      }
+    }
+    support_refs {
+      node_id: "d-token-in"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "token-out"
+    key: "output"
+    value: "Produces exactly one sampled token j through token-out."
+    object_ref {
+      port {
+        graph_boundary {
+        }
+        direction: PORT_DIRECTION_OUTPUT
+        port_id: "token-out"
+      }
+    }
+    support_refs {
+      node_id: "d-token-out"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "dec-ef"
+    key: "effect"
+    value: "one token sampled; TP KV shards and the replicated decode cursor advance by one position"
+    support_refs {
+      node_id: "a-sample"
+    }
+    support_refs {
+      node_id: "s-kv"
+    }
+    support_refs {
+      node_id: "s-kv-cursor"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "decode-state-read-no-effect"
+    key: "no_effect"
+    value: "Read-only decode state dependencies are consumed by the trace but not mutated; only s-kv update edges advance state."
+    support_refs {
+      node_id: "s-model"
+    }
+    support_refs {
+      node_id: "s-rank-plan"
+    }
+    support_refs {
+      node_id: "s-tp"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "dec-exit"
+    key: "exit"
+    value: "token-sampled"
+    support_refs {
+      node_id: "a-sample"
+    }
+    support_refs {
+      node_id: "d-token-out"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "rat-decode-tp4"
+    key: "architecture_rationale"
+    value: "The token path is tensor parallel: layer i is evaluated by all four ranks concurrently. Rank-local partials are never treated as full hidden state until a dedicated collective action produces a distinct replicated DATA occurrence."
+    support_refs {
+      node_id: "a-attn-allreduce"
+    }
+    support_refs {
+      node_id: "a-ffn-allreduce"
+    }
+    support_refs {
+      node_id: "a-qkv-shard"
+    }
+    support_refs {
+      node_id: "d-hidden-layer-out"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "decode-bird-collectives"
+    key: "collective_reference"
+    value: "Bird/vLLM baseline uses NCCL 2.30.4 over IB/RoCE with four channels; DwarfStar TP collectives should provide equivalent broadcast, all_reduce_sum, and gather/top-k semantics."
+    support_refs {
+      node_id: "a-attn-allreduce"
+    }
+    support_refs {
+      node_id: "a-embed-broadcast"
+    }
+    support_refs {
+      node_id: "a-ffn-allreduce"
+    }
+    support_refs {
+      node_id: "a-logits-gather"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "dec-design"
+    key: "design_subject"
+    value: "one-token GLM 5.2 decode with TP=4"
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "action-decode-token-im"
+    key: "implementation_choice"
+    value: "requires_new_glm52_tp4_support"
+    support_refs {
+      node_id: "a-attn-allreduce"
+    }
+    support_refs {
+      node_id: "a-ffn-allreduce"
+    }
+    support_refs {
+      node_id: "a-qkv-shard"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "decode-bird-dcp"
+    key: "implementation_detail"
+    value: "DCP4 in the Bird/vLLM baseline is a concrete reference for decode-context/KV-attention partitioning and should inform the QKV/MLA and local attention shard design."
+    support_refs {
+      node_id: "a-attn-local"
+    }
+    support_refs {
+      node_id: "a-qkv-shard"
+    }
+    support_refs {
+      node_id: "s-kv"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "dec-bird-ref"
+    key: "implementation_reference"
+    value: "Use Bird/vLLM serving command as the operational decode reference: vllm serve /model with tensor-parallel-size 4, decode-context-parallel-size 4, fp8_ds_mla KV, and DSpark BF16 speculator."
+    support_refs {
+      node_id: "a-attn-local"
+    }
+    support_refs {
+      node_id: "a-logits-gather"
+    }
+    support_refs {
+      node_id: "a-qkv-shard"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "decode-bird-baseline"
+    key: "implementation_reference"
+    value: "Bird/vLLM reference decode runs TP4 plus DCP4: --tensor-parallel-size 4, --decode-context-parallel-size 4, B12X_MLA_SPARSE attention, fp8_ds_mla KV with skip layers 78-82, and logits/sampling exposed through vLLM serve."
+    support_refs {
+      node_id: "a-attn-local"
+    }
+    support_refs {
+      node_id: "a-logits-gather"
+    }
+    support_refs {
+      node_id: "a-qkv-shard"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "decode-implementation-seams"
+    key: "implementation_requirement"
+    value: "Native DS4 needs TP4 rank-group startup, rank-local GLM checkpoint shards, MLA-aware Q/K/V shard kernels, DCP4 selected-row exchange, four-way routed expert ownership, TP all-reduce/gather collectives, and token/sample broadcast."
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "dec-nd"
+    key: "no_diagnostic"
+    value: "none"
+    support_refs {
+      node_id: "a-sample"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "dec-no-guide"
+    key: "no_implementation_guide"
+    value: "none"
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "dec-scenario"
+    key: "operating_scenario"
+    value: "All four ranks run each layer in lockstep; token j+1 waits until token j has completed logits gather and sampling."
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "dec-order"
+    key: "ordering"
+    value: "01 embed+broadcast; per layer i: 02 MLA/QKV projection and cache append, 03 DCP4 global sparse top-k selection, 04 local sparse MLA attention over rank-owned query heads, 05 ATTN all-reduce to replicated hidden, 06 route top-8/shared experts, 07 local routed/shared FFN shards, 08 FFN all-reduce to replicated next hidden; loop layers; 09 vocab logits shards; 10 gather/top-k logits; 11 sample token j."
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "decode-glm52-qk-mla-split"
+    key: "qk_distribution"
+    value: "GLM 5.2 uses MLA-style attention. With TP=4, Q is sharded by query head: rank0 heads 0-15, rank1 heads 16-31, rank2 heads 32-47, rank3 heads 48-63. K is not sharded as four KV-head groups because n_head_kv=1; the KV path produces a shared 512-wide MLA latent plus a 64-wide rope component, and each rank uses its owned k_b slices for its 16 query heads to reconstruct the non-rope K component from that latent."
+    support_refs {
+      node_id: "a-attn-local"
+    }
+    support_refs {
+      node_id: "a-qkv-shard"
+    }
+    support_refs {
+      node_id: "s-kv"
+    }
+    support_refs {
+      node_id: "s-model"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "dec-target"
+    key: "target_state"
+    value: "token j sampled; TP KV shards for ranks 0..3 contain position j"
+    status: SUPPORTED
+  }
+  nodes {
+    id: "a-attn-allreduce"
+    kind: "ACTION"
+    label: "04 ATTN all-reduce to replicated hidden"
+    input_ports {
+      port_id: "attn-partial-in"
+      node_id: "d-attn-partial"
+      type_ref: "blueprint.work.ds4_arch.hidden"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "attn-hidden-out"
+      node_id: "d-hidden-attn"
+      type_ref: "blueprint.work.ds4_arch.hidden"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "attnred-ov"
+      key: "overview"
+      value: "All ranks sum attention output-projection partials to produce a distinct replicated hidden occurrence after attention residual/norm boundary."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "attn-partial-in"
+      key: "input_use"
+      value: "Consumes rank-local attention partials."
+      object_ref {
+        node_id: "d-attn-partial"
+      }
+      support_refs {
+        port {
+          node_id: "a-attn-allreduce"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "attn-partial-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "attn-hidden-out"
+      key: "output"
+      value: "Produces replicated hidden after ATTN collective."
+      object_ref {
+        node_id: "d-hidden-attn"
+      }
+      support_refs {
+        port {
+          node_id: "a-attn-allreduce"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "attn-hidden-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "attnred-ef"
+      key: "effect"
+      value: "attention partials summed on all ranks"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "attnred-exit"
+      key: "exit"
+      value: "attention-replicated"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "attnred-cu"
+      key: "code_unit"
+      value: "TP all-reduce sum for attention"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "attnred-collective"
+      key: "collective"
+      value: "all_reduce_sum"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "attnred-im"
+      key: "implementation_choice"
+      value: "requires_new_glm52_tp4_support"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "attnred-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "s-tp"
+      access: "read"
+      meaning: "run all_reduce_sum over ranks 0..3"
+    }
+  }
+  nodes {
+    id: "a-attn-local"
+    kind: "ACTION"
+    label: "04 local sparse MLA attention heads/groups"
+    input_ports {
+      port_id: "attn-qkv-in"
+      node_id: "d-qkv-shard"
+      type_ref: "blueprint.work.ds4_arch.qkv_shard"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    input_ports {
+      port_id: "attn-selection-in"
+      node_id: "d-dcp-selection"
+      type_ref: "blueprint.work.ds4_arch.sparse_selection"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "attn-partial-out"
+      node_id: "d-attn-partial"
+      type_ref: "blueprint.work.ds4_arch.hidden"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "attnloc-ov"
+      key: "overview"
+      value: "Each rank computes attention for its 16 owned query heads against selected DCP-owned MLA cache rows, applies its output-projection shard, and yields a full-width additive partial."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "attn-qkv-in"
+      key: "input_use"
+      value: "Consumes rank-local Q/K/V MLA projection shard."
+      object_ref {
+        node_id: "d-qkv-shard"
+      }
+      support_refs {
+        port {
+          node_id: "a-attn-local"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "attn-qkv-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "attn-selection-in"
+      key: "input_use"
+      value: "Consumes the DCP global sparse row selection."
+      object_ref {
+        node_id: "d-dcp-selection"
+      }
+      support_refs {
+        port {
+          node_id: "a-attn-local"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "attn-selection-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "attn-partial-out"
+      key: "output"
+      value: "Produces rank-local attention full-width partial."
+      object_ref {
+        node_id: "d-attn-partial"
+      }
+      support_refs {
+        port {
+          node_id: "a-attn-local"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "attn-partial-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "attnloc-ef"
+      key: "effect"
+      value: "attention partial ready for all-reduce"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "attnloc-exit"
+      key: "exit"
+      value: "attention-partial-ready"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "attn-glm52-qk-achievable"
+      key: "achievability"
+      value: "Achievable for GLM 5.2 only with MLA-aware TP/DCP: query-head work is split 16 heads per rank, shared MLA latent/rope cache is available through DCP selected-row reads, and ATTN output projection partials are summed by the TP all-reduce. It is not achievable by naively splitting one KV head into four KV-head shards."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "attnloc-im"
+      key: "implementation_choice"
+      value: "requires_new_glm52_tp4_support"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "attn-bird-ref"
+      key: "implementation_reference"
+      value: "Bird/vLLM B12X_MLA_SPARSE is the reference local attention backend for TP4 GLM 5.2 on GX10."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "attnloc-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    expands_to_graph_id: "decode-sparse-attention"
+    state_set {
+      state_node_id: "s-model"
+      access: "read"
+      meaning: "read attention/output-projection TP shards"
+    }
+    state_set {
+      state_node_id: "s-kv"
+      access: "read"
+      meaning: "read selected KV/MLA cache rows"
+    }
+    state_set {
+      state_node_id: "s-rank-plan"
+      access: "read"
+      meaning: "read owned query-head span"
+    }
+  }
+  nodes {
+    id: "a-dcp-topk"
+    kind: "ACTION"
+    label: "03 DCP4 global sparse top-k selection"
+    input_ports {
+      port_id: "dcp-cache-row-in"
+      node_id: "d-mla-cache-row"
+      type_ref: "blueprint.work.ds4_arch.mla_cache_row"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    input_ports {
+      port_id: "dcp-qkv-in"
+      node_id: "d-qkv-shard"
+      type_ref: "blueprint.work.ds4_arch.qkv_shard"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "dcp-selection-out"
+      node_id: "d-dcp-selection"
+      type_ref: "blueprint.work.ds4_arch.sparse_selection"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "dcp-ov"
+      key: "overview"
+      value: "Ranks merge sparse-index scores across DCP context shards so each rank obtains the selected cache rows needed for its owned query heads."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "dcp-cache-row-in"
+      key: "input_use"
+      value: "Consumes the just-appended MLA cache row for position j."
+      object_ref {
+        node_id: "d-mla-cache-row"
+      }
+      support_refs {
+        port {
+          node_id: "a-dcp-topk"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "dcp-cache-row-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "dcp-qkv-in"
+      key: "input_use"
+      value: "Consumes rank-owned query/K reconstruction material for scoring."
+      object_ref {
+        node_id: "d-qkv-shard"
+      }
+      support_refs {
+        port {
+          node_id: "a-dcp-topk"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "dcp-qkv-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "dcp-selection-out"
+      key: "output"
+      value: "Produces the sparse cache-row selection and DCP row ownership needed by local attention."
+      object_ref {
+        node_id: "d-dcp-selection"
+      }
+      support_refs {
+        port {
+          node_id: "a-dcp-topk"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "dcp-selection-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "dcp-ef"
+      key: "effect"
+      value: "global sparse top-k selection is consistent across the TP/DCP group"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "dcp-exit"
+      key: "exit"
+      value: "sparse-selection-ready"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "dcp-collective"
+      key: "collective"
+      value: "dcp_global_topk_merge"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "dcp-im"
+      key: "implementation_choice"
+      value: "requires_new_glm52_tp4_support"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "dcp-bird-ref"
+      key: "implementation_reference"
+      value: "Bird/vLLM uses decode-context-parallel-size 4 and VLLM_DCP_GLOBAL_TOPK=1 for this GLM 5.2 serving target."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "dcp-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    expands_to_graph_id: "decode-dcp-topk"
+    state_set {
+      state_node_id: "s-kv"
+      access: "read"
+      meaning: "read prefix MLA/indexer cache shards by DCP owner"
+    }
+    state_set {
+      state_node_id: "s-tp"
+      access: "read"
+      meaning: "run DCP global top-k merge"
+    }
+    state_set {
+      state_node_id: "s-rank-plan"
+      access: "read"
+      meaning: "read DCP shard ownership spans"
+    }
+  }
+  nodes {
+    id: "a-embed-broadcast"
+    kind: "ACTION"
+    label: "01 embed token and broadcast hidden to TP ranks"
+    input_ports {
+      port_id: "embed-token-in"
+      node_id: "d-token-in"
+      type_ref: "blueprint.work.ds4_arch.Token"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "embed-hidden-out"
+      node_id: "d-hidden-repl"
+      type_ref: "blueprint.work.ds4_arch.hidden"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "emb-ov"
+      key: "overview"
+      value: "Coordinator embeds token j-1 and broadcasts the full hidden vector/position to all TP ranks."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "embed-token-in"
+      key: "input_use"
+      value: "Consumes token-in."
+      object_ref {
+        node_id: "d-token-in"
+      }
+      support_refs {
+        port {
+          node_id: "a-embed-broadcast"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "embed-token-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "embed-hidden-out"
+      key: "output"
+      value: "Produces replicated hidden for layer 0."
+      object_ref {
+        node_id: "d-hidden-repl"
+      }
+      support_refs {
+        port {
+          node_id: "a-embed-broadcast"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "embed-hidden-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "emb-ef"
+      key: "effect"
+      value: "all TP ranks hold identical hidden input"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "emb-exit"
+      key: "exit"
+      value: "broadcast-complete"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "emb-cu"
+      key: "code_unit"
+      value: "embedding + TP broadcast"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "emb-collective"
+      key: "collective"
+      value: "broadcast"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "emb-im"
+      key: "implementation_choice"
+      value: "requires_new_glm52_tp4_support"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "emb-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "s-model"
+      access: "read"
+      meaning: "read embedding/norm metadata"
+    }
+    state_set {
+      state_node_id: "s-tp"
+      access: "read"
+      meaning: "broadcast to ranks 0..3"
+    }
+  }
+  nodes {
+    id: "a-ffn-allreduce"
+    kind: "ACTION"
+    label: "06 FFN all-reduce to next replicated hidden"
+    input_ports {
+      port_id: "ffn-partial-in"
+      node_id: "d-ffn-partial"
+      type_ref: "blueprint.work.ds4_arch.hidden"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "layer-hidden-out"
+      node_id: "d-hidden-layer-out"
+      type_ref: "blueprint.work.ds4_arch.hidden"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "ffnred-ov"
+      key: "overview"
+      value: "All ranks sum FFN partials and apply residual to produce the replicated hidden for the next layer or final head."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "ffn-partial-in"
+      key: "input_use"
+      value: "Consumes rank-local FFN partials."
+      object_ref {
+        node_id: "d-ffn-partial"
+      }
+      support_refs {
+        port {
+          node_id: "a-ffn-allreduce"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "ffn-partial-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "layer-hidden-out"
+      key: "output"
+      value: "Produces replicated hidden after layer i."
+      object_ref {
+        node_id: "d-hidden-layer-out"
+      }
+      support_refs {
+        port {
+          node_id: "a-ffn-allreduce"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "layer-hidden-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "ffnred-ef"
+      key: "effect"
+      value: "FFN partials summed on all ranks"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "ffnred-exit"
+      key: "exit"
+      value: "layer-hidden-replicated"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "ffnred-cu"
+      key: "code_unit"
+      value: "TP all-reduce sum for FFN"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "ffnred-collective"
+      key: "collective"
+      value: "all_reduce_sum"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "ffnred-im"
+      key: "implementation_choice"
+      value: "requires_new_glm52_tp4_support"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "ffnred-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "s-tp"
+      access: "read"
+      meaning: "run all_reduce_sum over ranks 0..3"
+    }
+  }
+  nodes {
+    id: "a-ffn-local"
+    kind: "ACTION"
+    label: "07 local routed/shared FFN shards"
+    input_ports {
+      port_id: "ffn-expert-selection-in"
+      node_id: "d-expert-selection"
+      type_ref: "blueprint.work.ds4_arch.expert_selection"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    input_ports {
+      port_id: "ffn-hidden-in"
+      node_id: "d-hidden-attn"
+      type_ref: "blueprint.work.ds4_arch.hidden"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "ffn-partial-out"
+      node_id: "d-ffn-partial"
+      type_ref: "blueprint.work.ds4_arch.hidden"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "ffnloc-ov"
+      key: "overview"
+      value: "Each rank executes only the selected routed/shared FFN work resident in its TP expert shard and produces a full-width additive FFN partial."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "ffn-expert-selection-in"
+      key: "input_use"
+      value: "Consumes routed expert selection and owned-mask metadata."
+      object_ref {
+        node_id: "d-expert-selection"
+      }
+      support_refs {
+        port {
+          node_id: "a-ffn-local"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "ffn-expert-selection-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "ffn-hidden-in"
+      key: "input_use"
+      value: "Consumes replicated hidden after attention."
+      object_ref {
+        node_id: "d-hidden-attn"
+      }
+      support_refs {
+        port {
+          node_id: "a-ffn-local"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "ffn-hidden-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "ffn-partial-out"
+      key: "output"
+      value: "Produces rank-local FFN partial."
+      object_ref {
+        node_id: "d-ffn-partial"
+      }
+      support_refs {
+        port {
+          node_id: "a-ffn-local"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "ffn-partial-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "ffnloc-ef"
+      key: "effect"
+      value: "FFN partial ready for all-reduce"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "ffnloc-exit"
+      key: "exit"
+      value: "ffn-partial-ready"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "ffnloc-im"
+      key: "implementation_choice"
+      value: "requires_new_glm52_tp4_support"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "ffnloc-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    expands_to_graph_id: "decode-ffn-local"
+    state_set {
+      state_node_id: "s-model"
+      access: "read"
+      meaning: "read selected expert/shared FFN TP shards"
+    }
+    state_set {
+      state_node_id: "s-rank-plan"
+      access: "read"
+      meaning: "read rank expert ownership span"
+    }
+  }
+  nodes {
+    id: "a-ffn-route"
+    kind: "ACTION"
+    label: "06 route GLM 5.2 sparse experts"
+    input_ports {
+      port_id: "route-hidden-in"
+      node_id: "d-hidden-attn"
+      type_ref: "blueprint.work.ds4_arch.hidden"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "route-selection-out"
+      node_id: "d-expert-selection"
+      type_ref: "blueprint.work.ds4_arch.expert_selection"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "route-ov"
+      key: "overview"
+      value: "Run the GLM 5.2 router for layer i, select top-8 routed experts plus the shared expert, and mark which selected experts are resident on this TP rank."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "route-hidden-in"
+      key: "input_use"
+      value: "Consumes replicated hidden after attention."
+      object_ref {
+        node_id: "d-hidden-attn"
+      }
+      support_refs {
+        port {
+          node_id: "a-ffn-route"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "route-hidden-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "route-selection-out"
+      key: "output"
+      value: "Produces routed expert selection with rank-local ownership mask."
+      object_ref {
+        node_id: "d-expert-selection"
+      }
+      support_refs {
+        port {
+          node_id: "a-ffn-route"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "route-selection-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "route-ef"
+      key: "effect"
+      value: "rank-local FFN worklist is ready"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "route-exit"
+      key: "exit"
+      value: "expert-selection-ready"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "route-im"
+      key: "implementation_choice"
+      value: "requires_new_glm52_tp4_support"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "route-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    expands_to_graph_id: "decode-expert-route"
+    state_set {
+      state_node_id: "s-model"
+      access: "read"
+      meaning: "read router and expert placement metadata"
+    }
+    state_set {
+      state_node_id: "s-rank-plan"
+      access: "read"
+      meaning: "read expert ownership span"
+    }
+  }
+  nodes {
+    id: "a-logits-gather"
+    kind: "ACTION"
+    label: "08 gather logits shards to coordinator"
+    input_ports {
+      port_id: "gather-logits-in"
+      node_id: "d-logits-shard"
+      type_ref: "blueprint.work.ds4_arch.logits_shard"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "gather-logits-out"
+      node_id: "d-logits-coord"
+      type_ref: "blueprint.work.ds4_arch.logits"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "gather-ov"
+      key: "overview"
+      value: "Gather full logits or a distributed top-k/nucleus equivalent from rank-local vocab shards to rank0 for sampling."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "gather-logits-in"
+      key: "input_use"
+      value: "Consumes rank-local logits shards."
+      object_ref {
+        node_id: "d-logits-shard"
+      }
+      support_refs {
+        port {
+          node_id: "a-logits-gather"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "gather-logits-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "gather-logits-out"
+      key: "output"
+      value: "Produces coordinator-visible logits/top-k result."
+      object_ref {
+        node_id: "d-logits-coord"
+      }
+      support_refs {
+        port {
+          node_id: "a-logits-gather"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "gather-logits-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "gather-ef"
+      key: "effect"
+      value: "coordinator has sampling distribution"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "gather-exit"
+      key: "exit"
+      value: "logits-gathered"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "gather-cu"
+      key: "code_unit"
+      value: "TP logits gather/top-k"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "gather-collective"
+      key: "collective"
+      value: "gather_or_distributed_topk"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "gather-im"
+      key: "implementation_choice"
+      value: "requires_new_glm52_tp4_support"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "gather-bird-ref"
+      key: "implementation_reference"
+      value: "Bird/vLLM vLLM serve output path is the reference for assembling logits/top-k for sampling after TP4 vocab shards."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "gather-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "s-tp"
+      access: "read"
+      meaning: "run logits gather/top-k collective"
+    }
+  }
+  nodes {
+    id: "a-qkv-shard"
+    kind: "ACTION"
+    label: "02 layer i MLA/QKV TP projection and cache append"
+    input_ports {
+      port_id: "qkv-hidden-in"
+      node_id: "d-hidden-repl"
+      type_ref: "blueprint.work.ds4_arch.hidden"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "mla-cache-row-out"
+      node_id: "d-mla-cache-row"
+      type_ref: "blueprint.work.ds4_arch.mla_cache_row"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "qkv-shard-out"
+      node_id: "d-qkv-shard"
+      type_ref: "blueprint.work.ds4_arch.qkv_shard"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "qkv-ov"
+      key: "overview"
+      value: "Each rank applies its GLM 5.2 TP shard for layer i: Q heads are split 16 per rank; the shared KV latent and RoPE K row are produced for position j; rank-owned k_b/v_b slices reconstruct K/V for owned query heads."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "qkv-hidden-in"
+      key: "input_use"
+      value: "Consumes replicated hidden for layer i."
+      object_ref {
+        node_id: "d-hidden-repl"
+      }
+      support_refs {
+        port {
+          node_id: "a-qkv-shard"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "qkv-hidden-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "mla-cache-row-out"
+      key: "output"
+      value: "Produces the MLA cache row containing kv_lora[512] and k_rope[64] for position j under DCP ownership."
+      object_ref {
+        node_id: "d-mla-cache-row"
+      }
+      support_refs {
+        port {
+          node_id: "a-qkv-shard"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "mla-cache-row-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "qkv-shard-out"
+      key: "output"
+      value: "Produces rank-owned Q heads plus local K/V reconstruction material for this rank."
+      object_ref {
+        node_id: "d-qkv-shard"
+      }
+      support_refs {
+        port {
+          node_id: "a-qkv-shard"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "qkv-shard-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "qkv-ef"
+      key: "effect"
+      value: "rank-local MLA/KV cache row appended for layer i"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "qkv-exit"
+      key: "exit"
+      value: "qkv-and-cache-row-ready"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "qkv-im"
+      key: "implementation_choice"
+      value: "requires_new_glm52_tp4_support"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "qkv-bird-ref"
+      key: "implementation_reference"
+      value: "Bird/vLLM DCP4 and B12X_MLA_SPARSE behavior is the reference for GLM 5.2 QKV/MLA shard ownership."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "qkv-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "qkv-glm52-qk-mla-split"
+      key: "qk_distribution"
+      value: "Q is sharded by query head: rank0 heads 0-15, rank1 16-31, rank2 32-47, rank3 48-63. K is not split into four KV heads; GLM 5.2 has one KV head, so each rank reconstructs non-RoPE K for its query heads from shared kv_lora[512] using rank-owned k_b slices and combines it with k_rope[64]."
+      status: SUPPORTED
+    }
+    expands_to_graph_id: "decode-qkv-mla"
+    state_set {
+      state_node_id: "s-model"
+      access: "read"
+      meaning: "read QKV/MLA TP weights"
+    }
+    state_set {
+      state_node_id: "s-kv"
+      access: "update"
+      meaning: "append position j MLA cache row"
+    }
+    state_set {
+      state_node_id: "s-rank-plan"
+      access: "read"
+      meaning: "read rank head and DCP ownership spans"
+    }
+    state_set {
+      state_node_id: "s-kv-cursor"
+      access: "read"
+      meaning: "read current token position j for MLA/KV append"
+    }
+  }
+  nodes {
+    id: "a-sample"
+    kind: "ACTION"
+    label: "09 sample token j on coordinator"
+    input_ports {
+      port_id: "sample-logits-in"
+      node_id: "d-logits-coord"
+      type_ref: "blueprint.work.ds4_arch.logits"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "sample-token-out"
+      node_id: "d-token-out"
+      type_ref: "blueprint.work.ds4_arch.Token"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "sample-ov"
+      key: "overview"
+      value: "Rank0 samples token j from gathered logits/top-k result and advances the decode cursor."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "sample-logits-in"
+      key: "input_use"
+      value: "Consumes coordinator-visible logits."
+      object_ref {
+        node_id: "d-logits-coord"
+      }
+      support_refs {
+        port {
+          node_id: "a-sample"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "sample-logits-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "sample-token-out"
+      key: "output"
+      value: "Produces sampled token j."
+      object_ref {
+        node_id: "d-token-out"
+      }
+      support_refs {
+        port {
+          node_id: "a-sample"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "sample-token-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "sample-ef"
+      key: "effect"
+      value: "one token chosen and cursor advances"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "sample-exit"
+      key: "exit"
+      value: "sampled"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "sample-cu"
+      key: "code_unit"
+      value: "sampling / stop-token handling"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "sample-im"
+      key: "implementation_choice"
+      value: "fixed_by_target_tp4_design"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "sample-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "s-kv"
+      access: "update"
+      meaning: "advance replicated decode cursor metadata"
+    }
+    state_set {
+      state_node_id: "s-kv-cursor"
+      access: "update"
+      meaning: "advance cursor after sampling token j"
+    }
+  }
+  nodes {
+    id: "a-vocab-shard"
+    kind: "ACTION"
+    label: "07 compute vocabulary logits shards"
+    input_ports {
+      port_id: "vocab-hidden-in"
+      node_id: "d-hidden-layer-out"
+      type_ref: "blueprint.work.ds4_arch.hidden"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "vocab-logits-out"
+      node_id: "d-logits-shard"
+      type_ref: "blueprint.work.ds4_arch.logits_shard"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "vocab-ov"
+      key: "overview"
+      value: "Each rank applies its row shard of the vocabulary/output head to the final replicated hidden."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "vocab-hidden-in"
+      key: "input_use"
+      value: "Consumes final replicated hidden."
+      object_ref {
+        node_id: "d-hidden-layer-out"
+      }
+      support_refs {
+        port {
+          node_id: "a-vocab-shard"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "vocab-hidden-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "vocab-logits-out"
+      key: "output"
+      value: "Produces rank-local logits shard."
+      object_ref {
+        node_id: "d-logits-shard"
+      }
+      support_refs {
+        port {
+          node_id: "a-vocab-shard"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "vocab-logits-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "vocab-ef"
+      key: "effect"
+      value: "rank-local logits shard ready"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "vocab-exit"
+      key: "exit"
+      value: "logits-shard-ready"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "vocab-cu"
+      key: "code_unit"
+      value: "TP vocab row-sharded head"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "vocab-im"
+      key: "implementation_choice"
+      value: "requires_new_glm52_tp4_support"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "vocab-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "s-model"
+      access: "read"
+      meaning: "read vocab/output-head row shard"
+    }
+  }
+  nodes {
+    id: "d-attn-partial"
+    kind: "DATA"
+    label: "rank-local attention output partials"
+    data_type: "blueprint.work.ds4_arch.hidden"
+    semantics {
+      entry_id: "d-attn-partial-data-role"
+      key: "data_role"
+      value: "rank-local attention output-projection partials"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-attn-partial-dist"
+      key: "distribution_scope"
+      value: "rank_local_partial"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-attn-partial-identity"
+      key: "identity"
+      value: "d-attn-partial is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-attn-partial-ordering"
+      key: "ordering"
+      value: "ordered by token position j and workflow stage."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-attn-partial-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-attn-partial-provenance"
+      key: "provenance"
+      value: "produced by the upstream action port and matching dataflow edge."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "d-dcp-selection"
+    kind: "DATA"
+    label: "rank-local DCP global sparse selection"
+    data_type: "blueprint.work.ds4_arch.sparse_selection"
+    semantics {
+      entry_id: "d-dcp-selection-data-role"
+      key: "data_role"
+      value: "global top-k sparse row selection consumed by local attention"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-dcp-selection-dist"
+      key: "distribution_scope"
+      value: "rank_local_shard"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-dcp-selection-identity"
+      key: "identity"
+      value: "d-dcp-selection is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-dcp-selection-ordering"
+      key: "ordering"
+      value: "ordered by token position j and workflow stage."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-dcp-selection-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-dcp-selection-provenance"
+      key: "provenance"
+      value: "produced by DCP/global-top-k action and matching dataflow edge"
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "d-expert-selection"
+    kind: "DATA"
+    label: "rank-local routed expert selection"
+    data_type: "blueprint.work.ds4_arch.expert_selection"
+    semantics {
+      entry_id: "d-expert-selection-data-role"
+      key: "data_role"
+      value: "top-8 routed experts and shared expert ownership mask for layer i"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-expert-selection-dist"
+      key: "distribution_scope"
+      value: "rank_local_shard"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-expert-selection-identity"
+      key: "identity"
+      value: "d-expert-selection is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-expert-selection-ordering"
+      key: "ordering"
+      value: "ordered by token position j and workflow stage."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-expert-selection-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-expert-selection-provenance"
+      key: "provenance"
+      value: "produced by router/top-k action and matching dataflow edge"
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "d-ffn-partial"
+    kind: "DATA"
+    label: "rank-local FFN/expert output partials"
+    data_type: "blueprint.work.ds4_arch.hidden"
+    semantics {
+      entry_id: "d-ffn-partial-data-role"
+      key: "data_role"
+      value: "rank-local routed/shared FFN partials"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-ffn-partial-dist"
+      key: "distribution_scope"
+      value: "rank_local_partial"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-ffn-partial-identity"
+      key: "identity"
+      value: "d-ffn-partial is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-ffn-partial-ordering"
+      key: "ordering"
+      value: "ordered by token position j and workflow stage."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-ffn-partial-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-ffn-partial-provenance"
+      key: "provenance"
+      value: "produced by the upstream action port and matching dataflow edge."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "d-hidden-attn"
+    kind: "DATA"
+    label: "replicated hidden after ATTN collective"
+    data_type: "blueprint.work.ds4_arch.hidden"
+    semantics {
+      entry_id: "d-hidden-attn-data-role"
+      key: "data_role"
+      value: "replicated hidden after attention all-reduce/residual"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-hidden-attn-dist"
+      key: "distribution_scope"
+      value: "replicated"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-hidden-attn-identity"
+      key: "identity"
+      value: "d-hidden-attn is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-hidden-attn-ordering"
+      key: "ordering"
+      value: "ordered by token position j and workflow stage."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-hidden-attn-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-hidden-attn-provenance"
+      key: "provenance"
+      value: "produced by the upstream action port and matching dataflow edge."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "d-hidden-layer-out"
+    kind: "DATA"
+    label: "replicated hidden after layer i"
+    data_type: "blueprint.work.ds4_arch.hidden"
+    semantics {
+      entry_id: "d-hidden-layer-out-data-role"
+      key: "data_role"
+      value: "replicated hidden after FFN all-reduce/residual"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-hidden-layer-out-dist"
+      key: "distribution_scope"
+      value: "replicated"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-hidden-layer-out-identity"
+      key: "identity"
+      value: "d-hidden-layer-out is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-hidden-layer-out-ordering"
+      key: "ordering"
+      value: "ordered by token position j and workflow stage."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-hidden-layer-out-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-hidden-layer-out-provenance"
+      key: "provenance"
+      value: "produced by the upstream action port and matching dataflow edge."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "d-hidden-repl"
+    kind: "DATA"
+    label: "replicated hidden for layer i"
+    data_type: "blueprint.work.ds4_arch.hidden"
+    semantics {
+      entry_id: "d-hidden-repl-data-role"
+      key: "data_role"
+      value: "full hidden state replicated on TP ranks"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-hidden-repl-dist"
+      key: "distribution_scope"
+      value: "replicated"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-hidden-repl-identity"
+      key: "identity"
+      value: "d-hidden-repl is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-hidden-repl-ordering"
+      key: "ordering"
+      value: "ordered by token position j and workflow stage."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-hidden-repl-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-hidden-repl-provenance"
+      key: "provenance"
+      value: "produced by the upstream action port and matching dataflow edge."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "d-logits-coord"
+    kind: "DATA"
+    label: "coordinator-visible logits/top-k"
+    data_type: "blueprint.work.ds4_arch.logits"
+    semantics {
+      entry_id: "d-logits-coord-data-role"
+      key: "data_role"
+      value: "logits or top-k result gathered to coordinator"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-logits-coord-dist"
+      key: "distribution_scope"
+      value: "leader_only"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-logits-coord-identity"
+      key: "identity"
+      value: "d-logits-coord is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-logits-coord-ordering"
+      key: "ordering"
+      value: "ordered by token position j and workflow stage."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-logits-coord-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-logits-coord-provenance"
+      key: "provenance"
+      value: "produced by the upstream action port and matching dataflow edge."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "d-logits-shard"
+    kind: "DATA"
+    label: "rank-local vocabulary logits shards"
+    data_type: "blueprint.work.ds4_arch.logits_shard"
+    semantics {
+      entry_id: "d-logits-shard-data-role"
+      key: "data_role"
+      value: "rank-owned vocab logits shards"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-logits-shard-dist"
+      key: "distribution_scope"
+      value: "rank_local_shard"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-logits-shard-identity"
+      key: "identity"
+      value: "d-logits-shard is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-logits-shard-ordering"
+      key: "ordering"
+      value: "ordered by token position j and workflow stage."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-logits-shard-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-logits-shard-provenance"
+      key: "provenance"
+      value: "produced by the upstream action port and matching dataflow edge."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "d-mla-cache-row"
+    kind: "DATA"
+    label: "rank-local MLA cache row for position j"
+    data_type: "blueprint.work.ds4_arch.mla_cache_row"
+    semantics {
+      entry_id: "d-mla-cache-row-data-role"
+      key: "data_role"
+      value: "KV latent and RoPE K row appended for position j"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-mla-cache-row-dist"
+      key: "distribution_scope"
+      value: "rank_local_shard"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-mla-cache-row-identity"
+      key: "identity"
+      value: "d-mla-cache-row is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-mla-cache-row-ordering"
+      key: "ordering"
+      value: "ordered by token position j and workflow stage."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-mla-cache-row-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-mla-cache-row-provenance"
+      key: "provenance"
+      value: "produced by QKV/MLA projection and matching dataflow edge"
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "d-qkv-shard"
+    kind: "DATA"
+    label: "rank-local QKV/MLA projection shards"
+    data_type: "blueprint.work.ds4_arch.qkv_shard"
+    semantics {
+      entry_id: "d-qkv-shard-data-role"
+      key: "data_role"
+      value: "rank-owned Q/head/KV projection shards"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-qkv-shard-dist"
+      key: "distribution_scope"
+      value: "rank_local_shard"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-qkv-shard-identity"
+      key: "identity"
+      value: "d-qkv-shard is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-qkv-shard-ordering"
+      key: "ordering"
+      value: "ordered by token position j and workflow stage."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-qkv-shard-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-qkv-shard-provenance"
+      key: "provenance"
+      value: "produced by the upstream action port and matching dataflow edge."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "d-token-in"
+    kind: "DATA"
+    label: "token j-1 at coordinator"
+    data_type: "blueprint.work.ds4_arch.Token"
+    semantics {
+      entry_id: "d-token-in-data-role"
+      key: "data_role"
+      value: "previous token for TP decode"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-token-in-dist"
+      key: "distribution_scope"
+      value: "leader_only"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-token-in-identity"
+      key: "identity"
+      value: "d-token-in is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-token-in-ordering"
+      key: "ordering"
+      value: "ordered by token position j and workflow stage."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-token-in-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-token-in-provenance"
+      key: "provenance"
+      value: "declared by the node source list."
+      status: SUPPORTED
+    }
+    sources {
+      source_id: "src-d-token-in"
+      kind: "graph_input"
+      source_ref: "token-in"
+      graph_input_port_id: "token-in"
+      meaning: "previous token enters child graph"
+    }
+  }
+  nodes {
+    id: "d-token-out"
+    kind: "DATA"
+    label: "sampled token j at coordinator"
+    data_type: "blueprint.work.ds4_arch.Token"
+    semantics {
+      entry_id: "d-token-out-data-role"
+      key: "data_role"
+      value: "sampled next token"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-token-out-dist"
+      key: "distribution_scope"
+      value: "leader_only"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-token-out-identity"
+      key: "identity"
+      value: "d-token-out is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-token-out-ordering"
+      key: "ordering"
+      value: "ordered by token position j and workflow stage."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-token-out-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-token-out-provenance"
+      key: "provenance"
+      value: "produced by the upstream action port and matching dataflow edge."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "s-kv"
+    kind: "STATE"
+    label: "position j TP KV shards"
+    data_type: "blueprint.work.ds4_arch.kv"
+    semantics {
+      entry_id: "s-kv-data-role"
+      key: "data_role"
+      value: "rank-local TP KV/MLA shards"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-dist"
+      key: "distribution_scope"
+      value: "rank_local_shard"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-identity"
+      key: "identity"
+      value: "s-kv is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-ordering"
+      key: "ordering"
+      value: "append-ordered by prompt/decode token position; cursor state records monotonic length and current position."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "serve"
+      state_node_id: "state-kv"
+      relation: "same logical KV/MLA cache state as serve root"
+      meaning: "decode updates the root TP-aware KV cache state"
+    }
+  }
+  nodes {
+    id: "s-kv-cursor"
+    kind: "STATE"
+    label: "same append-ordered decode KV cursor"
+    data_type: "blueprint.work.ds4_arch.kv_cursor"
+    semantics {
+      entry_id: "s-kv-cursor-data-role"
+      key: "data_role"
+      value: "decode-visible token-step cursor"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-cursor-dist"
+      key: "distribution_scope"
+      value: "replicated"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-cursor-identity"
+      key: "identity"
+      value: "s-kv-cursor is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-cursor-ordering"
+      key: "ordering"
+      value: "monotonic by decode token position j"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-cursor-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-cursor-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "serve"
+      state_node_id: "state-kv-cursor"
+      relation: "same logical KV cursor as serve root"
+      meaning: "decode advances the root session cursor once per sampled token"
+    }
+  }
+  nodes {
+    id: "s-model"
+    kind: "STATE"
+    label: "GLM 5.2 TP weight shards"
+    data_type: "blueprint.work.ds4_arch.model"
+    semantics {
+      entry_id: "s-model-data-role"
+      key: "data_role"
+      value: "rank-local TP shards for all layers"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-model-dist"
+      key: "distribution_scope"
+      value: "rank_local_shard"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-model-identity"
+      key: "identity"
+      value: "s-model is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-model-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-model-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-model-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "serve"
+      state_node_id: "state-model-worker"
+      relation: "same resident model shard state as serve root"
+      meaning: "decode reads resident model shards established by model-load"
+    }
+  }
+  nodes {
+    id: "s-rank-plan"
+    kind: "STATE"
+    label: "TP4 rank hosting plan"
+    data_type: "blueprint.work.ds4_arch.rank_plan"
+    semantics {
+      entry_id: "s-rank-plan-data-role"
+      key: "data_role"
+      value: "per-rank Q/head/DCP/expert/vocab ownership spans"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-rank-plan-dist"
+      key: "distribution_scope"
+      value: "rank_local_shard"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-rank-plan-identity"
+      key: "identity"
+      value: "s-rank-plan is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-rank-plan-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-rank-plan-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-rank-plan-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "serve"
+      state_node_id: "state-rank-plan"
+      relation: "same rank ownership plan as serve root"
+      meaning: "decode uses the rank plan stored during TP group formation"
+    }
+  }
+  nodes {
+    id: "s-tp"
+    kind: "STATE"
+    label: "TP=4 collective fabric"
+    data_type: "blueprint.work.ds4_arch.distlink"
+    semantics {
+      entry_id: "s-tp-data-role"
+      key: "data_role"
+      value: "broadcast/all-reduce/gather collective state"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-tp-dist"
+      key: "distribution_scope"
+      value: "replicated"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-tp-identity"
+      key: "identity"
+      value: "s-tp is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-tp-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-tp-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-tp-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "serve"
+      state_node_id: "state-tp"
+      relation: "same TP collective state as serve root"
+      meaning: "decode uses the root TP collective group"
+    }
+  }
+  edges {
+    id: "c-attn-ffn"
+    source_node_id: "d-hidden-attn"
+    target_node_id: "a-ffn-local"
+    kind: "value-flow"
+    label: "d-hidden-attn feeds a-ffn-local"
+    semantics {
+      entry_id: "c-attn-ffn-r"
+      key: "relationship"
+      value: "d-hidden-attn feeds a-ffn-local"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "c-attn-hidden"
+    source_node_id: "a-attn-allreduce"
+    target_node_id: "d-hidden-attn"
+    kind: "value-flow"
+    label: "a-attn-allreduce feeds d-hidden-attn"
+    semantics {
+      entry_id: "c-attn-hidden-r"
+      key: "relationship"
+      value: "a-attn-allreduce feeds d-hidden-attn"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "c-attn-partial"
+    source_node_id: "a-attn-local"
+    target_node_id: "d-attn-partial"
+    kind: "value-flow"
+    label: "a-attn-local feeds d-attn-partial"
+    semantics {
+      entry_id: "c-attn-partial-r"
+      key: "relationship"
+      value: "a-attn-local feeds d-attn-partial"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "c-attn-reduce-in"
+    source_node_id: "d-attn-partial"
+    target_node_id: "a-attn-allreduce"
+    kind: "value-flow"
+    label: "d-attn-partial feeds a-attn-allreduce"
+    semantics {
+      entry_id: "c-attn-reduce-in-r"
+      key: "relationship"
+      value: "d-attn-partial feeds a-attn-allreduce"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "c-attn-route"
+    source_node_id: "d-hidden-attn"
+    target_node_id: "a-ffn-route"
+    kind: "value-flow"
+    label: "d-hidden-attn feeds a-ffn-route"
+    semantics {
+      entry_id: "c-attn-route-r"
+      key: "relationship"
+      value: "d-hidden-attn feeds a-ffn-route"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "c-cache-row-dcp"
+    source_node_id: "d-mla-cache-row"
+    target_node_id: "a-dcp-topk"
+    kind: "value-flow"
+    label: "d-mla-cache-row feeds a-dcp-topk"
+    semantics {
+      entry_id: "c-cache-row-dcp-r"
+      key: "relationship"
+      value: "d-mla-cache-row feeds a-dcp-topk"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "c-dcp-attn"
+    source_node_id: "d-dcp-selection"
+    target_node_id: "a-attn-local"
+    kind: "value-flow"
+    label: "d-dcp-selection feeds a-attn-local"
+    semantics {
+      entry_id: "c-dcp-attn-r"
+      key: "relationship"
+      value: "d-dcp-selection feeds a-attn-local"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "c-dcp-selection"
+    source_node_id: "a-dcp-topk"
+    target_node_id: "d-dcp-selection"
+    kind: "value-flow"
+    label: "a-dcp-topk feeds d-dcp-selection"
+    semantics {
+      entry_id: "c-dcp-selection-r"
+      key: "relationship"
+      value: "a-dcp-topk feeds d-dcp-selection"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "c-embed-hidden"
+    source_node_id: "a-embed-broadcast"
+    target_node_id: "d-hidden-repl"
+    kind: "value-flow"
+    label: "a-embed-broadcast feeds d-hidden-repl"
+    semantics {
+      entry_id: "c-embed-hidden-r"
+      key: "relationship"
+      value: "a-embed-broadcast feeds d-hidden-repl"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "c-ffn-partial"
+    source_node_id: "a-ffn-local"
+    target_node_id: "d-ffn-partial"
+    kind: "value-flow"
+    label: "a-ffn-local feeds d-ffn-partial"
+    semantics {
+      entry_id: "c-ffn-partial-r"
+      key: "relationship"
+      value: "a-ffn-local feeds d-ffn-partial"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "c-ffn-reduce-in"
+    source_node_id: "d-ffn-partial"
+    target_node_id: "a-ffn-allreduce"
+    kind: "value-flow"
+    label: "d-ffn-partial feeds a-ffn-allreduce"
+    semantics {
+      entry_id: "c-ffn-reduce-in-r"
+      key: "relationship"
+      value: "d-ffn-partial feeds a-ffn-allreduce"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "c-final-vocab"
+    source_node_id: "d-hidden-layer-out"
+    target_node_id: "a-vocab-shard"
+    kind: "value-flow"
+    label: "d-hidden-layer-out feeds a-vocab-shard"
+    semantics {
+      entry_id: "c-final-vocab-r"
+      key: "relationship"
+      value: "d-hidden-layer-out feeds a-vocab-shard"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "c-hidden-qkv"
+    source_node_id: "d-hidden-repl"
+    target_node_id: "a-qkv-shard"
+    kind: "value-flow"
+    label: "d-hidden-repl feeds a-qkv-shard"
+    semantics {
+      entry_id: "c-hidden-qkv-r"
+      key: "relationship"
+      value: "d-hidden-repl feeds a-qkv-shard"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "c-layer-hidden"
+    source_node_id: "a-ffn-allreduce"
+    target_node_id: "d-hidden-layer-out"
+    kind: "value-flow"
+    label: "a-ffn-allreduce feeds d-hidden-layer-out"
+    semantics {
+      entry_id: "c-layer-hidden-r"
+      key: "relationship"
+      value: "a-ffn-allreduce feeds d-hidden-layer-out"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "c-layer-loop"
+    source_node_id: "a-ffn-allreduce"
+    target_node_id: "a-qkv-shard"
+    kind: "ordered-step"
+    label: "a-ffn-allreduce completes before a-qkv-shard"
+    semantics {
+      entry_id: "c-layer-loop-r"
+      key: "relationship"
+      value: "a-ffn-allreduce completes before a-qkv-shard"
+      status: SUPPORTED
+    }
+    family: "loop"
+    conditions {
+      condition_id: "more-layers"
+      kind: "guard"
+      text: "layer i is not the final decoder layer"
+    }
+  }
+  edges {
+    id: "c-logits-coord"
+    source_node_id: "a-logits-gather"
+    target_node_id: "d-logits-coord"
+    kind: "value-flow"
+    label: "a-logits-gather feeds d-logits-coord"
+    semantics {
+      entry_id: "c-logits-coord-r"
+      key: "relationship"
+      value: "a-logits-gather feeds d-logits-coord"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "c-logits-gather-in"
+    source_node_id: "d-logits-shard"
+    target_node_id: "a-logits-gather"
+    kind: "value-flow"
+    label: "d-logits-shard feeds a-logits-gather"
+    semantics {
+      entry_id: "c-logits-gather-in-r"
+      key: "relationship"
+      value: "d-logits-shard feeds a-logits-gather"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "c-order-attn-ffn"
+    source_node_id: "a-attn-allreduce"
+    target_node_id: "a-ffn-local"
+    kind: "ordered-step"
+    label: "a-attn-allreduce completes before a-ffn-local"
+    semantics {
+      entry_id: "c-order-attn-ffn-r"
+      key: "relationship"
+      value: "a-attn-allreduce completes before a-ffn-local"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "c-order-attn-red"
+    source_node_id: "a-attn-local"
+    target_node_id: "a-attn-allreduce"
+    kind: "ordered-step"
+    label: "a-attn-local completes before a-attn-allreduce"
+    semantics {
+      entry_id: "c-order-attn-red-r"
+      key: "relationship"
+      value: "a-attn-local completes before a-attn-allreduce"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "c-order-attn-route"
+    source_node_id: "a-attn-allreduce"
+    target_node_id: "a-ffn-route"
+    kind: "ordered-step"
+    label: "a-attn-allreduce completes before a-ffn-route"
+    semantics {
+      entry_id: "c-order-attn-route-r"
+      key: "relationship"
+      value: "a-attn-allreduce completes before a-ffn-route"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "c-order-dcp-attn"
+    source_node_id: "a-dcp-topk"
+    target_node_id: "a-attn-local"
+    kind: "ordered-step"
+    label: "a-dcp-topk completes before a-attn-local"
+    semantics {
+      entry_id: "c-order-dcp-attn-r"
+      key: "relationship"
+      value: "a-dcp-topk completes before a-attn-local"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "c-order-embed-qkv"
+    source_node_id: "a-embed-broadcast"
+    target_node_id: "a-qkv-shard"
+    kind: "ordered-step"
+    label: "a-embed-broadcast completes before a-qkv-shard"
+    semantics {
+      entry_id: "c-order-embed-qkv-r"
+      key: "relationship"
+      value: "a-embed-broadcast completes before a-qkv-shard"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "c-order-ffn-red"
+    source_node_id: "a-ffn-local"
+    target_node_id: "a-ffn-allreduce"
+    kind: "ordered-step"
+    label: "a-ffn-local completes before a-ffn-allreduce"
+    semantics {
+      entry_id: "c-order-ffn-red-r"
+      key: "relationship"
+      value: "a-ffn-local completes before a-ffn-allreduce"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "c-order-final-vocab"
+    source_node_id: "a-ffn-allreduce"
+    target_node_id: "a-vocab-shard"
+    kind: "ordered-step"
+    label: "a-ffn-allreduce completes before a-vocab-shard"
+    semantics {
+      entry_id: "c-order-final-vocab-r"
+      key: "relationship"
+      value: "a-ffn-allreduce completes before a-vocab-shard"
+      status: SUPPORTED
+    }
+    family: "causal"
+    conditions {
+      condition_id: "final-layer"
+      kind: "guard"
+      text: "layer i is the final decoder layer"
+    }
+  }
+  edges {
+    id: "c-order-gather-sample"
+    source_node_id: "a-logits-gather"
+    target_node_id: "a-sample"
+    kind: "ordered-step"
+    label: "a-logits-gather completes before a-sample"
+    semantics {
+      entry_id: "c-order-gather-sample-r"
+      key: "relationship"
+      value: "a-logits-gather completes before a-sample"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "c-order-qkv-attn"
+    source_node_id: "a-qkv-shard"
+    target_node_id: "a-attn-local"
+    kind: "ordered-step"
+    label: "a-qkv-shard completes before a-attn-local"
+    semantics {
+      entry_id: "c-order-qkv-attn-r"
+      key: "relationship"
+      value: "a-qkv-shard completes before a-attn-local"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "c-order-qkv-dcp"
+    source_node_id: "a-qkv-shard"
+    target_node_id: "a-dcp-topk"
+    kind: "ordered-step"
+    label: "a-qkv-shard completes before a-dcp-topk"
+    semantics {
+      entry_id: "c-order-qkv-dcp-r"
+      key: "relationship"
+      value: "a-qkv-shard completes before a-dcp-topk"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "c-order-route-ffn"
+    source_node_id: "a-ffn-route"
+    target_node_id: "a-ffn-local"
+    kind: "ordered-step"
+    label: "a-ffn-route completes before a-ffn-local"
+    semantics {
+      entry_id: "c-order-route-ffn-r"
+      key: "relationship"
+      value: "a-ffn-route completes before a-ffn-local"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "c-order-vocab-gather"
+    source_node_id: "a-vocab-shard"
+    target_node_id: "a-logits-gather"
+    kind: "ordered-step"
+    label: "a-vocab-shard completes before a-logits-gather"
+    semantics {
+      entry_id: "c-order-vocab-gather-r"
+      key: "relationship"
+      value: "a-vocab-shard completes before a-logits-gather"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "c-qkv-attn"
+    source_node_id: "d-qkv-shard"
+    target_node_id: "a-attn-local"
+    kind: "value-flow"
+    label: "d-qkv-shard feeds a-attn-local"
+    semantics {
+      entry_id: "c-qkv-attn-r"
+      key: "relationship"
+      value: "d-qkv-shard feeds a-attn-local"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "c-qkv-cache-row"
+    source_node_id: "a-qkv-shard"
+    target_node_id: "d-mla-cache-row"
+    kind: "value-flow"
+    label: "a-qkv-shard feeds d-mla-cache-row"
+    semantics {
+      entry_id: "c-qkv-cache-row-r"
+      key: "relationship"
+      value: "a-qkv-shard feeds d-mla-cache-row"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "c-qkv-cursor-read"
+    source_node_id: "a-qkv-shard"
+    target_node_id: "s-kv-cursor"
+    kind: "state-access"
+    label: "QKV/MLA append reads current decode cursor position j"
+    semantics {
+      entry_id: "c-qkv-cursor-read-r"
+      key: "relationship"
+      value: "QKV/MLA append reads current decode cursor position j"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "c-qkv-cursor-read-s"
+      key: "state_read"
+      value: "QKV/MLA append reads current decode cursor position j"
+      object_ref {
+        node_id: "s-kv-cursor"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "c-qkv-dcp"
+    source_node_id: "d-qkv-shard"
+    target_node_id: "a-dcp-topk"
+    kind: "value-flow"
+    label: "d-qkv-shard feeds a-dcp-topk"
+    semantics {
+      entry_id: "c-qkv-dcp-r"
+      key: "relationship"
+      value: "d-qkv-shard feeds a-dcp-topk"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "c-qkv-out"
+    source_node_id: "a-qkv-shard"
+    target_node_id: "d-qkv-shard"
+    kind: "value-flow"
+    label: "a-qkv-shard feeds d-qkv-shard"
+    semantics {
+      entry_id: "c-qkv-out-r"
+      key: "relationship"
+      value: "a-qkv-shard feeds d-qkv-shard"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "c-route-selection"
+    source_node_id: "a-ffn-route"
+    target_node_id: "d-expert-selection"
+    kind: "value-flow"
+    label: "a-ffn-route feeds d-expert-selection"
+    semantics {
+      entry_id: "c-route-selection-r"
+      key: "relationship"
+      value: "a-ffn-route feeds d-expert-selection"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "c-sample-cursor-update"
+    source_node_id: "a-sample"
+    target_node_id: "s-kv-cursor"
+    kind: "state-access"
+    label: "sampling advances decode cursor after token j"
+    semantics {
+      entry_id: "c-sample-cursor-update-r"
+      key: "relationship"
+      value: "sampling advances decode cursor after token j"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "c-sample-cursor-update-s"
+      key: "state_update"
+      value: "sampling advances decode cursor after token j"
+      object_ref {
+        node_id: "s-kv-cursor"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "c-sample-in"
+    source_node_id: "d-logits-coord"
+    target_node_id: "a-sample"
+    kind: "value-flow"
+    label: "d-logits-coord feeds a-sample"
+    semantics {
+      entry_id: "c-sample-in-r"
+      key: "relationship"
+      value: "d-logits-coord feeds a-sample"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "c-sample-out"
+    source_node_id: "a-sample"
+    target_node_id: "d-token-out"
+    kind: "value-flow"
+    label: "a-sample feeds d-token-out"
+    semantics {
+      entry_id: "c-sample-out-r"
+      key: "relationship"
+      value: "a-sample feeds d-token-out"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "c-selection-ffn"
+    source_node_id: "d-expert-selection"
+    target_node_id: "a-ffn-local"
+    kind: "value-flow"
+    label: "d-expert-selection feeds a-ffn-local"
+    semantics {
+      entry_id: "c-selection-ffn-r"
+      key: "relationship"
+      value: "d-expert-selection feeds a-ffn-local"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "c-state-01"
+    source_node_id: "a-embed-broadcast"
+    target_node_id: "s-model"
+    kind: "state-access"
+    label: "read embeddings and TP metadata"
+    semantics {
+      entry_id: "c-state-01-r"
+      key: "relationship"
+      value: "read embeddings and TP metadata"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "c-state-01-s"
+      key: "state_read"
+      value: "read embeddings and TP metadata"
+      object_ref {
+        node_id: "s-model"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "c-state-02"
+    source_node_id: "a-embed-broadcast"
+    target_node_id: "s-tp"
+    kind: "state-access"
+    label: "read broadcast collective"
+    semantics {
+      entry_id: "c-state-02-r"
+      key: "relationship"
+      value: "read broadcast collective"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "c-state-02-s"
+      key: "state_read"
+      value: "read broadcast collective"
+      object_ref {
+        node_id: "s-tp"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "c-state-03"
+    source_node_id: "a-qkv-shard"
+    target_node_id: "s-model"
+    kind: "state-access"
+    label: "read QKV/MLA TP shards"
+    semantics {
+      entry_id: "c-state-03-r"
+      key: "relationship"
+      value: "read QKV/MLA TP shards"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "c-state-03-s"
+      key: "state_read"
+      value: "read QKV/MLA TP shards"
+      object_ref {
+        node_id: "s-model"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "c-state-04"
+    source_node_id: "a-qkv-shard"
+    target_node_id: "s-kv"
+    kind: "state-access"
+    label: "append KV/MLA shard for position j"
+    semantics {
+      entry_id: "c-state-04-r"
+      key: "relationship"
+      value: "append KV/MLA shard for position j"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "c-state-04-s"
+      key: "state_update"
+      value: "append KV/MLA shard for position j"
+      object_ref {
+        node_id: "s-kv"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "c-state-05"
+    source_node_id: "a-attn-local"
+    target_node_id: "s-model"
+    kind: "state-access"
+    label: "read attention/output TP shards"
+    semantics {
+      entry_id: "c-state-05-r"
+      key: "relationship"
+      value: "read attention/output TP shards"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "c-state-05-s"
+      key: "state_read"
+      value: "read attention/output TP shards"
+      object_ref {
+        node_id: "s-model"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "c-state-06"
+    source_node_id: "a-attn-local"
+    target_node_id: "s-kv"
+    kind: "state-access"
+    label: "read TP KV/MLA cache"
+    semantics {
+      entry_id: "c-state-06-r"
+      key: "relationship"
+      value: "read TP KV/MLA cache"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "c-state-06-s"
+      key: "state_read"
+      value: "read TP KV/MLA cache"
+      object_ref {
+        node_id: "s-kv"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "c-state-07"
+    source_node_id: "a-attn-allreduce"
+    target_node_id: "s-tp"
+    kind: "state-access"
+    label: "run ATTN all_reduce_sum"
+    semantics {
+      entry_id: "c-state-07-r"
+      key: "relationship"
+      value: "run ATTN all_reduce_sum"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "c-state-07-s"
+      key: "state_read"
+      value: "run ATTN all_reduce_sum"
+      object_ref {
+        node_id: "s-tp"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "c-state-08"
+    source_node_id: "a-ffn-local"
+    target_node_id: "s-model"
+    kind: "state-access"
+    label: "read router/expert/FFN TP shards"
+    semantics {
+      entry_id: "c-state-08-r"
+      key: "relationship"
+      value: "read router/expert/FFN TP shards"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "c-state-08-s"
+      key: "state_read"
+      value: "read router/expert/FFN TP shards"
+      object_ref {
+        node_id: "s-model"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "c-state-09"
+    source_node_id: "a-ffn-allreduce"
+    target_node_id: "s-tp"
+    kind: "state-access"
+    label: "run FFN all_reduce_sum"
+    semantics {
+      entry_id: "c-state-09-r"
+      key: "relationship"
+      value: "run FFN all_reduce_sum"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "c-state-09-s"
+      key: "state_read"
+      value: "run FFN all_reduce_sum"
+      object_ref {
+        node_id: "s-tp"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "c-state-10"
+    source_node_id: "a-vocab-shard"
+    target_node_id: "s-model"
+    kind: "state-access"
+    label: "read vocab row shard"
+    semantics {
+      entry_id: "c-state-10-r"
+      key: "relationship"
+      value: "read vocab row shard"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "c-state-10-s"
+      key: "state_read"
+      value: "read vocab row shard"
+      object_ref {
+        node_id: "s-model"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "c-state-11"
+    source_node_id: "a-logits-gather"
+    target_node_id: "s-tp"
+    kind: "state-access"
+    label: "run logits gather/top-k"
+    semantics {
+      entry_id: "c-state-11-r"
+      key: "relationship"
+      value: "run logits gather/top-k"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "c-state-11-s"
+      key: "state_read"
+      value: "run logits gather/top-k"
+      object_ref {
+        node_id: "s-tp"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "c-state-12"
+    source_node_id: "a-sample"
+    target_node_id: "s-kv"
+    kind: "state-access"
+    label: "advance decode cursor metadata"
+    semantics {
+      entry_id: "c-state-12-r"
+      key: "relationship"
+      value: "advance decode cursor metadata"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "c-state-12-s"
+      key: "state_update"
+      value: "advance decode cursor metadata"
+      object_ref {
+        node_id: "s-kv"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "c-state-13"
+    source_node_id: "a-qkv-shard"
+    target_node_id: "s-rank-plan"
+    kind: "state-access"
+    label: "read rank plan for Q/K ownership"
+    semantics {
+      entry_id: "c-state-13-r"
+      key: "relationship"
+      value: "read rank plan for Q/K ownership"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "c-state-13-s"
+      key: "state_read"
+      value: "read rank plan for Q/K ownership"
+      object_ref {
+        node_id: "s-rank-plan"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "c-state-14"
+    source_node_id: "a-dcp-topk"
+    target_node_id: "s-kv"
+    kind: "state-access"
+    label: "read DCP prefix cache shards"
+    semantics {
+      entry_id: "c-state-14-r"
+      key: "relationship"
+      value: "read DCP prefix cache shards"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "c-state-14-s"
+      key: "state_read"
+      value: "read DCP prefix cache shards"
+      object_ref {
+        node_id: "s-kv"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "c-state-15"
+    source_node_id: "a-dcp-topk"
+    target_node_id: "s-tp"
+    kind: "state-access"
+    label: "run DCP global top-k merge"
+    semantics {
+      entry_id: "c-state-15-r"
+      key: "relationship"
+      value: "run DCP global top-k merge"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "c-state-15-s"
+      key: "state_read"
+      value: "run DCP global top-k merge"
+      object_ref {
+        node_id: "s-tp"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "c-state-16"
+    source_node_id: "a-dcp-topk"
+    target_node_id: "s-rank-plan"
+    kind: "state-access"
+    label: "read DCP ownership spans"
+    semantics {
+      entry_id: "c-state-16-r"
+      key: "relationship"
+      value: "read DCP ownership spans"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "c-state-16-s"
+      key: "state_read"
+      value: "read DCP ownership spans"
+      object_ref {
+        node_id: "s-rank-plan"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "c-state-17"
+    source_node_id: "a-attn-local"
+    target_node_id: "s-rank-plan"
+    kind: "state-access"
+    label: "read owned query-head span"
+    semantics {
+      entry_id: "c-state-17-r"
+      key: "relationship"
+      value: "read owned query-head span"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "c-state-17-s"
+      key: "state_read"
+      value: "read owned query-head span"
+      object_ref {
+        node_id: "s-rank-plan"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "c-state-18"
+    source_node_id: "a-ffn-route"
+    target_node_id: "s-model"
+    kind: "state-access"
+    label: "read router weights"
+    semantics {
+      entry_id: "c-state-18-r"
+      key: "relationship"
+      value: "read router weights"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "c-state-18-s"
+      key: "state_read"
+      value: "read router weights"
+      object_ref {
+        node_id: "s-model"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "c-state-19"
+    source_node_id: "a-ffn-route"
+    target_node_id: "s-rank-plan"
+    kind: "state-access"
+    label: "read expert ownership spans"
+    semantics {
+      entry_id: "c-state-19-r"
+      key: "relationship"
+      value: "read expert ownership spans"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "c-state-19-s"
+      key: "state_read"
+      value: "read expert ownership spans"
+      object_ref {
+        node_id: "s-rank-plan"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "c-state-20"
+    source_node_id: "a-ffn-local"
+    target_node_id: "s-rank-plan"
+    kind: "state-access"
+    label: "read rank expert ownership span"
+    semantics {
+      entry_id: "c-state-20-r"
+      key: "relationship"
+      value: "read rank expert ownership span"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "c-state-20-s"
+      key: "state_read"
+      value: "read rank expert ownership span"
+      object_ref {
+        node_id: "s-rank-plan"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "c-token-embed"
+    source_node_id: "d-token-in"
+    target_node_id: "a-embed-broadcast"
+    kind: "value-flow"
+    label: "d-token-in feeds a-embed-broadcast"
+    semantics {
+      entry_id: "c-token-embed-r"
+      key: "relationship"
+      value: "d-token-in feeds a-embed-broadcast"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "c-vocab-shard"
+    source_node_id: "a-vocab-shard"
+    target_node_id: "d-logits-shard"
+    kind: "value-flow"
+    label: "a-vocab-shard feeds d-logits-shard"
+    semantics {
+      entry_id: "c-vocab-shard-r"
+      key: "relationship"
+      value: "a-vocab-shard feeds d-logits-shard"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  operations {
+    operation_id: "op-decode"
+    name: "decode-token-j-tp4"
+    overview: "One-token GLM 5.2 decode with TP=4/DCP4 over four GX10 ranks."
+    members {
+      ref {
+        node_id: "a-attn-allreduce"
+      }
+      role: "ATTN collective"
+    }
+    members {
+      ref {
+        node_id: "a-attn-local"
+      }
+      role: "local sparse MLA attention/head shards"
+    }
+    members {
+      ref {
+        node_id: "a-dcp-topk"
+      }
+      role: "DCP global sparse top-k"
+    }
+    members {
+      ref {
+        node_id: "a-embed-broadcast"
+      }
+      role: "broadcast replicated input"
+    }
+    members {
+      ref {
+        node_id: "a-ffn-allreduce"
+      }
+      role: "FFN collective"
+    }
+    members {
+      ref {
+        node_id: "a-ffn-local"
+      }
+      role: "local FFN/expert shards"
+    }
+    members {
+      ref {
+        node_id: "a-ffn-route"
+      }
+      role: "router/top-k expert selection"
+    }
+    members {
+      ref {
+        node_id: "a-logits-gather"
+      }
+      role: "logits gather/top-k"
+    }
+    members {
+      ref {
+        node_id: "a-qkv-shard"
+      }
+      role: "QKV/MLA projection and cache append"
+    }
+    members {
+      ref {
+        node_id: "a-sample"
+      }
+      role: "sampling"
+    }
+    members {
+      ref {
+        node_id: "a-vocab-shard"
+      }
+      role: "vocab shards"
+    }
+    semantics {
+      entry_id: "op-decode-dist"
+      key: "distribution_scope"
+      value: "rank-local shards/partials become replicated only through explicit broadcast/all-reduce/gather actions"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "op-decode-order"
+      key: "ordering"
+      value: "embed/broadcast -> QKV/MLA cache append -> DCP global top-k -> local sparse MLA attention -> ATTN all-reduce -> expert routing -> local FFN -> FFN all-reduce -> loop/final vocab -> logits gather -> sample"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "op-decode-qk"
+      key: "qk_distribution"
+      value: "Q components are distributed by query-head span; K components use shared MLA latent plus rank-owned k_b reconstruction slices, not KV-head sharding."
+      status: SUPPORTED
+    }
+    end_goals {
+      goal_id: "goal-one-token"
+      intent: "Produce exactly one sampled token j and advance TP/DCP KV shards for position j."
+      bindings {
+        ref {
+          node_id: "d-token-out"
+        }
+        role: "sampled token"
+        semantics {
+          entry_id: "goal-out-token"
+          key: "output"
+          value: "token j sampled on coordinator"
+          status: SUPPORTED
+        }
+      }
+      bindings {
+        ref {
+          node_id: "s-kv"
+        }
+        role: "advanced TP/DCP KV"
+        semantics {
+          entry_id: "goal-kv-shards"
+          key: "state_update"
+          value: "TP/DCP KV shards advanced for ranks 0..3"
+          status: SUPPORTED
+        }
+      }
+    }
+  }
+  architecture {
+    overview: "One autoregressive token is computed by four TP ranks running every layer in lockstep."
+    rationale: "The distributed boundaries are collectives, not layer handoffs. Rank-local QKV/head/expert/logits shards and additive partials are distinct DATA occurrences until broadcast/all-reduce/gather actions produce replicated or leader-visible DATA."
+    components {
+      component_id: "dec-collectives"
+      name: "TP collectives"
+      kind: "collective-boundary"
+      overview: "Broadcast, all-reduce, and gather/top-k actions that convert between rank-local and replicated/leader-visible occurrences."
+      member_refs {
+        node_id: "a-attn-allreduce"
+      }
+      member_refs {
+        node_id: "a-embed-broadcast"
+      }
+      member_refs {
+        node_id: "a-ffn-allreduce"
+      }
+      member_refs {
+        node_id: "a-logits-gather"
+      }
+      semantics {
+        entry_id: "dec-coll"
+        key: "collective"
+        value: "broadcast + all_reduce_sum + gather_or_distributed_topk"
+        status: SUPPORTED
+      }
+    }
+    components {
+      component_id: "dec-dcp-mla-cache"
+      name: "DCP4 MLA sparse cache"
+      kind: "distributed-cache-and-selection"
+      overview: "The decode-context partition stores GLM 5.2 MLA latent rows and sparse index metadata by DCP rank; global top-k selection returns the rows each query-head shard needs before local attention."
+      member_refs {
+        node_id: "a-attn-local"
+      }
+      member_refs {
+        node_id: "a-dcp-topk"
+      }
+      member_refs {
+        node_id: "d-dcp-selection"
+      }
+      member_refs {
+        node_id: "d-mla-cache-row"
+      }
+      member_refs {
+        node_id: "s-kv"
+      }
+      semantics {
+        entry_id: "dec-dcp-cache-topk"
+        key: "collective"
+        value: "dcp_global_topk_merge"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "dec-dcp-cache-scope"
+        key: "distribution_scope"
+        value: "rank_local_shard"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "dec-dcp-cache-mla"
+        key: "qk_distribution"
+        value: "K storage is MLA latent/rope cache, not four independent KV-head caches."
+        status: SUPPORTED
+      }
+    }
+    components {
+      component_id: "dec-rank0"
+      name: "TP rank 0"
+      kind: "tp-rank"
+      overview: "GX10 rank 0 hosts all GLM 5.2 layers for TP rank 0: query heads 0..15, DCP context shard 0, rank-owned expert/vocab shards, and rank-owned k_b/v_b reconstruction slices."
+      member_refs {
+        node_id: "a-attn-local"
+      }
+      member_refs {
+        node_id: "a-dcp-topk"
+      }
+      member_refs {
+        node_id: "a-ffn-local"
+      }
+      member_refs {
+        node_id: "a-ffn-route"
+      }
+      member_refs {
+        node_id: "a-qkv-shard"
+      }
+      member_refs {
+        node_id: "a-vocab-shard"
+      }
+      member_refs {
+        node_id: "s-rank-plan"
+      }
+      semantics {
+        entry_id: "dec-r0-dcp"
+        key: "dcp_distribution"
+        value: "owns DCP context shard 0; selected rows can be read/exchanged according to DCP global top-k results"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "dec-r0-scope"
+        key: "distribution_scope"
+        value: "rank_local_shard"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "dec-r0-q-heads"
+        key: "q_head_range"
+        value: "0..15"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "dec-r0-k"
+        key: "qk_distribution"
+        value: "does not own a separate KV head; reconstructs K for owned Q heads from kv_lora[512] plus k_rope[64] using rank-owned k_b slices"
+        status: SUPPORTED
+      }
+    }
+    components {
+      component_id: "dec-rank1"
+      name: "TP rank 1"
+      kind: "tp-rank"
+      overview: "GX10 rank 1 hosts all GLM 5.2 layers for TP rank 1: query heads 16..31, DCP context shard 1, rank-owned expert/vocab shards, and rank-owned k_b/v_b reconstruction slices."
+      member_refs {
+        node_id: "a-attn-local"
+      }
+      member_refs {
+        node_id: "a-dcp-topk"
+      }
+      member_refs {
+        node_id: "a-ffn-local"
+      }
+      member_refs {
+        node_id: "a-ffn-route"
+      }
+      member_refs {
+        node_id: "a-qkv-shard"
+      }
+      member_refs {
+        node_id: "a-vocab-shard"
+      }
+      member_refs {
+        node_id: "s-rank-plan"
+      }
+      semantics {
+        entry_id: "dec-r1-dcp"
+        key: "dcp_distribution"
+        value: "owns DCP context shard 1; selected rows can be read/exchanged according to DCP global top-k results"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "dec-r1-scope"
+        key: "distribution_scope"
+        value: "rank_local_shard"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "dec-r1-q-heads"
+        key: "q_head_range"
+        value: "16..31"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "dec-r1-k"
+        key: "qk_distribution"
+        value: "does not own a separate KV head; reconstructs K for owned Q heads from kv_lora[512] plus k_rope[64] using rank-owned k_b slices"
+        status: SUPPORTED
+      }
+    }
+    components {
+      component_id: "dec-rank2"
+      name: "TP rank 2"
+      kind: "tp-rank"
+      overview: "GX10 rank 2 hosts all GLM 5.2 layers for TP rank 2: query heads 32..47, DCP context shard 2, rank-owned expert/vocab shards, and rank-owned k_b/v_b reconstruction slices."
+      member_refs {
+        node_id: "a-attn-local"
+      }
+      member_refs {
+        node_id: "a-dcp-topk"
+      }
+      member_refs {
+        node_id: "a-ffn-local"
+      }
+      member_refs {
+        node_id: "a-ffn-route"
+      }
+      member_refs {
+        node_id: "a-qkv-shard"
+      }
+      member_refs {
+        node_id: "a-vocab-shard"
+      }
+      member_refs {
+        node_id: "s-rank-plan"
+      }
+      semantics {
+        entry_id: "dec-r2-dcp"
+        key: "dcp_distribution"
+        value: "owns DCP context shard 2; selected rows can be read/exchanged according to DCP global top-k results"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "dec-r2-scope"
+        key: "distribution_scope"
+        value: "rank_local_shard"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "dec-r2-q-heads"
+        key: "q_head_range"
+        value: "32..47"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "dec-r2-k"
+        key: "qk_distribution"
+        value: "does not own a separate KV head; reconstructs K for owned Q heads from kv_lora[512] plus k_rope[64] using rank-owned k_b slices"
+        status: SUPPORTED
+      }
+    }
+    components {
+      component_id: "dec-rank3"
+      name: "TP rank 3"
+      kind: "tp-rank"
+      overview: "GX10 rank 3 hosts all GLM 5.2 layers for TP rank 3: query heads 48..63, DCP context shard 3, rank-owned expert/vocab shards, and rank-owned k_b/v_b reconstruction slices."
+      member_refs {
+        node_id: "a-attn-local"
+      }
+      member_refs {
+        node_id: "a-dcp-topk"
+      }
+      member_refs {
+        node_id: "a-ffn-local"
+      }
+      member_refs {
+        node_id: "a-ffn-route"
+      }
+      member_refs {
+        node_id: "a-qkv-shard"
+      }
+      member_refs {
+        node_id: "a-vocab-shard"
+      }
+      member_refs {
+        node_id: "s-rank-plan"
+      }
+      semantics {
+        entry_id: "dec-r3-dcp"
+        key: "dcp_distribution"
+        value: "owns DCP context shard 3; selected rows can be read/exchanged according to DCP global top-k results"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "dec-r3-scope"
+        key: "distribution_scope"
+        value: "rank_local_shard"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "dec-r3-q-heads"
+        key: "q_head_range"
+        value: "48..63"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "dec-r3-k"
+        key: "qk_distribution"
+        value: "does not own a separate KV head; reconstructs K for owned Q heads from kv_lora[512] plus k_rope[64] using rank-owned k_b slices"
+        status: SUPPORTED
+      }
+    }
+    connections {
+      connection_id: "dec-coll-ranks"
+      source_component_id: "dec-rank0"
+      target_component_id: "dec-collectives"
+      kind: "collective-membership"
+      label: "ranks 0..3 participate in each collective"
+      support_refs {
+        node_id: "s-tp"
+      }
+      semantics {
+        entry_id: "dec-coll-ranks-sem"
+        key: "relationship"
+        value: "all TP ranks participate in every collective"
+        status: SUPPORTED
+      }
+    }
+    connections {
+      connection_id: "dec-dcp-cache-to-collectives"
+      source_component_id: "dec-dcp-mla-cache"
+      target_component_id: "dec-collectives"
+      kind: "collective-membership"
+      label: "DCP selected-row/top-k exchange uses the TP/DCP collective fabric"
+      support_refs {
+        node_id: "a-dcp-topk"
+      }
+      support_refs {
+        node_id: "s-tp"
+      }
+      semantics {
+        entry_id: "dec-dcp-cache-to-collectives-sem"
+        key: "relationship"
+        value: "DCP sparse selection is a distributed exchange before local attention, separate from the ATTN all-reduce."
+        status: SUPPORTED
+      }
+    }
+    semantics {
+      entry_id: "dec-arch-tp"
+      key: "constraint"
+      value: "There are no rank-to-rank layer handoffs in decode; all ranks execute every layer."
+      status: SUPPORTED
+    }
+  }
+}
+evidence_sources {
+  evidence_id: "ev-bird-convert-tp4"
+  origin: "local-runbook"
+  source_ref: "/Users/helium/src/locals/gx10-bird-bf16-assets/convert_glm52_tp4.py"
+  sha256: "d39076b9d19c8bd643eaf6be16a0a2e9a9112a556a2eb5663fe1a162833440e1"
+}
+evidence_sources {
+  evidence_id: "ev-bird-launch-rank"
+  origin: "local-runbook"
+  source_ref: "/Users/helium/src/locals/gx10-bird-bf16-assets/launch-rank.sh"
+  sha256: "516f59d706584011b162824b6efb383bab2abc3c9cfaf0539b7f44a6d0499e36"
+}
+evidence_sources {
+  evidence_id: "ev-bird-orchestrate"
+  origin: "local-runbook"
+  source_ref: "/Users/helium/src/locals/gx10-bird-bf16-assets/orchestrate-launch.sh"
+  sha256: "176ca0a3b78cd2e0a2013e03820471d1a543f150eab247c2845213ada1b5cce1"
+}
+evidence_sources {
+  evidence_id: "ev-bird-runbook"
+  origin: "local-runbook"
+  source_ref: "/Users/helium/src/locals/gx10-glm52-full-bird-bf16-runbook.md"
+  sha256: "e707a2401dd3fea0c08b935b309e95f095fc98c85242b01d4d676247f151f3ec"
+}
+evidence_sources {
+  evidence_id: "ev-code-glm52-shape"
+  origin: "repo"
+  source_ref: "/Users/helium/src/ds4-gb10x4-bcd/ds4.c"
+  sha256: "1f77f628dd28415c0ba95a9d30d1f6c68538a738c39b8af3f1786dcabbbd01f4"
+}
+evidence_sources {
+  evidence_id: "ev-code-glm52-tp-gap"
+  origin: "repo"
+  source_ref: "/Users/helium/src/ds4-gb10x4-bcd/ds4.c"
+  sha256: "1f77f628dd28415c0ba95a9d30d1f6c68538a738c39b8af3f1786dcabbbd01f4"
+}
+evidence_sources {
+  evidence_id: "ev-current-glm52-tp-gap"
+  origin: "repo"
+  source_ref: "/Users/helium/src/ds4-gb10x4-bcd/README.md"
+  sha256: "1b8905288d4be0562acac44a5542e5e77ee045ce23bffe1c7d9c34405262b540"
+}
+evidence_sources {
+  evidence_id: "ev-readme-cuda-spark"
+  origin: "repo"
+  source_ref: "/Users/helium/src/ds4-gb10x4-bcd/README.md"
+  sha256: "1b8905288d4be0562acac44a5542e5e77ee045ce23bffe1c7d9c34405262b540"
+}
+evidence_sources {
+  evidence_id: "ev-readme-generation"
+  origin: "repo"
+  source_ref: "/Users/helium/src/ds4-gb10x4-bcd/README.md"
+  sha256: "1b8905288d4be0562acac44a5542e5e77ee045ce23bffe1c7d9c34405262b540"
+}
+evidence_sources {
+  evidence_id: "ev-readme-pipeline"
+  origin: "repo"
+  source_ref: "/Users/helium/src/ds4-gb10x4-bcd/README.md"
+  sha256: "1b8905288d4be0562acac44a5542e5e77ee045ce23bffe1c7d9c34405262b540"
+}
+canonical {
+  schema_sha256: "9de5a18221a33a9379092d084dbae946af604b979dfe7caf07bdd65701b5ea9d"
+  type_schema_sha256: "11aed4b3949cb382442d88c9da0f49383f7a3e1d79ee196a83cb7696855e03be"
+  graph_sha256: "531b4116a4a6105039821b48f64d501736d8f2e8190874efd6048c3033595b1b"
+  graph_contract_sha256: "e98ec8de0297f19e37d776a48f3cc032a7d0b91972a643ff72ca3ad8c42fe3cb"
+}

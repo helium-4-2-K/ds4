@@ -1,0 +1,2361 @@
+{
+  "schema": "blueprint-write-request/v11",
+  "action": "simulate_contract",
+  "request_id": "simulate-decode-current-full-trace-current-digest",
+  "root": "/Users/helium/src/ds4-gb10x4-bcd/bdev",
+  "record_dir": "/Users/helium/src/ds4-gb10x4-bcd/dev-artifacts/03_record",
+  "params": {
+    "profile": "composite",
+    "graph_ids": [
+      "decode"
+    ],
+    "cases": [
+      {
+        "case_id": "token-j-tp4-dcp4-current-full-trace",
+        "graph_id": "decode",
+        "scenario_entry_id": "dec-scenario",
+        "initial_node_ids": [
+          "d-token-in"
+        ],
+        "active_edge_ids": [
+          "c-attn-ffn",
+          "c-attn-hidden",
+          "c-attn-partial",
+          "c-attn-reduce-in",
+          "c-attn-route",
+          "c-cache-row-dcp",
+          "c-dcp-attn",
+          "c-dcp-selection",
+          "c-embed-hidden",
+          "c-ffn-partial",
+          "c-ffn-reduce-in",
+          "c-final-vocab",
+          "c-hidden-qkv",
+          "c-layer-hidden",
+          "c-layer-loop",
+          "c-logits-coord",
+          "c-logits-gather-in",
+          "c-order-attn-ffn",
+          "c-order-attn-red",
+          "c-order-attn-route",
+          "c-order-dcp-attn",
+          "c-order-embed-qkv",
+          "c-order-ffn-red",
+          "c-order-final-vocab",
+          "c-order-gather-sample",
+          "c-order-qkv-attn",
+          "c-order-qkv-dcp",
+          "c-order-route-ffn",
+          "c-order-vocab-gather",
+          "c-qkv-attn",
+          "c-qkv-cache-row",
+          "c-qkv-cursor-read",
+          "c-qkv-dcp",
+          "c-qkv-out",
+          "c-route-selection",
+          "c-sample-cursor-update",
+          "c-sample-in",
+          "c-sample-out",
+          "c-selection-ffn",
+          "c-state-01",
+          "c-state-02",
+          "c-state-03",
+          "c-state-04",
+          "c-state-05",
+          "c-state-06",
+          "c-state-07",
+          "c-state-08",
+          "c-state-09",
+          "c-state-10",
+          "c-state-11",
+          "c-state-12",
+          "c-state-13",
+          "c-state-14",
+          "c-state-15",
+          "c-state-16",
+          "c-state-17",
+          "c-state-18",
+          "c-state-19",
+          "c-state-20",
+          "c-token-embed",
+          "c-vocab-shard"
+        ],
+        "terminal_node_ids": [
+          "d-token-out",
+          "s-kv",
+          "s-kv-cursor",
+          "s-model",
+          "s-rank-plan",
+          "s-tp"
+        ],
+        "assumption_entry_ids": [],
+        "outcome_entry_ids": [
+          "attn-hidden-out",
+          "attn-partial-out",
+          "attnloc-ef",
+          "attnloc-exit",
+          "attnred-ef",
+          "attnred-exit",
+          "dcp-ef",
+          "dcp-exit",
+          "dcp-selection-out",
+          "dec-ef",
+          "dec-exit",
+          "decode-state-read-no-effect",
+          "emb-ef",
+          "emb-exit",
+          "embed-hidden-out",
+          "ffn-partial-out",
+          "ffnloc-ef",
+          "ffnloc-exit",
+          "ffnred-ef",
+          "ffnred-exit",
+          "gather-ef",
+          "gather-exit",
+          "gather-logits-out",
+          "layer-hidden-out",
+          "mla-cache-row-out",
+          "qkv-ef",
+          "qkv-exit",
+          "qkv-shard-out",
+          "route-ef",
+          "route-exit",
+          "route-selection-out",
+          "sample-ef",
+          "sample-exit",
+          "sample-token-out",
+          "token-out",
+          "vocab-ef",
+          "vocab-exit",
+          "vocab-logits-out"
+        ],
+        "obligation_entry_ids": [
+          "action-decode-token-im",
+          "attn-bird-ref",
+          "attn-glm52-qk-achievable",
+          "attn-partial-in",
+          "attn-qkv-in",
+          "attn-selection-in",
+          "attnloc-im",
+          "attnloc-nd",
+          "attnred-collective",
+          "attnred-im",
+          "attnred-nd",
+          "c-qkv-cursor-read-s",
+          "c-sample-cursor-update-s",
+          "c-state-01-s",
+          "c-state-02-s",
+          "c-state-03-s",
+          "c-state-04-s",
+          "c-state-05-s",
+          "c-state-06-s",
+          "c-state-07-s",
+          "c-state-08-s",
+          "c-state-09-s",
+          "c-state-10-s",
+          "c-state-11-s",
+          "c-state-12-s",
+          "c-state-13-s",
+          "c-state-14-s",
+          "c-state-15-s",
+          "c-state-16-s",
+          "c-state-17-s",
+          "c-state-18-s",
+          "c-state-19-s",
+          "c-state-20-s",
+          "d-attn-partial-dist",
+          "d-dcp-selection-dist",
+          "d-expert-selection-dist",
+          "d-ffn-partial-dist",
+          "d-hidden-attn-dist",
+          "d-hidden-layer-out-dist",
+          "d-hidden-repl-dist",
+          "d-logits-coord-dist",
+          "d-logits-shard-dist",
+          "d-mla-cache-row-dist",
+          "d-qkv-shard-dist",
+          "d-token-in-dist",
+          "d-token-out-dist",
+          "dcp-bird-ref",
+          "dcp-cache-row-in",
+          "dcp-collective",
+          "dcp-im",
+          "dcp-nd",
+          "dcp-qkv-in",
+          "dec-arch-tp",
+          "dec-bird-ref",
+          "dec-coll",
+          "dec-dcp-cache-mla",
+          "dec-dcp-cache-scope",
+          "dec-dcp-cache-topk",
+          "dec-nd",
+          "dec-r0-dcp",
+          "dec-r0-k",
+          "dec-r0-q-heads",
+          "dec-r0-scope",
+          "dec-r1-dcp",
+          "dec-r1-k",
+          "dec-r1-q-heads",
+          "dec-r1-scope",
+          "dec-r2-dcp",
+          "dec-r2-k",
+          "dec-r2-q-heads",
+          "dec-r2-scope",
+          "dec-r3-dcp",
+          "dec-r3-k",
+          "dec-r3-q-heads",
+          "dec-r3-scope",
+          "decode-bird-baseline",
+          "decode-bird-collectives",
+          "decode-bird-dcp",
+          "decode-glm52-qk-mla-split",
+          "decode-implementation-seams",
+          "emb-collective",
+          "emb-im",
+          "emb-nd",
+          "embed-token-in",
+          "ffn-expert-selection-in",
+          "ffn-hidden-in",
+          "ffn-partial-in",
+          "ffnloc-im",
+          "ffnloc-nd",
+          "ffnred-collective",
+          "ffnred-im",
+          "ffnred-nd",
+          "gather-bird-ref",
+          "gather-collective",
+          "gather-im",
+          "gather-logits-in",
+          "gather-nd",
+          "op-decode-dist",
+          "op-decode-qk",
+          "qkv-bird-ref",
+          "qkv-glm52-qk-mla-split",
+          "qkv-hidden-in",
+          "qkv-im",
+          "qkv-nd",
+          "route-hidden-in",
+          "route-im",
+          "route-nd",
+          "s-kv-cursor-dist",
+          "s-kv-dist",
+          "s-model-dist",
+          "s-rank-plan-dist",
+          "s-tp-dist",
+          "sample-im",
+          "sample-logits-in",
+          "sample-nd",
+          "token-in",
+          "vocab-hidden-in",
+          "vocab-im",
+          "vocab-nd"
+        ],
+        "property_flows": [
+          {
+            "target_entry_id": "d-attn-partial-identity",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-qkv-attn-r",
+              "c-dcp-attn-r",
+              "c-attn-partial-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-attn-partial-ordering",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-qkv-attn-r",
+              "c-dcp-attn-r",
+              "c-attn-partial-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-attn-partial-presence",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-qkv-attn-r",
+              "c-dcp-attn-r",
+              "c-attn-partial-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-attn-partial-provenance",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-qkv-attn-r",
+              "c-dcp-attn-r",
+              "c-attn-partial-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-dcp-selection-identity",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-cache-row-dcp-r",
+              "c-dcp-selection-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-dcp-selection-ordering",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-cache-row-dcp-r",
+              "c-dcp-selection-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-dcp-selection-presence",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-cache-row-dcp-r",
+              "c-dcp-selection-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-dcp-selection-provenance",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-cache-row-dcp-r",
+              "c-dcp-selection-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-expert-selection-identity",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-attn-route-r",
+              "c-route-selection-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-expert-selection-ordering",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-attn-route-r",
+              "c-route-selection-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-expert-selection-presence",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-attn-route-r",
+              "c-route-selection-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-expert-selection-provenance",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-attn-route-r",
+              "c-route-selection-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-ffn-partial-identity",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-selection-ffn-r",
+              "c-ffn-partial-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-ffn-partial-ordering",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-selection-ffn-r",
+              "c-ffn-partial-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-ffn-partial-presence",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-selection-ffn-r",
+              "c-ffn-partial-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-ffn-partial-provenance",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-selection-ffn-r",
+              "c-ffn-partial-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-hidden-attn-identity",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-attn-reduce-in-r",
+              "c-attn-hidden-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-hidden-attn-ordering",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-attn-reduce-in-r",
+              "c-attn-hidden-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-hidden-attn-presence",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-attn-reduce-in-r",
+              "c-attn-hidden-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-hidden-attn-provenance",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-attn-reduce-in-r",
+              "c-attn-hidden-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-hidden-layer-out-identity",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-ffn-reduce-in-r",
+              "c-layer-hidden-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-hidden-layer-out-ordering",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-ffn-reduce-in-r",
+              "c-layer-hidden-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-hidden-layer-out-presence",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-ffn-reduce-in-r",
+              "c-layer-hidden-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-hidden-layer-out-provenance",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-ffn-reduce-in-r",
+              "c-layer-hidden-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-hidden-repl-identity",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-token-embed-r",
+              "c-embed-hidden-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-hidden-repl-ordering",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-token-embed-r",
+              "c-embed-hidden-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-hidden-repl-presence",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-token-embed-r",
+              "c-embed-hidden-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-hidden-repl-provenance",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-token-embed-r",
+              "c-embed-hidden-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-logits-coord-identity",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-logits-gather-in-r",
+              "c-logits-coord-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-logits-coord-ordering",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-logits-gather-in-r",
+              "c-logits-coord-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-logits-coord-presence",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-logits-gather-in-r",
+              "c-logits-coord-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-logits-coord-provenance",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-logits-gather-in-r",
+              "c-logits-coord-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-logits-shard-identity",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-final-vocab-r",
+              "c-vocab-shard-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-logits-shard-ordering",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-final-vocab-r",
+              "c-vocab-shard-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-logits-shard-presence",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-final-vocab-r",
+              "c-vocab-shard-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-logits-shard-provenance",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-final-vocab-r",
+              "c-vocab-shard-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-mla-cache-row-identity",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-qkv-cache-row-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-mla-cache-row-ordering",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-qkv-cache-row-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-mla-cache-row-presence",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-qkv-cache-row-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-mla-cache-row-provenance",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-qkv-cache-row-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-qkv-shard-identity",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-hidden-qkv-r",
+              "c-qkv-out-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-qkv-shard-ordering",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-hidden-qkv-r",
+              "c-qkv-out-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-qkv-shard-presence",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-hidden-qkv-r",
+              "c-qkv-out-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-qkv-shard-provenance",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-hidden-qkv-r",
+              "c-qkv-out-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-token-out-identity",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-sample-in-r",
+              "c-sample-out-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-token-out-ordering",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-sample-in-r",
+              "c-sample-out-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-token-out-presence",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-sample-in-r",
+              "c-sample-out-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-token-out-provenance",
+            "source_entry_ids": [
+              "token-in"
+            ],
+            "via_entry_ids": [
+              "c-sample-in-r",
+              "c-sample-out-r"
+            ]
+          },
+          {
+            "target_entry_id": "s-kv-cursor-identity",
+            "source_entry_ids": [
+              "sample-ef"
+            ],
+            "via_entry_ids": [
+              "c-sample-cursor-update-s"
+            ]
+          },
+          {
+            "target_entry_id": "s-kv-cursor-ordering",
+            "source_entry_ids": [
+              "sample-ef"
+            ],
+            "via_entry_ids": [
+              "c-sample-cursor-update-s"
+            ]
+          },
+          {
+            "target_entry_id": "s-kv-cursor-presence",
+            "source_entry_ids": [
+              "sample-ef"
+            ],
+            "via_entry_ids": [
+              "c-sample-cursor-update-s"
+            ]
+          },
+          {
+            "target_entry_id": "s-kv-cursor-provenance",
+            "source_entry_ids": [
+              "sample-ef"
+            ],
+            "via_entry_ids": [
+              "c-sample-cursor-update-s"
+            ]
+          },
+          {
+            "target_entry_id": "s-kv-identity",
+            "source_entry_ids": [
+              "qkv-ef",
+              "sample-ef"
+            ],
+            "via_entry_ids": [
+              "c-state-04-s",
+              "c-state-12-s"
+            ]
+          },
+          {
+            "target_entry_id": "s-kv-ordering",
+            "source_entry_ids": [
+              "qkv-ef",
+              "sample-ef"
+            ],
+            "via_entry_ids": [
+              "c-state-04-s",
+              "c-state-12-s"
+            ]
+          },
+          {
+            "target_entry_id": "s-kv-presence",
+            "source_entry_ids": [
+              "qkv-ef",
+              "sample-ef"
+            ],
+            "via_entry_ids": [
+              "c-state-04-s",
+              "c-state-12-s"
+            ]
+          },
+          {
+            "target_entry_id": "s-kv-provenance",
+            "source_entry_ids": [
+              "qkv-ef",
+              "sample-ef"
+            ],
+            "via_entry_ids": [
+              "c-state-04-s",
+              "c-state-12-s"
+            ]
+          },
+          {
+            "target_entry_id": "s-model-identity",
+            "source_entry_ids": [
+              "emb-ef"
+            ],
+            "via_entry_ids": [
+              "c-state-01-s"
+            ]
+          },
+          {
+            "target_entry_id": "s-model-presence",
+            "source_entry_ids": [
+              "emb-ef"
+            ],
+            "via_entry_ids": [
+              "c-state-01-s"
+            ]
+          },
+          {
+            "target_entry_id": "s-model-provenance",
+            "source_entry_ids": [
+              "emb-ef"
+            ],
+            "via_entry_ids": [
+              "c-state-01-s"
+            ]
+          },
+          {
+            "target_entry_id": "s-rank-plan-identity",
+            "source_entry_ids": [
+              "qkv-ef"
+            ],
+            "via_entry_ids": [
+              "c-state-13-s"
+            ]
+          },
+          {
+            "target_entry_id": "s-rank-plan-presence",
+            "source_entry_ids": [
+              "qkv-ef"
+            ],
+            "via_entry_ids": [
+              "c-state-13-s"
+            ]
+          },
+          {
+            "target_entry_id": "s-rank-plan-provenance",
+            "source_entry_ids": [
+              "qkv-ef"
+            ],
+            "via_entry_ids": [
+              "c-state-13-s"
+            ]
+          },
+          {
+            "target_entry_id": "s-tp-identity",
+            "source_entry_ids": [
+              "emb-collective"
+            ],
+            "via_entry_ids": [
+              "c-state-02-s"
+            ]
+          },
+          {
+            "target_entry_id": "s-tp-presence",
+            "source_entry_ids": [
+              "emb-collective"
+            ],
+            "via_entry_ids": [
+              "c-state-02-s"
+            ]
+          },
+          {
+            "target_entry_id": "s-tp-provenance",
+            "source_entry_ids": [
+              "emb-collective"
+            ],
+            "via_entry_ids": [
+              "c-state-02-s"
+            ]
+          }
+        ],
+        "field_flows": [
+          {
+            "target_node_id": "d-attn-partial",
+            "target_field_path": "layer_index",
+            "source_value_refs": [
+              {
+                "node_id": "d-qkv-shard",
+                "field_path": "values"
+              }
+            ],
+            "source_entry_ids": [
+              "attn-partial-out"
+            ],
+            "via_entry_ids": [
+              "c-qkv-attn-r",
+              "c-dcp-attn-r",
+              "c-attn-partial-r"
+            ]
+          },
+          {
+            "target_node_id": "d-attn-partial",
+            "target_field_path": "position",
+            "source_value_refs": [
+              {
+                "node_id": "d-qkv-shard",
+                "field_path": "values"
+              }
+            ],
+            "source_entry_ids": [
+              "attn-partial-out"
+            ],
+            "via_entry_ids": [
+              "c-qkv-attn-r",
+              "c-dcp-attn-r",
+              "c-attn-partial-r"
+            ]
+          },
+          {
+            "target_node_id": "d-attn-partial",
+            "target_field_path": "value",
+            "source_value_refs": [
+              {
+                "node_id": "d-qkv-shard",
+                "field_path": "values"
+              }
+            ],
+            "source_entry_ids": [
+              "attn-partial-out"
+            ],
+            "via_entry_ids": [
+              "c-qkv-attn-r",
+              "c-dcp-attn-r",
+              "c-attn-partial-r"
+            ]
+          },
+          {
+            "target_node_id": "d-dcp-selection",
+            "target_field_path": "global_merge_done",
+            "source_value_refs": [
+              {
+                "node_id": "d-mla-cache-row",
+                "field_path": "position"
+              }
+            ],
+            "source_entry_ids": [
+              "dcp-selection-out"
+            ],
+            "via_entry_ids": [
+              "c-cache-row-dcp-r",
+              "c-dcp-selection-r"
+            ]
+          },
+          {
+            "target_node_id": "d-dcp-selection",
+            "target_field_path": "layer_index",
+            "source_value_refs": [
+              {
+                "node_id": "d-mla-cache-row",
+                "field_path": "position"
+              }
+            ],
+            "source_entry_ids": [
+              "dcp-selection-out"
+            ],
+            "via_entry_ids": [
+              "c-cache-row-dcp-r",
+              "c-dcp-selection-r"
+            ]
+          },
+          {
+            "target_node_id": "d-dcp-selection",
+            "target_field_path": "position",
+            "source_value_refs": [
+              {
+                "node_id": "d-mla-cache-row",
+                "field_path": "position"
+              }
+            ],
+            "source_entry_ids": [
+              "dcp-selection-out"
+            ],
+            "via_entry_ids": [
+              "c-cache-row-dcp-r",
+              "c-dcp-selection-r"
+            ]
+          },
+          {
+            "target_node_id": "d-dcp-selection",
+            "target_field_path": "rank",
+            "source_value_refs": [
+              {
+                "node_id": "d-mla-cache-row",
+                "field_path": "position"
+              }
+            ],
+            "source_entry_ids": [
+              "dcp-selection-out"
+            ],
+            "via_entry_ids": [
+              "c-cache-row-dcp-r",
+              "c-dcp-selection-r"
+            ]
+          },
+          {
+            "target_node_id": "d-dcp-selection",
+            "target_field_path": "selected_dcp_ranks",
+            "source_value_refs": [
+              {
+                "node_id": "d-mla-cache-row",
+                "field_path": "position"
+              }
+            ],
+            "source_entry_ids": [
+              "dcp-selection-out"
+            ],
+            "via_entry_ids": [
+              "c-cache-row-dcp-r",
+              "c-dcp-selection-r"
+            ]
+          },
+          {
+            "target_node_id": "d-dcp-selection",
+            "target_field_path": "selected_positions",
+            "source_value_refs": [
+              {
+                "node_id": "d-mla-cache-row",
+                "field_path": "position"
+              }
+            ],
+            "source_entry_ids": [
+              "dcp-selection-out"
+            ],
+            "via_entry_ids": [
+              "c-cache-row-dcp-r",
+              "c-dcp-selection-r"
+            ]
+          },
+          {
+            "target_node_id": "d-dcp-selection",
+            "target_field_path": "top_k",
+            "source_value_refs": [
+              {
+                "node_id": "d-mla-cache-row",
+                "field_path": "position"
+              }
+            ],
+            "source_entry_ids": [
+              "dcp-selection-out"
+            ],
+            "via_entry_ids": [
+              "c-cache-row-dcp-r",
+              "c-dcp-selection-r"
+            ]
+          },
+          {
+            "target_node_id": "d-expert-selection",
+            "target_field_path": "layer_index",
+            "source_value_refs": [
+              {
+                "node_id": "d-hidden-attn",
+                "field_path": "value"
+              }
+            ],
+            "source_entry_ids": [
+              "route-selection-out"
+            ],
+            "via_entry_ids": [
+              "c-attn-route-r",
+              "c-route-selection-r"
+            ]
+          },
+          {
+            "target_node_id": "d-expert-selection",
+            "target_field_path": "owned_mask",
+            "source_value_refs": [
+              {
+                "node_id": "d-hidden-attn",
+                "field_path": "value"
+              }
+            ],
+            "source_entry_ids": [
+              "route-selection-out"
+            ],
+            "via_entry_ids": [
+              "c-attn-route-r",
+              "c-route-selection-r"
+            ]
+          },
+          {
+            "target_node_id": "d-expert-selection",
+            "target_field_path": "position",
+            "source_value_refs": [
+              {
+                "node_id": "d-hidden-attn",
+                "field_path": "value"
+              }
+            ],
+            "source_entry_ids": [
+              "route-selection-out"
+            ],
+            "via_entry_ids": [
+              "c-attn-route-r",
+              "c-route-selection-r"
+            ]
+          },
+          {
+            "target_node_id": "d-expert-selection",
+            "target_field_path": "rank",
+            "source_value_refs": [
+              {
+                "node_id": "d-hidden-attn",
+                "field_path": "value"
+              }
+            ],
+            "source_entry_ids": [
+              "route-selection-out"
+            ],
+            "via_entry_ids": [
+              "c-attn-route-r",
+              "c-route-selection-r"
+            ]
+          },
+          {
+            "target_node_id": "d-expert-selection",
+            "target_field_path": "selected_expert_ids",
+            "source_value_refs": [
+              {
+                "node_id": "d-hidden-attn",
+                "field_path": "value"
+              }
+            ],
+            "source_entry_ids": [
+              "route-selection-out"
+            ],
+            "via_entry_ids": [
+              "c-attn-route-r",
+              "c-route-selection-r"
+            ]
+          },
+          {
+            "target_node_id": "d-expert-selection",
+            "target_field_path": "selected_expert_weights",
+            "source_value_refs": [
+              {
+                "node_id": "d-hidden-attn",
+                "field_path": "value"
+              }
+            ],
+            "source_entry_ids": [
+              "route-selection-out"
+            ],
+            "via_entry_ids": [
+              "c-attn-route-r",
+              "c-route-selection-r"
+            ]
+          },
+          {
+            "target_node_id": "d-ffn-partial",
+            "target_field_path": "layer_index",
+            "source_value_refs": [
+              {
+                "node_id": "d-expert-selection",
+                "field_path": "selected_expert_ids"
+              }
+            ],
+            "source_entry_ids": [
+              "ffn-partial-out"
+            ],
+            "via_entry_ids": [
+              "c-selection-ffn-r",
+              "c-ffn-partial-r"
+            ]
+          },
+          {
+            "target_node_id": "d-ffn-partial",
+            "target_field_path": "position",
+            "source_value_refs": [
+              {
+                "node_id": "d-expert-selection",
+                "field_path": "selected_expert_ids"
+              }
+            ],
+            "source_entry_ids": [
+              "ffn-partial-out"
+            ],
+            "via_entry_ids": [
+              "c-selection-ffn-r",
+              "c-ffn-partial-r"
+            ]
+          },
+          {
+            "target_node_id": "d-ffn-partial",
+            "target_field_path": "value",
+            "source_value_refs": [
+              {
+                "node_id": "d-expert-selection",
+                "field_path": "selected_expert_ids"
+              }
+            ],
+            "source_entry_ids": [
+              "ffn-partial-out"
+            ],
+            "via_entry_ids": [
+              "c-selection-ffn-r",
+              "c-ffn-partial-r"
+            ]
+          },
+          {
+            "target_node_id": "d-hidden-attn",
+            "target_field_path": "layer_index",
+            "source_value_refs": [
+              {
+                "node_id": "d-attn-partial",
+                "field_path": "value"
+              }
+            ],
+            "source_entry_ids": [
+              "attn-hidden-out"
+            ],
+            "via_entry_ids": [
+              "c-attn-reduce-in-r",
+              "c-attn-hidden-r"
+            ]
+          },
+          {
+            "target_node_id": "d-hidden-attn",
+            "target_field_path": "position",
+            "source_value_refs": [
+              {
+                "node_id": "d-attn-partial",
+                "field_path": "value"
+              }
+            ],
+            "source_entry_ids": [
+              "attn-hidden-out"
+            ],
+            "via_entry_ids": [
+              "c-attn-reduce-in-r",
+              "c-attn-hidden-r"
+            ]
+          },
+          {
+            "target_node_id": "d-hidden-attn",
+            "target_field_path": "value",
+            "source_value_refs": [
+              {
+                "node_id": "d-attn-partial",
+                "field_path": "value"
+              }
+            ],
+            "source_entry_ids": [
+              "attn-hidden-out"
+            ],
+            "via_entry_ids": [
+              "c-attn-reduce-in-r",
+              "c-attn-hidden-r"
+            ]
+          },
+          {
+            "target_node_id": "d-hidden-layer-out",
+            "target_field_path": "layer_index",
+            "source_value_refs": [
+              {
+                "node_id": "d-ffn-partial",
+                "field_path": "value"
+              }
+            ],
+            "source_entry_ids": [
+              "layer-hidden-out"
+            ],
+            "via_entry_ids": [
+              "c-ffn-reduce-in-r",
+              "c-layer-hidden-r"
+            ]
+          },
+          {
+            "target_node_id": "d-hidden-layer-out",
+            "target_field_path": "position",
+            "source_value_refs": [
+              {
+                "node_id": "d-ffn-partial",
+                "field_path": "value"
+              }
+            ],
+            "source_entry_ids": [
+              "layer-hidden-out"
+            ],
+            "via_entry_ids": [
+              "c-ffn-reduce-in-r",
+              "c-layer-hidden-r"
+            ]
+          },
+          {
+            "target_node_id": "d-hidden-layer-out",
+            "target_field_path": "value",
+            "source_value_refs": [
+              {
+                "node_id": "d-ffn-partial",
+                "field_path": "value"
+              }
+            ],
+            "source_entry_ids": [
+              "layer-hidden-out"
+            ],
+            "via_entry_ids": [
+              "c-ffn-reduce-in-r",
+              "c-layer-hidden-r"
+            ]
+          },
+          {
+            "target_node_id": "d-hidden-repl",
+            "target_field_path": "layer_index",
+            "source_value_refs": [
+              {
+                "node_id": "d-token-in",
+                "field_path": "position"
+              }
+            ],
+            "source_entry_ids": [
+              "embed-hidden-out"
+            ],
+            "via_entry_ids": [
+              "c-token-embed-r",
+              "c-embed-hidden-r"
+            ]
+          },
+          {
+            "target_node_id": "d-hidden-repl",
+            "target_field_path": "position",
+            "source_value_refs": [
+              {
+                "node_id": "d-token-in",
+                "field_path": "position"
+              }
+            ],
+            "source_entry_ids": [
+              "embed-hidden-out"
+            ],
+            "via_entry_ids": [
+              "c-token-embed-r",
+              "c-embed-hidden-r"
+            ]
+          },
+          {
+            "target_node_id": "d-hidden-repl",
+            "target_field_path": "value",
+            "source_value_refs": [
+              {
+                "node_id": "d-token-in",
+                "field_path": "position"
+              }
+            ],
+            "source_entry_ids": [
+              "embed-hidden-out"
+            ],
+            "via_entry_ids": [
+              "c-token-embed-r",
+              "c-embed-hidden-r"
+            ]
+          },
+          {
+            "target_node_id": "d-logits-coord",
+            "target_field_path": "position",
+            "source_value_refs": [
+              {
+                "node_id": "d-logits-shard",
+                "field_path": "value"
+              }
+            ],
+            "source_entry_ids": [
+              "gather-logits-out"
+            ],
+            "via_entry_ids": [
+              "c-logits-gather-in-r",
+              "c-logits-coord-r"
+            ]
+          },
+          {
+            "target_node_id": "d-logits-coord",
+            "target_field_path": "source_tp_degree",
+            "source_value_refs": [
+              {
+                "node_id": "d-logits-shard",
+                "field_path": "value"
+              }
+            ],
+            "source_entry_ids": [
+              "gather-logits-out"
+            ],
+            "via_entry_ids": [
+              "c-logits-gather-in-r",
+              "c-logits-coord-r"
+            ]
+          },
+          {
+            "target_node_id": "d-logits-coord",
+            "target_field_path": "value",
+            "source_value_refs": [
+              {
+                "node_id": "d-logits-shard",
+                "field_path": "value"
+              }
+            ],
+            "source_entry_ids": [
+              "gather-logits-out"
+            ],
+            "via_entry_ids": [
+              "c-logits-gather-in-r",
+              "c-logits-coord-r"
+            ]
+          },
+          {
+            "target_node_id": "d-logits-shard",
+            "target_field_path": "rank",
+            "source_value_refs": [
+              {
+                "node_id": "d-hidden-layer-out",
+                "field_path": "value"
+              }
+            ],
+            "source_entry_ids": [
+              "vocab-logits-out"
+            ],
+            "via_entry_ids": [
+              "c-final-vocab-r",
+              "c-vocab-shard-r"
+            ]
+          },
+          {
+            "target_node_id": "d-logits-shard",
+            "target_field_path": "value",
+            "source_value_refs": [
+              {
+                "node_id": "d-hidden-layer-out",
+                "field_path": "value"
+              }
+            ],
+            "source_entry_ids": [
+              "vocab-logits-out"
+            ],
+            "via_entry_ids": [
+              "c-final-vocab-r",
+              "c-vocab-shard-r"
+            ]
+          },
+          {
+            "target_node_id": "d-logits-shard",
+            "target_field_path": "vocab_end",
+            "source_value_refs": [
+              {
+                "node_id": "d-hidden-layer-out",
+                "field_path": "value"
+              }
+            ],
+            "source_entry_ids": [
+              "vocab-logits-out"
+            ],
+            "via_entry_ids": [
+              "c-final-vocab-r",
+              "c-vocab-shard-r"
+            ]
+          },
+          {
+            "target_node_id": "d-logits-shard",
+            "target_field_path": "vocab_start",
+            "source_value_refs": [
+              {
+                "node_id": "d-hidden-layer-out",
+                "field_path": "value"
+              }
+            ],
+            "source_entry_ids": [
+              "vocab-logits-out"
+            ],
+            "via_entry_ids": [
+              "c-final-vocab-r",
+              "c-vocab-shard-r"
+            ]
+          },
+          {
+            "target_node_id": "d-mla-cache-row",
+            "target_field_path": "dcp_rank",
+            "source_value_refs": [
+              {
+                "node_id": "s-rank-plan",
+                "field_path": "dcp_rank"
+              }
+            ],
+            "source_entry_ids": [
+              "mla-cache-row-out"
+            ],
+            "via_entry_ids": [
+              "c-qkv-cache-row-r"
+            ]
+          },
+          {
+            "target_node_id": "d-mla-cache-row",
+            "target_field_path": "k_rope",
+            "source_value_refs": [
+              {
+                "node_id": "s-kv-cursor",
+                "field_path": "position"
+              }
+            ],
+            "source_entry_ids": [
+              "mla-cache-row-out"
+            ],
+            "via_entry_ids": [
+              "c-qkv-cache-row-r"
+            ]
+          },
+          {
+            "target_node_id": "d-mla-cache-row",
+            "target_field_path": "kv_lora",
+            "source_value_refs": [
+              {
+                "node_id": "s-kv-cursor",
+                "field_path": "position"
+              }
+            ],
+            "source_entry_ids": [
+              "mla-cache-row-out"
+            ],
+            "via_entry_ids": [
+              "c-qkv-cache-row-r"
+            ]
+          },
+          {
+            "target_node_id": "d-mla-cache-row",
+            "target_field_path": "layer_index",
+            "source_value_refs": [
+              {
+                "node_id": "d-qkv-shard",
+                "field_path": "layer_index"
+              }
+            ],
+            "source_entry_ids": [
+              "mla-cache-row-out"
+            ],
+            "via_entry_ids": [
+              "c-qkv-cache-row-r"
+            ]
+          },
+          {
+            "target_node_id": "d-mla-cache-row",
+            "target_field_path": "position",
+            "source_value_refs": [
+              {
+                "node_id": "s-kv-cursor",
+                "field_path": "position"
+              }
+            ],
+            "source_entry_ids": [
+              "mla-cache-row-out"
+            ],
+            "via_entry_ids": [
+              "c-qkv-cache-row-r"
+            ]
+          },
+          {
+            "target_node_id": "d-mla-cache-row",
+            "target_field_path": "rank",
+            "source_value_refs": [
+              {
+                "node_id": "s-rank-plan",
+                "field_path": "dcp_rank"
+              }
+            ],
+            "source_entry_ids": [
+              "mla-cache-row-out"
+            ],
+            "via_entry_ids": [
+              "c-qkv-cache-row-r"
+            ]
+          },
+          {
+            "target_node_id": "d-qkv-shard",
+            "target_field_path": "layer_index",
+            "source_value_refs": [
+              {
+                "node_id": "d-hidden-repl",
+                "field_path": "layer_index"
+              }
+            ],
+            "source_entry_ids": [
+              "qkv-shard-out"
+            ],
+            "via_entry_ids": [
+              "c-hidden-qkv-r",
+              "c-qkv-out-r"
+            ]
+          },
+          {
+            "target_node_id": "d-qkv-shard",
+            "target_field_path": "q_head_end",
+            "source_value_refs": [
+              {
+                "node_id": "s-rank-plan",
+                "field_path": "q_head_end"
+              }
+            ],
+            "source_entry_ids": [
+              "qkv-shard-out"
+            ],
+            "via_entry_ids": [
+              "c-hidden-qkv-r",
+              "c-qkv-out-r"
+            ]
+          },
+          {
+            "target_node_id": "d-qkv-shard",
+            "target_field_path": "q_head_start",
+            "source_value_refs": [
+              {
+                "node_id": "s-rank-plan",
+                "field_path": "q_head_start"
+              }
+            ],
+            "source_entry_ids": [
+              "qkv-shard-out"
+            ],
+            "via_entry_ids": [
+              "c-hidden-qkv-r",
+              "c-qkv-out-r"
+            ]
+          },
+          {
+            "target_node_id": "d-qkv-shard",
+            "target_field_path": "rank",
+            "source_value_refs": [
+              {
+                "node_id": "s-rank-plan",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "qkv-shard-out"
+            ],
+            "via_entry_ids": [
+              "c-hidden-qkv-r",
+              "c-qkv-out-r"
+            ]
+          },
+          {
+            "target_node_id": "d-qkv-shard",
+            "target_field_path": "values",
+            "source_value_refs": [
+              {
+                "node_id": "d-hidden-repl",
+                "field_path": "value"
+              }
+            ],
+            "source_entry_ids": [
+              "qkv-shard-out"
+            ],
+            "via_entry_ids": [
+              "c-hidden-qkv-r",
+              "c-qkv-out-r"
+            ]
+          },
+          {
+            "target_node_id": "d-token-out",
+            "target_field_path": "id",
+            "source_value_refs": [
+              {
+                "node_id": "d-logits-coord",
+                "field_path": "value"
+              }
+            ],
+            "source_entry_ids": [
+              "sample-token-out"
+            ],
+            "via_entry_ids": [
+              "c-sample-in-r",
+              "c-sample-out-r"
+            ]
+          },
+          {
+            "target_node_id": "d-token-out",
+            "target_field_path": "position",
+            "source_value_refs": [
+              {
+                "node_id": "s-kv-cursor",
+                "field_path": "position"
+              }
+            ],
+            "source_entry_ids": [
+              "sample-token-out"
+            ],
+            "via_entry_ids": [
+              "c-sample-in-r",
+              "c-sample-out-r"
+            ]
+          },
+          {
+            "target_node_id": "s-kv-cursor",
+            "target_field_path": "dcp_degree",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "sample-ef",
+              "c-sample-cursor-update-s"
+            ],
+            "via_entry_ids": [
+              "c-sample-cursor-update-s"
+            ]
+          },
+          {
+            "target_node_id": "s-kv-cursor",
+            "target_field_path": "length",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "sample-ef",
+              "c-sample-cursor-update-s"
+            ],
+            "via_entry_ids": [
+              "c-sample-cursor-update-s"
+            ]
+          },
+          {
+            "target_node_id": "s-kv-cursor",
+            "target_field_path": "phase",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "sample-ef",
+              "c-sample-cursor-update-s"
+            ],
+            "via_entry_ids": [
+              "c-sample-cursor-update-s"
+            ]
+          },
+          {
+            "target_node_id": "s-kv-cursor",
+            "target_field_path": "position",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "sample-ef",
+              "c-sample-cursor-update-s"
+            ],
+            "via_entry_ids": [
+              "c-sample-cursor-update-s"
+            ]
+          },
+          {
+            "target_node_id": "s-kv-cursor",
+            "target_field_path": "session_id",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "sample-ef",
+              "c-sample-cursor-update-s"
+            ],
+            "via_entry_ids": [
+              "c-sample-cursor-update-s"
+            ]
+          },
+          {
+            "target_node_id": "s-kv-cursor",
+            "target_field_path": "tp_degree",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "sample-ef",
+              "c-sample-cursor-update-s"
+            ],
+            "via_entry_ids": [
+              "c-sample-cursor-update-s"
+            ]
+          },
+          {
+            "target_node_id": "s-kv",
+            "target_field_path": "head_or_latent_end",
+            "source_value_refs": [
+              {
+                "node_id": "d-mla-cache-row",
+                "field_path": "position"
+              }
+            ],
+            "source_entry_ids": [
+              "qkv-ef",
+              "c-state-04-s"
+            ],
+            "via_entry_ids": [
+              "c-state-04-s"
+            ]
+          },
+          {
+            "target_node_id": "s-kv",
+            "target_field_path": "head_or_latent_start",
+            "source_value_refs": [
+              {
+                "node_id": "d-mla-cache-row",
+                "field_path": "position"
+              }
+            ],
+            "source_entry_ids": [
+              "qkv-ef",
+              "c-state-04-s"
+            ],
+            "via_entry_ids": [
+              "c-state-04-s"
+            ]
+          },
+          {
+            "target_node_id": "s-kv",
+            "target_field_path": "length",
+            "source_value_refs": [
+              {
+                "node_id": "d-mla-cache-row",
+                "field_path": "position"
+              }
+            ],
+            "source_entry_ids": [
+              "qkv-ef",
+              "c-state-04-s"
+            ],
+            "via_entry_ids": [
+              "c-state-04-s"
+            ]
+          },
+          {
+            "target_node_id": "s-kv",
+            "target_field_path": "replicated_metadata",
+            "source_value_refs": [
+              {
+                "node_id": "d-mla-cache-row",
+                "field_path": "position"
+              }
+            ],
+            "source_entry_ids": [
+              "qkv-ef",
+              "c-state-04-s"
+            ],
+            "via_entry_ids": [
+              "c-state-04-s"
+            ]
+          },
+          {
+            "target_node_id": "s-kv",
+            "target_field_path": "session_id",
+            "source_value_refs": [
+              {
+                "node_id": "d-mla-cache-row",
+                "field_path": "position"
+              }
+            ],
+            "source_entry_ids": [
+              "qkv-ef",
+              "c-state-04-s"
+            ],
+            "via_entry_ids": [
+              "c-state-04-s"
+            ]
+          },
+          {
+            "target_node_id": "s-kv",
+            "target_field_path": "tp_rank",
+            "source_value_refs": [
+              {
+                "node_id": "d-mla-cache-row",
+                "field_path": "position"
+              }
+            ],
+            "source_entry_ids": [
+              "qkv-ef",
+              "c-state-04-s"
+            ],
+            "via_entry_ids": [
+              "c-state-04-s"
+            ]
+          },
+          {
+            "target_node_id": "s-model",
+            "target_field_path": "bird_vllm_commit",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-model-provenance",
+              "c-state-01-s"
+            ],
+            "via_entry_ids": [
+              "c-state-01-s"
+            ]
+          },
+          {
+            "target_node_id": "s-model",
+            "target_field_path": "checkpoint_revision",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-model-provenance",
+              "c-state-01-s"
+            ],
+            "via_entry_ids": [
+              "c-state-01-s"
+            ]
+          },
+          {
+            "target_node_id": "s-model",
+            "target_field_path": "expert_shard_axis",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-model-provenance",
+              "c-state-01-s"
+            ],
+            "via_entry_ids": [
+              "c-state-01-s"
+            ]
+          },
+          {
+            "target_node_id": "s-model",
+            "target_field_path": "model_name",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-model-provenance",
+              "c-state-01-s"
+            ],
+            "via_entry_ids": [
+              "c-state-01-s"
+            ]
+          },
+          {
+            "target_node_id": "s-model",
+            "target_field_path": "n_embd",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-model-provenance",
+              "c-state-01-s"
+            ],
+            "via_entry_ids": [
+              "c-state-01-s"
+            ]
+          },
+          {
+            "target_node_id": "s-model",
+            "target_field_path": "n_expert",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-model-provenance",
+              "c-state-01-s"
+            ],
+            "via_entry_ids": [
+              "c-state-01-s"
+            ]
+          },
+          {
+            "target_node_id": "s-model",
+            "target_field_path": "n_expert_used",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-model-provenance",
+              "c-state-01-s"
+            ],
+            "via_entry_ids": [
+              "c-state-01-s"
+            ]
+          },
+          {
+            "target_node_id": "s-model",
+            "target_field_path": "n_head",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-model-provenance",
+              "c-state-01-s"
+            ],
+            "via_entry_ids": [
+              "c-state-01-s"
+            ]
+          },
+          {
+            "target_node_id": "s-model",
+            "target_field_path": "n_head_kv",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-model-provenance",
+              "c-state-01-s"
+            ],
+            "via_entry_ids": [
+              "c-state-01-s"
+            ]
+          },
+          {
+            "target_node_id": "s-model",
+            "target_field_path": "n_layer",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-model-provenance",
+              "c-state-01-s"
+            ],
+            "via_entry_ids": [
+              "c-state-01-s"
+            ]
+          },
+          {
+            "target_node_id": "s-model",
+            "target_field_path": "qkv_shard_axis",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-model-provenance",
+              "c-state-01-s"
+            ],
+            "via_entry_ids": [
+              "c-state-01-s"
+            ]
+          },
+          {
+            "target_node_id": "s-model",
+            "target_field_path": "rank_count",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-model-provenance",
+              "c-state-01-s"
+            ],
+            "via_entry_ids": [
+              "c-state-01-s"
+            ]
+          },
+          {
+            "target_node_id": "s-model",
+            "target_field_path": "reference_runtime",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-model-provenance",
+              "c-state-01-s"
+            ],
+            "via_entry_ids": [
+              "c-state-01-s"
+            ]
+          },
+          {
+            "target_node_id": "s-model",
+            "target_field_path": "served_model_name",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-model-provenance",
+              "c-state-01-s"
+            ],
+            "via_entry_ids": [
+              "c-state-01-s"
+            ]
+          },
+          {
+            "target_node_id": "s-model",
+            "target_field_path": "speculator",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-model-provenance",
+              "c-state-01-s"
+            ],
+            "via_entry_ids": [
+              "c-state-01-s"
+            ]
+          },
+          {
+            "target_node_id": "s-model",
+            "target_field_path": "tp_degree",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-model-provenance",
+              "c-state-01-s"
+            ],
+            "via_entry_ids": [
+              "c-state-01-s"
+            ]
+          },
+          {
+            "target_node_id": "s-model",
+            "target_field_path": "vocab_shard_axis",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-model-provenance",
+              "c-state-01-s"
+            ],
+            "via_entry_ids": [
+              "c-state-01-s"
+            ]
+          },
+          {
+            "target_node_id": "s-rank-plan",
+            "target_field_path": "dcp_rank",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-rank-plan-provenance",
+              "c-state-13-s"
+            ],
+            "via_entry_ids": [
+              "c-state-13-s"
+            ]
+          },
+          {
+            "target_node_id": "s-rank-plan",
+            "target_field_path": "expert_end",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-rank-plan-provenance",
+              "c-state-13-s"
+            ],
+            "via_entry_ids": [
+              "c-state-13-s"
+            ]
+          },
+          {
+            "target_node_id": "s-rank-plan",
+            "target_field_path": "expert_start",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-rank-plan-provenance",
+              "c-state-13-s"
+            ],
+            "via_entry_ids": [
+              "c-state-13-s"
+            ]
+          },
+          {
+            "target_node_id": "s-rank-plan",
+            "target_field_path": "q_head_end",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-rank-plan-provenance",
+              "c-state-13-s"
+            ],
+            "via_entry_ids": [
+              "c-state-13-s"
+            ]
+          },
+          {
+            "target_node_id": "s-rank-plan",
+            "target_field_path": "q_head_start",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-rank-plan-provenance",
+              "c-state-13-s"
+            ],
+            "via_entry_ids": [
+              "c-state-13-s"
+            ]
+          },
+          {
+            "target_node_id": "s-rank-plan",
+            "target_field_path": "rank",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-rank-plan-provenance",
+              "c-state-13-s"
+            ],
+            "via_entry_ids": [
+              "c-state-13-s"
+            ]
+          },
+          {
+            "target_node_id": "s-rank-plan",
+            "target_field_path": "tp_size",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-rank-plan-provenance",
+              "c-state-13-s"
+            ],
+            "via_entry_ids": [
+              "c-state-13-s"
+            ]
+          },
+          {
+            "target_node_id": "s-rank-plan",
+            "target_field_path": "vocab_end",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-rank-plan-provenance",
+              "c-state-13-s"
+            ],
+            "via_entry_ids": [
+              "c-state-13-s"
+            ]
+          },
+          {
+            "target_node_id": "s-rank-plan",
+            "target_field_path": "vocab_start",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-rank-plan-provenance",
+              "c-state-13-s"
+            ],
+            "via_entry_ids": [
+              "c-state-13-s"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "all_reduce_count_per_layer",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-tp-provenance",
+              "c-state-02-s"
+            ],
+            "via_entry_ids": [
+              "c-state-02-s"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "attention_backend",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-tp-provenance",
+              "c-state-02-s"
+            ],
+            "via_entry_ids": [
+              "c-state-02-s"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "broadcast_count_per_token",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-tp-provenance",
+              "c-state-02-s"
+            ],
+            "via_entry_ids": [
+              "c-state-02-s"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "collective_backend",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-tp-provenance",
+              "c-state-02-s"
+            ],
+            "via_entry_ids": [
+              "c-state-02-s"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "dcp_degree",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-tp-provenance",
+              "c-state-02-s"
+            ],
+            "via_entry_ids": [
+              "c-state-02-s"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "gather_count_per_token",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-tp-provenance",
+              "c-state-02-s"
+            ],
+            "via_entry_ids": [
+              "c-state-02-s"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "kv_cache_dtype",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-tp-provenance",
+              "c-state-02-s"
+            ],
+            "via_entry_ids": [
+              "c-state-02-s"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "nccl_channels",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-tp-provenance",
+              "c-state-02-s"
+            ],
+            "via_entry_ids": [
+              "c-state-02-s"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "nccl_version",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-tp-provenance",
+              "c-state-02-s"
+            ],
+            "via_entry_ids": [
+              "c-state-02-s"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "pp_degree",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-tp-provenance",
+              "c-state-02-s"
+            ],
+            "via_entry_ids": [
+              "c-state-02-s"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "roce_hcas",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-tp-provenance",
+              "c-state-02-s"
+            ],
+            "via_entry_ids": [
+              "c-state-02-s"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "tp_degree",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-tp-provenance",
+              "c-state-02-s"
+            ],
+            "via_entry_ids": [
+              "c-state-02-s"
+            ]
+          },
+          {
+            "target_node_id": "s-tp",
+            "target_field_path": "transport",
+            "source_value_refs": [],
+            "source_entry_ids": [
+              "s-tp-provenance",
+              "c-state-02-s"
+            ],
+            "via_entry_ids": [
+              "c-state-02-s"
+            ]
+          }
+        ],
+        "absent_fields": [],
+        "bounded_cycle_entry_ids": [
+          "op-decode-order",
+          "dec-order"
+        ]
+      }
+    ]
+  }
+}

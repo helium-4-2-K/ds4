@@ -1,0 +1,69 @@
+{
+  "action": "mutate",
+  "added_graph_ids": [
+    "model-shard-layout"
+  ],
+  "after_artifact_integrity": {
+    "blueprint_sha256": "7e368072fc54ea561c1b3889dc25e737ba0d05dd879edd05b78d9cc88475555e",
+    "semantic_sha256": "a95d1eef4132492f2230aa884687b16e45282787dfdf5893d7698b2b85b7e9eb"
+  },
+  "before_artifact_integrity": {
+    "blueprint_sha256": "c80c8377089a6b917a54b4fd4a4f70941c210de5e4e6df4c636db99ba3ae6b50",
+    "semantic_sha256": "f240d44c7ee98961759595283598e5a97be5ed17ba6919b03d9c638db6a7e796"
+  },
+  "changed_graph_ids": [
+    "model-load",
+    "model-shard-layout"
+  ],
+  "contract_validation": {
+    "error_count": 0,
+    "errors": [],
+    "graph_ids": [
+      "model-load"
+    ],
+    "profile": "composite",
+    "schema": "blueprint-contract-validation/v4",
+    "snapshot": {
+      "artifact_integrity": {
+        "blueprint_sha256": "7e368072fc54ea561c1b3889dc25e737ba0d05dd879edd05b78d9cc88475555e",
+        "semantic_sha256": "a95d1eef4132492f2230aa884687b16e45282787dfdf5893d7698b2b85b7e9eb"
+      },
+      "covered_graphs": [
+        {
+          "graph_contract_sha256": "0d3a26146444d194a72ed4f843fabbd3f6275eeefa45873465f5b9e2ac63c215",
+          "graph_id": "model-load",
+          "role": "selected",
+          "type_schema_sha256": "35456e2c1ce4c6aa91b310933364f65541901eeb21051e874a5bb306beb57837"
+        },
+        {
+          "graph_contract_sha256": "9212a3685de85a5df4e17c1471458e064e4c335988ae220f36f65731baca3c8a",
+          "graph_id": "serve",
+          "role": "ancestor",
+          "type_schema_sha256": "30f49b45e889237b5bb310b878ab4e6706809d614eedd39946a3bc723ce1c6d4"
+        }
+      ],
+      "selected_graph_ids": [
+        "model-load"
+      ]
+    },
+    "status": "PASS",
+    "warning_count": 0,
+    "warnings": []
+  },
+  "request_id": "mutate-model-shard-layout-contract-v5",
+  "schema": "blueprint-write-result/v4",
+  "status": "PASS",
+  "validation": {
+    "blueprint_id": "ds4-arch",
+    "blueprint_sha256": "7e368072fc54ea561c1b3889dc25e737ba0d05dd879edd05b78d9cc88475555e",
+    "error_count": 0,
+    "errors": [],
+    "graph_count": 10,
+    "schema": "blueprint-artifact-validation@1",
+    "semantic_sha256": "a95d1eef4132492f2230aa884687b16e45282787dfdf5893d7698b2b85b7e9eb",
+    "stage": "complete",
+    "status": "PASS",
+    "warning_count": 0,
+    "warnings": []
+  }
+}

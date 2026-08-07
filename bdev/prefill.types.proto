@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package blueprint.work.ds4_arch;
+
+import "blueprint/v1/blueprint.proto";
+import "serve.types.proto";
+import "decode.types.proto";
+
+message prompt_tokens {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.prompt_tokens"
+    represents: "Tokenized prompt for a request before prefill"
+    semantics {
+      entry_id: "t-prompt-tokens"
+      key: "meaning"
+      value: "Tokenized prompt for a request before prefill"
+      status: SUPPORTED
+    }
+  };
+  string session_id = 1 [(blueprint.v1.field_contract) = { meaning: "client/session id" }];
+  repeated int32 token_ids = 2 [(blueprint.v1.field_contract) = { meaning: "prompt token ids" }];
+  int32 prompt_length = 3 [(blueprint.v1.field_contract) = { meaning: "number of prompt tokens" }];
+}
+
+message prefill_chunk {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.prefill_chunk"
+    represents: "Bounded prompt-token chunk assigned to TP prefill"
+    semantics {
+      entry_id: "t-prefill-chunk"
+      key: "meaning"
+      value: "Bounded prompt-token chunk assigned to TP prefill"
+      status: SUPPORTED
+    }
+  };
+  string session_id = 1 [(blueprint.v1.field_contract) = { meaning: "client/session id" }];
+  int32 chunk_index = 2 [(blueprint.v1.field_contract) = { meaning: "zero-based chunk index" }];
+  int32 start_position = 3 [(blueprint.v1.field_contract) = { meaning: "first prompt position in chunk" }];
+  int32 end_position = 4 [(blueprint.v1.field_contract) = { meaning: "exclusive prompt position end" }];
+  repeated int32 token_ids = 5 [(blueprint.v1.field_contract) = { meaning: "token ids in the chunk" }];
+}
+
+message prefill_kv_commit {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.prefill_kv_commit"
+    represents: "Summary of prompt KV/MLA rows committed for decode handoff"
+    semantics {
+      entry_id: "t-prefill-kv-commit"
+      key: "meaning"
+      value: "Summary of prompt KV/MLA rows committed for decode handoff"
+      status: SUPPORTED
+    }
+  };
+  string session_id = 1 [(blueprint.v1.field_contract) = { meaning: "client/session id" }];
+  int32 prefilled_length = 2 [(blueprint.v1.field_contract) = { meaning: "prompt length committed to KV" }];
+  int32 tp_degree = 3 [(blueprint.v1.field_contract) = { meaning: "tensor parallel degree" }];
+  int32 dcp_degree = 4 [(blueprint.v1.field_contract) = { meaning: "decode context parallel degree" }];
+  string kv_cache_dtype = 5 [(blueprint.v1.field_contract) = { meaning: "cache dtype/layout used for committed rows" }];
+}

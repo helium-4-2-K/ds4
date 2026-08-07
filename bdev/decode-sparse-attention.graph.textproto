@@ -1,0 +1,702 @@
+schema_version: "blueprint-graph/v1"
+graph_id: "decode-sparse-attention"
+display_name: "Rank-local sparse attention child"
+graph_version: "1.0"
+lifecycle: DRAFT
+schema_ref: "blueprint-schema/blueprint/v1/blueprint.proto"
+type_schema_ref: "decode-sparse-attention.types.proto"
+input_ports {
+  port_id: "attn-qkv-in"
+  node_id: "d-qkv-shard"
+  type_ref: "blueprint.work.ds4_arch.qkv_shard"
+  cardinality: PORT_CARDINALITY_EXACTLY_ONE
+}
+input_ports {
+  port_id: "attn-selection-in"
+  node_id: "d-dcp-selection"
+  type_ref: "blueprint.work.ds4_arch.sparse_selection"
+  cardinality: PORT_CARDINALITY_EXACTLY_ONE
+}
+output_ports {
+  port_id: "attn-partial-out"
+  node_id: "d-attn-partial"
+  type_ref: "blueprint.work.ds4_arch.hidden"
+  cardinality: PORT_CARDINALITY_EXACTLY_ONE
+}
+graph {
+  overall_semantic {
+    overview: "Each rank computes attention for its 16 owned query heads against selected DCP-owned MLA cache rows, applies its output-projection shard, and yields a full-width additive partial."
+    support_refs {
+      node_id: "a-sparse-attn-kernel"
+    }
+  }
+  semantics {
+    entry_id: "attn-qkv-in"
+    key: "input_use"
+    value: "Consumes rank-local Q/K/V MLA projection shard."
+    object_ref {
+      port {
+        graph_boundary {
+        }
+        direction: PORT_DIRECTION_INPUT
+        port_id: "attn-qkv-in"
+      }
+    }
+    support_refs {
+      node_id: "d-qkv-shard"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "attn-selection-in"
+    key: "input_use"
+    value: "Consumes the DCP global sparse row selection."
+    object_ref {
+      port {
+        graph_boundary {
+        }
+        direction: PORT_DIRECTION_INPUT
+        port_id: "attn-selection-in"
+      }
+    }
+    support_refs {
+      node_id: "d-dcp-selection"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "attn-partial-out"
+    key: "output"
+    value: "Produces rank-local attention full-width partial."
+    object_ref {
+      port {
+        graph_boundary {
+        }
+        direction: PORT_DIRECTION_OUTPUT
+        port_id: "attn-partial-out"
+      }
+    }
+    support_refs {
+      node_id: "d-attn-partial"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "attnloc-ef"
+    key: "effect"
+    value: "attention partial ready for all-reduce"
+    support_refs {
+      node_id: "a-sparse-attn-kernel"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "attnloc-exit"
+    key: "exit"
+    value: "attention-partial-ready"
+    support_refs {
+      node_id: "a-sparse-attn-kernel"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "attn-glm52-qk-achievable"
+    key: "achievability"
+    value: "Achievable for GLM 5.2 only with MLA-aware TP/DCP: query-head work is split 16 heads per rank, shared MLA latent/rope cache is available through DCP selected-row reads, and ATTN output projection partials are summed by the TP all-reduce. It is not achievable by naively splitting one KV head into four KV-head shards."
+    support_refs {
+      node_id: "a-sparse-attn-kernel"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "decode-sparse-attention-arch"
+    key: "architecture_rationale"
+    value: "Keep the decode parent as ordered orchestration while this child owns the detailed local kernel/collective contract for a-attn-local."
+    support_refs {
+      node_id: "a-sparse-attn-kernel"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "attnloc-im"
+    key: "implementation_choice"
+    value: "requires_new_glm52_tp4_support"
+    support_refs {
+      node_id: "a-sparse-attn-kernel"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "attn-bird-ref"
+    key: "implementation_reference"
+    value: "Bird/vLLM B12X_MLA_SPARSE is the reference local attention backend for TP4 GLM 5.2 on GX10."
+    support_refs {
+      node_id: "a-sparse-attn-kernel"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "attnloc-nd"
+    key: "no_diagnostic"
+    value: "none"
+    support_refs {
+      node_id: "a-sparse-attn-kernel"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "decode-sparse-attention-no-guide"
+    key: "no_implementation_guide"
+    value: "This child graph is a target-system contract; implementation planning lives outside the blueprint."
+    status: SUPPORTED
+  }
+  nodes {
+    id: "a-sparse-attn-kernel"
+    kind: "ACTION"
+    label: "realize 04 local sparse MLA attention heads/groups"
+    input_ports {
+      port_id: "k-attn-qkv-in"
+      node_id: "d-qkv-shard"
+      type_ref: "blueprint.work.ds4_arch.qkv_shard"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    input_ports {
+      port_id: "k-attn-selection-in"
+      node_id: "d-dcp-selection"
+      type_ref: "blueprint.work.ds4_arch.sparse_selection"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "k-attn-partial-out"
+      node_id: "d-attn-partial"
+      type_ref: "blueprint.work.ds4_arch.hidden"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "a-sparse-attn-kernel-ov"
+      key: "overview"
+      value: "Each rank computes attention for its 16 owned query heads against selected DCP-owned MLA cache rows, applies its output-projection shard, and yields a full-width additive partial."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "k-attn-qkv-in"
+      key: "input_use"
+      value: "Consumes d-qkv-shard."
+      object_ref {
+        node_id: "d-qkv-shard"
+      }
+      support_refs {
+        port {
+          node_id: "a-sparse-attn-kernel"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "k-attn-qkv-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "k-attn-selection-in"
+      key: "input_use"
+      value: "Consumes d-dcp-selection."
+      object_ref {
+        node_id: "d-dcp-selection"
+      }
+      support_refs {
+        port {
+          node_id: "a-sparse-attn-kernel"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "k-attn-selection-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "k-attn-partial-out"
+      key: "output"
+      value: "Produces d-attn-partial."
+      object_ref {
+        node_id: "d-attn-partial"
+      }
+      support_refs {
+        port {
+          node_id: "a-sparse-attn-kernel"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "k-attn-partial-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-sparse-attn-kernel-ef"
+      key: "effect"
+      value: "Each rank computes attention for its 16 owned query heads against selected DCP-owned MLA cache rows, applies its output-projection shard, and yields a full-width additive partial."
+      support_refs {
+        node_id: "a-sparse-attn-kernel"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-sparse-attn-kernel-exit"
+      key: "exit"
+      value: "a-sparse-attn-kernel-done"
+      support_refs {
+        node_id: "a-sparse-attn-kernel"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-sparse-attn-kernel-cu"
+      key: "code_unit"
+      value: "TP4 local sparse MLA attention + output projection"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-sparse-attn-kernel-im"
+      key: "implementation_choice"
+      value: "fixed_by_child_contract_from_parent_action"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-sparse-attn-kernel-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "s-model"
+      access: "read"
+      meaning: "read attention/output-projection TP shards"
+    }
+    state_set {
+      state_node_id: "s-kv"
+      access: "read"
+      meaning: "read selected KV/MLA cache rows"
+    }
+    state_set {
+      state_node_id: "s-rank-plan"
+      access: "read"
+      meaning: "read owned query-head span"
+    }
+  }
+  nodes {
+    id: "d-attn-partial"
+    kind: "DATA"
+    label: "output d-attn-partial"
+    data_type: "blueprint.work.ds4_arch.hidden"
+    semantics {
+      entry_id: "d-attn-partial-data-role"
+      key: "data_role"
+      value: "child boundary data"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-attn-partial-identity"
+      key: "identity"
+      value: "d-attn-partial is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-attn-partial-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-attn-partial-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-attn-partial-provenance"
+      key: "provenance"
+      value: "declared by the node source list."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "d-dcp-selection"
+    kind: "DATA"
+    label: "input d-dcp-selection"
+    data_type: "blueprint.work.ds4_arch.sparse_selection"
+    semantics {
+      entry_id: "d-dcp-selection-data-role"
+      key: "data_role"
+      value: "child boundary data"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-dcp-selection-identity"
+      key: "identity"
+      value: "d-dcp-selection is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-dcp-selection-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-dcp-selection-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-dcp-selection-provenance"
+      key: "provenance"
+      value: "declared by the node source list."
+      status: SUPPORTED
+    }
+    sources {
+      source_id: "src-d-dcp-selection"
+      kind: "graph_input"
+      source_ref: "attn-selection-in"
+      graph_input_port_id: "attn-selection-in"
+      meaning: "value enters through this child graph boundary"
+    }
+  }
+  nodes {
+    id: "d-qkv-shard"
+    kind: "DATA"
+    label: "input d-qkv-shard"
+    data_type: "blueprint.work.ds4_arch.qkv_shard"
+    semantics {
+      entry_id: "d-qkv-shard-data-role"
+      key: "data_role"
+      value: "child boundary data"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-qkv-shard-identity"
+      key: "identity"
+      value: "d-qkv-shard is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-qkv-shard-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-qkv-shard-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-qkv-shard-provenance"
+      key: "provenance"
+      value: "declared by the node source list."
+      status: SUPPORTED
+    }
+    sources {
+      source_id: "src-d-qkv-shard"
+      kind: "graph_input"
+      source_ref: "attn-qkv-in"
+      graph_input_port_id: "attn-qkv-in"
+      meaning: "value enters through this child graph boundary"
+    }
+  }
+  nodes {
+    id: "s-kv"
+    kind: "STATE"
+    label: "same state s-kv"
+    data_type: "blueprint.work.ds4_arch.kv"
+    semantics {
+      entry_id: "s-kv-data-role"
+      key: "data_role"
+      value: "child-visible decode state"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-identity"
+      key: "identity"
+      value: "s-kv is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-ordering"
+      key: "ordering"
+      value: "append-ordered by prompt/decode token position; cursor state records monotonic length and current position."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "decode"
+      state_node_id: "s-kv"
+      relation: "same logical decode state as parent graph"
+      meaning: "child action reads or updates the same state occurrence declared by the parent action"
+    }
+  }
+  nodes {
+    id: "s-model"
+    kind: "STATE"
+    label: "same state s-model"
+    data_type: "blueprint.work.ds4_arch.model"
+    semantics {
+      entry_id: "s-model-data-role"
+      key: "data_role"
+      value: "child-visible decode state"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-model-identity"
+      key: "identity"
+      value: "s-model is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-model-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-model-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-model-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "decode"
+      state_node_id: "s-model"
+      relation: "same logical decode state as parent graph"
+      meaning: "child action reads or updates the same state occurrence declared by the parent action"
+    }
+  }
+  nodes {
+    id: "s-rank-plan"
+    kind: "STATE"
+    label: "same state s-rank-plan"
+    data_type: "blueprint.work.ds4_arch.rank_plan"
+    semantics {
+      entry_id: "s-rank-plan-data-role"
+      key: "data_role"
+      value: "child-visible decode state"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-rank-plan-identity"
+      key: "identity"
+      value: "s-rank-plan is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-rank-plan-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-rank-plan-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-rank-plan-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "decode"
+      state_node_id: "s-rank-plan"
+      relation: "same logical decode state as parent graph"
+      meaning: "child action reads or updates the same state occurrence declared by the parent action"
+    }
+  }
+  edges {
+    id: "e-a-sparse-attn-kernel-s-kv"
+    source_node_id: "a-sparse-attn-kernel"
+    target_node_id: "s-kv"
+    kind: "state-access"
+    label: "a-sparse-attn-kernel read s-kv"
+    semantics {
+      entry_id: "e-a-sparse-attn-kernel-s-kv-r"
+      key: "relationship"
+      value: "a-sparse-attn-kernel read s-kv"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-a-sparse-attn-kernel-s-kv-s"
+      key: "state_read"
+      value: "a-sparse-attn-kernel read s-kv"
+      object_ref {
+        node_id: "s-kv"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-a-sparse-attn-kernel-s-model"
+    source_node_id: "a-sparse-attn-kernel"
+    target_node_id: "s-model"
+    kind: "state-access"
+    label: "a-sparse-attn-kernel read s-model"
+    semantics {
+      entry_id: "e-a-sparse-attn-kernel-s-model-r"
+      key: "relationship"
+      value: "a-sparse-attn-kernel read s-model"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-a-sparse-attn-kernel-s-model-s"
+      key: "state_read"
+      value: "a-sparse-attn-kernel read s-model"
+      object_ref {
+        node_id: "s-model"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-a-sparse-attn-kernel-s-rank-plan"
+    source_node_id: "a-sparse-attn-kernel"
+    target_node_id: "s-rank-plan"
+    kind: "state-access"
+    label: "a-sparse-attn-kernel read s-rank-plan"
+    semantics {
+      entry_id: "e-a-sparse-attn-kernel-s-rank-plan-r"
+      key: "relationship"
+      value: "a-sparse-attn-kernel read s-rank-plan"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-a-sparse-attn-kernel-s-rank-plan-s"
+      key: "state_read"
+      value: "a-sparse-attn-kernel read s-rank-plan"
+      object_ref {
+        node_id: "s-rank-plan"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-a-sparse-attn-kernel-to-d-attn-partial"
+    source_node_id: "a-sparse-attn-kernel"
+    target_node_id: "d-attn-partial"
+    kind: "output"
+    label: "a-sparse-attn-kernel produces d-attn-partial"
+    semantics {
+      entry_id: "e-a-sparse-attn-kernel-to-d-attn-partial-r"
+      key: "relationship"
+      value: "a-sparse-attn-kernel produces d-attn-partial"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-d-dcp-selection-to-a-sparse-attn-kernel"
+    source_node_id: "d-dcp-selection"
+    target_node_id: "a-sparse-attn-kernel"
+    kind: "input"
+    label: "d-dcp-selection feeds a-sparse-attn-kernel"
+    semantics {
+      entry_id: "e-d-dcp-selection-to-a-sparse-attn-kernel-r"
+      key: "relationship"
+      value: "d-dcp-selection feeds a-sparse-attn-kernel"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-d-qkv-shard-to-a-sparse-attn-kernel"
+    source_node_id: "d-qkv-shard"
+    target_node_id: "a-sparse-attn-kernel"
+    kind: "input"
+    label: "d-qkv-shard feeds a-sparse-attn-kernel"
+    semantics {
+      entry_id: "e-d-qkv-shard-to-a-sparse-attn-kernel-r"
+      key: "relationship"
+      value: "d-qkv-shard feeds a-sparse-attn-kernel"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  operations {
+    operation_id: "op-decode-sparse-attention"
+    name: "Rank-local sparse attention child"
+    overview: "Each rank computes attention for its 16 owned query heads against selected DCP-owned MLA cache rows, applies its output-projection shard, and yields a full-width additive partial."
+    members {
+      ref {
+        node_id: "a-sparse-attn-kernel"
+      }
+      role: "realizing action"
+    }
+    members {
+      ref {
+        node_id: "d-attn-partial"
+      }
+      role: "boundary data"
+    }
+    members {
+      ref {
+        node_id: "d-dcp-selection"
+      }
+      role: "boundary data"
+    }
+    members {
+      ref {
+        node_id: "d-qkv-shard"
+      }
+      role: "boundary data"
+    }
+    members {
+      ref {
+        node_id: "s-kv"
+      }
+      role: "visible state"
+    }
+    members {
+      ref {
+        node_id: "s-model"
+      }
+      role: "visible state"
+    }
+    members {
+      ref {
+        node_id: "s-rank-plan"
+      }
+      role: "visible state"
+    }
+    semantics {
+      entry_id: "op-decode-sparse-attention-target"
+      key: "target_state"
+      value: "a-sparse-attn-kernel completes the child contract for a-attn-local"
+      support_refs {
+        node_id: "a-sparse-attn-kernel"
+      }
+      status: SUPPORTED
+    }
+  }
+}
+canonical {
+  schema_sha256: "9de5a18221a33a9379092d084dbae946af604b979dfe7caf07bdd65701b5ea9d"
+  type_schema_sha256: "e0737d45c04db185ecaece51c263819e9309b007202df8c47c992d163154da03"
+  graph_sha256: "7cdaa432abbb8522731d84ac0a9b0b4dd6ab4f7a79836fec7a17e9246ca182e4"
+  graph_contract_sha256: "f8f0e873eeecdcc6c1f96ee7422804bb3765da6a2067345b1f2980cfa403f6cf"
+}

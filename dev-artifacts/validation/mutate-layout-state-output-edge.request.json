@@ -1,0 +1,38 @@
+{
+  "schema": "blueprint-write-request/v11",
+  "action": "mutate",
+  "request_id": "mutate-layout-state-output-edge",
+  "root": "/Users/helium/src/ds4-gb10x4-bcd/bdev",
+  "record_dir": "/Users/helium/src/ds4-gb10x4-bcd/dev-artifacts/03_record",
+  "expected_blueprint_sha256": "7a418e404b71025e468fcbc7d6e106083aa3b56f3429375cc39280a6d4b421ac",
+  "validation_stage": "complete",
+  "operations": [
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "e-state-to-loaded",
+        "source_node_id": "state-model-worker",
+        "target_node_id": "d-loaded-rank-shard",
+        "family": "relationship",
+        "kind": "publication-observation",
+        "label": "loaded rank shard reflects the resident state update",
+        "semantics": [
+          {
+            "entry_id": "e-state-to-loaded-r",
+            "key": "relationship",
+            "value": "loaded rank shard reflects the resident state update",
+            "status": "supported"
+          }
+        ]
+      }
+    }
+  ],
+  "contract_validation": {
+    "profile": "leaf",
+    "graph_ids": [
+      "model-shard-layout"
+    ]
+  }
+}

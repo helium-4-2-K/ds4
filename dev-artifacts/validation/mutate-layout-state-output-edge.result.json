@@ -1,0 +1,72 @@
+{
+  "action": "mutate",
+  "added_graph_ids": [],
+  "after_artifact_integrity": {
+    "blueprint_sha256": "a0d9cf6b17df5f544ab2d17930aaf58b6f2bf4a3c1ce4034d3f91f1ba202e30a",
+    "semantic_sha256": "a4808fa315b82548de56bf906a6497cffb4f39d09c03a5b2267c69bfd9ff3f6e"
+  },
+  "before_artifact_integrity": {
+    "blueprint_sha256": "7a418e404b71025e468fcbc7d6e106083aa3b56f3429375cc39280a6d4b421ac",
+    "semantic_sha256": "eca6b29d058d483c5fa84d6eca95cf25fb71f6125b055ef0bd0945b1769e75cc"
+  },
+  "changed_graph_ids": [
+    "model-shard-layout"
+  ],
+  "contract_validation": {
+    "error_count": 0,
+    "errors": [],
+    "graph_ids": [
+      "model-shard-layout"
+    ],
+    "profile": "leaf",
+    "schema": "blueprint-contract-validation/v4",
+    "snapshot": {
+      "artifact_integrity": {
+        "blueprint_sha256": "a0d9cf6b17df5f544ab2d17930aaf58b6f2bf4a3c1ce4034d3f91f1ba202e30a",
+        "semantic_sha256": "a4808fa315b82548de56bf906a6497cffb4f39d09c03a5b2267c69bfd9ff3f6e"
+      },
+      "covered_graphs": [
+        {
+          "graph_contract_sha256": "0d3a26146444d194a72ed4f843fabbd3f6275eeefa45873465f5b9e2ac63c215",
+          "graph_id": "model-load",
+          "role": "ancestor",
+          "type_schema_sha256": "35456e2c1ce4c6aa91b310933364f65541901eeb21051e874a5bb306beb57837"
+        },
+        {
+          "graph_contract_sha256": "eb05725c27670f0c0d9c3b90044c040e3ee5e6130eca1e09e8d1b26a202b911e",
+          "graph_id": "model-shard-layout",
+          "role": "selected",
+          "type_schema_sha256": "e0a05109bed2a28fa288ac7504105a5416d7f5fecc8d663d019382e7ca377abc"
+        },
+        {
+          "graph_contract_sha256": "9212a3685de85a5df4e17c1471458e064e4c335988ae220f36f65731baca3c8a",
+          "graph_id": "serve",
+          "role": "ancestor",
+          "type_schema_sha256": "30f49b45e889237b5bb310b878ab4e6706809d614eedd39946a3bc723ce1c6d4"
+        }
+      ],
+      "selected_graph_ids": [
+        "model-shard-layout"
+      ]
+    },
+    "status": "PASS",
+    "warning_count": 0,
+    "warnings": []
+  },
+  "request_id": "mutate-layout-state-output-edge",
+  "schema": "blueprint-write-result/v4",
+  "status": "PASS",
+  "validation": {
+    "blueprint_id": "ds4-arch",
+    "blueprint_sha256": "a0d9cf6b17df5f544ab2d17930aaf58b6f2bf4a3c1ce4034d3f91f1ba202e30a",
+    "error_count": 0,
+    "errors": [],
+    "graph_count": 10,
+    "schema": "blueprint-artifact-validation@1",
+    "semantic_sha256": "a4808fa315b82548de56bf906a6497cffb4f39d09c03a5b2267c69bfd9ff3f6e",
+    "stage": "complete",
+    "status": "PASS",
+    "warning_count": 0,
+    "warnings": []
+  }
+}

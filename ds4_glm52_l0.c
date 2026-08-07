@@ -1,0 +1,2454 @@
+#include "ds4_glm52_l0.h"
+
+#include <arpa/inet.h>
+#include <ctype.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <netinet/in.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <string.h>
+#include <sys/select.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <unistd.h>
+
+#ifndef PATH_MAX
+#define PATH_MAX 4096
+#endif
+
+static const char *const k_action_ids[] = {
+    "serve/action-serve-open",
+    "serve/action-tp-group",
+    "serve/action-serve-accept",
+    "serve/action-serve-prefill",
+    "serve/action-decode-token",
+    "serve/action-stream-token",
+    "serve/action-kv-checkpoint",
+};
+
+static const char *const k_model_load_action_ids[] = {
+    "model-load/a-validate-launch-plan",
+    "model-load/a-validate-shard-manifest",
+    "model-load/a-map-rank-shards",
+    "model-load/a-ready-rank-engines",
+};
+
+static const char *const k_prefill_action_ids[] = {
+    "prefill/a-tokenize-prompt",
+    "prefill/a-plan-prefill-chunks",
+    "prefill/a-prefill-layer-tp",
+    "prefill/a-prefill-allreduce",
+    "prefill/a-commit-prefill-kv",
+    "prefill/a-prefill-ready",
+};
+
+static void set_error(char *err, size_t err_size, const char *msg) {
+    if (!err || err_size == 0) return;
+    snprintf(err, err_size, "%s", msg ? msg : "unknown error");
+}
+
+static void set_result(ds4_glm52_l0_result *result,
+                       ds4_glm52_l0_status status,
+                       ds4_glm52_l0_action action,
+                       const char *message) {
+    if (!result) return;
+    result->status = status;
+    result->action = action;
+    result->graph_id = DS4_GLM52_L0_GRAPH_ID;
+    result->action_id = ds4_glm52_l0_action_id(action);
+    snprintf(result->message,
+             sizeof(result->message),
+             "%s",
+             message ? message : "");
+}
+
+static bool contains_casefold(const char *s, const char *needle) {
+    if (!s || !needle || !needle[0]) return false;
+    for (; *s; s++) {
+        const char *a = s;
+        const char *b = needle;
+        while (*a && *b &&
+               tolower((unsigned char)*a) == tolower((unsigned char)*b)) {
+            a++;
+            b++;
+        }
+        if (!*b) return true;
+    }
+    return false;
+}
+
+static bool model_root_looks_like_glm52(const char *s) {
+    return contains_casefold(s, "glm-5.2") ||
+           contains_casefold(s, "glm_5.2") ||
+           contains_casefold(s, "glm5.2") ||
+           contains_casefold(s, "glm52");
+}
+
+static void init_state_from_config(const ds4_glm52_l0_config *cfg,
+                                   ds4_glm52_l0_state *state) {
+    memset(state, 0, sizeof(*state));
+    state->model_plan.model_root = cfg->model_root;
+    state->model_plan.rank_plan_path = cfg->rank_plan;
+    state->model_plan.tp_size = cfg->tp_size;
+    state->model_plan.dcp_size = cfg->dcp_size;
+    state->model_plan.pp_size = cfg->pp_size;
+    state->resident_shards.rank = cfg->rank;
+    state->resident_shards.no_foreign_rank_shard = true;
+    state->rank_plan.rank = cfg->rank;
+    state->rank_plan.q_head_start =
+        cfg->rank * DS4_GLM52_L0_Q_HEADS_PER_RANK;
+    state->rank_plan.q_head_end =
+        state->rank_plan.q_head_start + DS4_GLM52_L0_Q_HEADS_PER_RANK;
+    state->rank_plan.dcp_rank = cfg->rank;
+    state->rank_plan.expert_start = -1;
+    state->rank_plan.expert_end = -1;
+    state->rank_plan.vocab_start = -1;
+    state->rank_plan.vocab_end = -1;
+    state->tp_fabric.tp_size = cfg->tp_size;
+    state->tp_fabric.dcp_size = cfg->dcp_size;
+    state->tp_fabric.pp_size = cfg->pp_size;
+    state->tp_fabric.fabric_addr = cfg->fabric_addr;
+    state->tp_fabric.rank_count = DS4_GLM52_L0_RANK_COUNT;
+    state->tp_fabric.local_rank = cfg->rank;
+    state->kv.tp_aware = true;
+    state->kv.append_ordered = true;
+    state->cursor.replicated = true;
+    state->checkpoint.optional = true;
+    state->logits.owner_rank = 0;
+}
+
+size_t ds4_glm52_l0_action_count(void) {
+    return (size_t)DS4_GLM52_L0_ACTION_COUNT;
+}
+
+const char *ds4_glm52_l0_action_id(ds4_glm52_l0_action action) {
+    if (action < 0 || action >= DS4_GLM52_L0_ACTION_COUNT) {
+        return "serve/action-invalid";
+    }
+    return k_action_ids[action];
+}
+
+const char *ds4_glm52_model_load_action_id(ds4_glm52_model_load_action action) {
+    if (action < 0 || action >= DS4_GLM52_MODEL_LOAD_ACTION_COUNT) {
+        return "model-load/action-invalid";
+    }
+    return k_model_load_action_ids[action];
+}
+
+size_t ds4_glm52_prefill_action_count(void) {
+    return sizeof(k_prefill_action_ids) / sizeof(k_prefill_action_ids[0]);
+}
+
+const char *ds4_glm52_prefill_action_id(int action_index) {
+    if (action_index < 0 ||
+        action_index >= (int)ds4_glm52_prefill_action_count()) {
+        return "prefill/action-invalid";
+    }
+    return k_prefill_action_ids[action_index];
+}
+
+const char *ds4_glm52_l0_cursor_phase_name(ds4_glm52_l0_cursor_phase phase) {
+    switch (phase) {
+    case DS4_GLM52_L0_CURSOR_PHASE_NONE:
+        return "none";
+    case DS4_GLM52_L0_CURSOR_PHASE_PREFILL:
+        return "prefill";
+    case DS4_GLM52_L0_CURSOR_PHASE_DECODE:
+        return "decode";
+    default:
+        return "unknown";
+    }
+}
+
+const char *ds4_glm52_l0_status_name(ds4_glm52_l0_status status) {
+    switch (status) {
+    case DS4_GLM52_L0_STATUS_OK:
+        return "ok";
+    case DS4_GLM52_L0_STATUS_NOT_READY:
+        return "not_ready";
+    case DS4_GLM52_L0_STATUS_INVALID:
+        return "invalid";
+    default:
+        return "unknown";
+    }
+}
+
+static char *trim_ws(char *s) {
+    while (*s && isspace((unsigned char)*s)) s++;
+    char *end = s + strlen(s);
+    while (end > s && isspace((unsigned char)end[-1])) *--end = '\0';
+    return s;
+}
+
+static bool parse_int_value(const char *s, int *out) {
+    if (!s || !out || !s[0]) return false;
+    char *end = NULL;
+    errno = 0;
+    long v = strtol(s, &end, 10);
+    if (errno || end == s) return false;
+    while (*end && isspace((unsigned char)*end)) end++;
+    if (*end || v < -1 || v > INT32_MAX) return false;
+    *out = (int)v;
+    return true;
+}
+
+static void copy_string(char *dst, size_t dst_size, const char *src) {
+    if (!dst || dst_size == 0) return;
+    snprintf(dst, dst_size, "%s", src ? src : "");
+}
+
+static bool key_for_rank(const char *key, int rank, const char *field) {
+    char prefix[32];
+    snprintf(prefix, sizeof(prefix), "rank%d.", rank);
+    if (!strncmp(key, prefix, strlen(prefix)) &&
+        !strcmp(key + strlen(prefix), field)) {
+        return true;
+    }
+    snprintf(prefix, sizeof(prefix), "rank%d_", rank);
+    return !strncmp(key, prefix, strlen(prefix)) &&
+           !strcmp(key + strlen(prefix), field);
+}
+
+static bool key_for_foreign_rank(const char *key, int rank, const char *field) {
+    for (int r = 0; r < DS4_GLM52_L0_RANK_COUNT; r++) {
+        if (r == rank) continue;
+        if (key_for_rank(key, r, field)) return true;
+    }
+    return false;
+}
+
+static bool path_contains_rank(const char *path, int rank) {
+    char needle[16];
+    snprintf(needle, sizeof(needle), "rank%d", rank);
+    return contains_casefold(path, needle);
+}
+
+static bool path_contains_foreign_rank(const char *path, int rank) {
+    for (int r = 0; r < DS4_GLM52_L0_RANK_COUNT; r++) {
+        if (r != rank && path_contains_rank(path, r)) return true;
+    }
+    return false;
+}
+
+static bool resolve_path(const char *base, const char *path,
+                         char *out, size_t out_size) {
+    if (!path || !path[0] || !out || out_size == 0) return false;
+    if (path[0] == '/') {
+        return snprintf(out, out_size, "%s", path) < (int)out_size;
+    }
+    if (!base || !base[0]) return false;
+    return snprintf(out, out_size, "%s/%s", base, path) < (int)out_size;
+}
+
+static bool existing_regular_file_size(const char *path, uint64_t *size_out) {
+    struct stat st;
+    if (stat(path, &st) != 0 || !S_ISREG(st.st_mode)) return false;
+    if (size_out) *size_out = (uint64_t)st.st_size;
+    return true;
+}
+
+static ds4_glm52_l0_status model_load_fail(
+        ds4_glm52_l0_result *result,
+        ds4_glm52_l0_status status,
+        ds4_glm52_model_load_action action,
+        const char *message) {
+    char msg[192];
+    snprintf(msg, sizeof(msg), "%s: %s",
+             ds4_glm52_model_load_action_id(action), message);
+    set_result(result, status, DS4_GLM52_L0_ACTION_SERVE_OPEN, msg);
+    return status;
+}
+
+static bool resident_shards_ready(const ds4_glm52_l0_state *state) {
+    return state &&
+           state->model_plan.validated &&
+           state->shard_manifest.validated &&
+           state->resident_shards.mapped &&
+           state->resident_shards.no_foreign_rank_shard &&
+           state->resident_shards.base_shard_count ==
+               DS4_GLM52_L0_EXPECTED_BASE_SHARDS &&
+           state->resident_shards.mtp_shard_count ==
+               DS4_GLM52_L0_EXPECTED_MTP_SHARDS &&
+           state->resident_shards.mapped_bytes > 0;
+}
+
+static bool tp_group_ready(const ds4_glm52_l0_state *state) {
+    return resident_shards_ready(state) &&
+           state->rank_plan.bound &&
+           state->tp_fabric.group_ready &&
+           state->tp_fabric.topology_bound &&
+           state->tp_fabric.transport_ready &&
+           state->tp_fabric.tp_size == DS4_GLM52_L0_TP_SIZE &&
+           state->tp_fabric.dcp_size == DS4_GLM52_L0_DCP_SIZE &&
+           state->tp_fabric.pp_size == DS4_GLM52_L0_PP_SIZE &&
+           state->tp_fabric.rank_count == DS4_GLM52_L0_RANK_COUNT &&
+           state->tp_fabric.local_rank == state->rank_plan.rank;
+}
+
+static bool request_ready(const ds4_glm52_l0_state *state) {
+    return state && state->request.accepted && state->request.session_id &&
+           state->request.session_id[0];
+}
+
+static bool prefill_ready(const ds4_glm52_l0_state *state) {
+    return tp_group_ready(state) &&
+           state->kv.tp_aware &&
+           state->kv.append_ordered &&
+           state->kv.prefill_complete &&
+           state->cursor.replicated &&
+           state->cursor.kv_length == state->kv.length &&
+           (state->cursor.phase == DS4_GLM52_L0_CURSOR_PHASE_PREFILL ||
+            state->cursor.phase == DS4_GLM52_L0_CURSOR_PHASE_DECODE);
+}
+
+static bool fabric_addr_valid(const char *addr) {
+    if (!addr || !addr[0]) return false;
+    bool has_non_space = false;
+    bool has_addr_char = false;
+    for (const unsigned char *p = (const unsigned char *)addr; *p; p++) {
+        if (isspace(*p)) return false;
+        has_non_space = true;
+        if (isalnum(*p) || *p == '.' || *p == ':' || *p == '-' || *p == '_') {
+            has_addr_char = true;
+            continue;
+        }
+        return false;
+    }
+    return has_non_space && has_addr_char;
+}
+
+static ds4_glm52_l0_status bind_tp_group(
+        const ds4_glm52_l0_config *cfg,
+        ds4_glm52_l0_state *state,
+        ds4_glm52_l0_result *result) {
+    if (!resident_shards_ready(state)) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_NOT_READY,
+                   DS4_GLM52_L0_ACTION_TP_GROUP,
+                   "TP group formation requires resident rank-local model shards from model-load");
+        return DS4_GLM52_L0_STATUS_NOT_READY;
+    }
+
+    const char *fabric_addr = cfg->fabric_addr && cfg->fabric_addr[0] ?
+        cfg->fabric_addr : state->launch_plan.fabric_addr;
+    if (!fabric_addr_valid(fabric_addr)) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_INVALID,
+                   DS4_GLM52_L0_ACTION_TP_GROUP,
+                   "TP group formation requires --glm52-tp4-fabric or rank-plan fabric_addr without whitespace");
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+
+    const int expected_q_start = cfg->rank * DS4_GLM52_L0_Q_HEADS_PER_RANK;
+    const int expected_q_end = expected_q_start + DS4_GLM52_L0_Q_HEADS_PER_RANK;
+    if (cfg->rank < 0 ||
+        cfg->rank >= DS4_GLM52_L0_RANK_COUNT ||
+        state->resident_shards.rank != cfg->rank) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_INVALID,
+                   DS4_GLM52_L0_ACTION_TP_GROUP,
+                   "TP rank ownership must match the local resident shard rank");
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+
+    state->rank_plan.rank = cfg->rank;
+    state->rank_plan.q_head_start = expected_q_start;
+    state->rank_plan.q_head_end = expected_q_end;
+    state->rank_plan.dcp_rank = cfg->rank;
+    if (state->rank_plan.expert_start == 0 &&
+        state->rank_plan.expert_end == 0) {
+        state->rank_plan.expert_start = -1;
+        state->rank_plan.expert_end = -1;
+    }
+    if (state->rank_plan.vocab_start == 0 &&
+        state->rank_plan.vocab_end == 0) {
+        state->rank_plan.vocab_start = -1;
+        state->rank_plan.vocab_end = -1;
+    }
+    state->rank_plan.bound = true;
+
+    state->tp_fabric.tp_size = cfg->tp_size;
+    state->tp_fabric.dcp_size = cfg->dcp_size;
+    state->tp_fabric.pp_size = cfg->pp_size;
+    state->tp_fabric.rank_count = DS4_GLM52_L0_RANK_COUNT;
+    state->tp_fabric.local_rank = cfg->rank;
+    state->tp_fabric.fabric_addr = fabric_addr;
+    state->tp_fabric.topology_bound = true;
+    state->tp_fabric.transport_ready = false;
+    state->tp_fabric.group_ready = false;
+
+    set_result(result,
+               DS4_GLM52_L0_STATUS_NOT_READY,
+               DS4_GLM52_L0_ACTION_TP_GROUP,
+               "TP4/DCP4 topology is bound; real four-rank collective transport handshake is not implemented");
+    return DS4_GLM52_L0_STATUS_NOT_READY;
+}
+
+static ds4_glm52_l0_status load_plan_and_manifest(
+        const ds4_glm52_l0_config *cfg,
+        ds4_glm52_l0_state *state,
+        ds4_glm52_l0_result *result) {
+    FILE *fp = fopen(cfg->rank_plan, "r");
+    if (!fp) {
+        char msg[192];
+        snprintf(msg, sizeof(msg), "cannot open rank plan '%s'",
+                 cfg->rank_plan);
+        return model_load_fail(result,
+                               DS4_GLM52_L0_STATUS_INVALID,
+                               DS4_GLM52_MODEL_LOAD_VALIDATE_LAUNCH_PLAN,
+                               msg);
+    }
+
+    ds4_glm52_l0_launch_plan plan = {0};
+    ds4_glm52_l0_shard_manifest manifest = {0};
+    plan.tp_size = -1;
+    plan.dcp_size = -1;
+    plan.pp_size = -1;
+    plan.rank_count = -1;
+    plan.rank = cfg->rank;
+    plan.host_count = -1;
+    manifest.rank = cfg->rank;
+    copy_string(plan.checkpoint_root,
+                sizeof(plan.checkpoint_root),
+                cfg->model_root);
+    copy_string(plan.fabric_addr, sizeof(plan.fabric_addr), cfg->fabric_addr);
+
+    char line[1024];
+    int line_no = 0;
+    while (fgets(line, sizeof(line), fp)) {
+        line_no++;
+        char *p = trim_ws(line);
+        if (!p[0] || p[0] == '#') continue;
+        char *eq = strchr(p, '=');
+        if (!eq) {
+            fclose(fp);
+            char msg[192];
+            snprintf(msg, sizeof(msg), "line %d is not key=value", line_no);
+            return model_load_fail(result,
+                                   DS4_GLM52_L0_STATUS_INVALID,
+                                   DS4_GLM52_MODEL_LOAD_VALIDATE_LAUNCH_PLAN,
+                                   msg);
+        }
+        *eq = '\0';
+        char *key = trim_ws(p);
+        char *value = trim_ws(eq + 1);
+        if (!strcmp(key, "tp_size")) {
+            if (!parse_int_value(value, &plan.tp_size)) goto bad_int;
+        } else if (!strcmp(key, "dcp_size")) {
+            if (!parse_int_value(value, &plan.dcp_size)) goto bad_int;
+        } else if (!strcmp(key, "pp_size")) {
+            if (!parse_int_value(value, &plan.pp_size)) goto bad_int;
+        } else if (!strcmp(key, "rank_count")) {
+            if (!parse_int_value(value, &plan.rank_count)) goto bad_int;
+        } else if (!strcmp(key, "rank")) {
+            if (!parse_int_value(value, &plan.rank)) goto bad_int;
+        } else if (!strcmp(key, "host_count") ||
+                   !strcmp(key, "gx10_count")) {
+            if (!parse_int_value(value, &plan.host_count)) goto bad_int;
+        } else if (!strcmp(key, "model_name")) {
+            copy_string(plan.model_name, sizeof(plan.model_name), value);
+        } else if (!strcmp(key, "checkpoint_root")) {
+            copy_string(plan.checkpoint_root,
+                        sizeof(plan.checkpoint_root),
+                        value);
+        } else if (!strcmp(key, "fabric_addr")) {
+            copy_string(plan.fabric_addr, sizeof(plan.fabric_addr), value);
+        } else if (key_for_rank(key, cfg->rank, "checkpoint_root")) {
+            copy_string(plan.checkpoint_root,
+                        sizeof(plan.checkpoint_root),
+                        value);
+        } else if (!strcmp(key, "base_shard") ||
+                   key_for_rank(key, cfg->rank, "base_shard")) {
+            char path[PATH_MAX];
+            uint64_t bytes = 0;
+            if (path_contains_foreign_rank(value, cfg->rank)) {
+                manifest.has_foreign_rank_shard = true;
+            }
+            if (!resolve_path(plan.checkpoint_root, value,
+                              path, sizeof(path)) ||
+                !existing_regular_file_size(path, &bytes)) {
+                fclose(fp);
+                char msg[192];
+                snprintf(msg, sizeof(msg),
+                         "missing base shard for rank %d: %s",
+                         cfg->rank, value);
+                return model_load_fail(
+                        result,
+                        DS4_GLM52_L0_STATUS_INVALID,
+                        DS4_GLM52_MODEL_LOAD_VALIDATE_SHARD_MANIFEST,
+                        msg);
+            }
+            manifest.base_shard_count++;
+            manifest.total_bytes += bytes;
+        } else if (!strcmp(key, "mtp_shard") ||
+                   key_for_rank(key, cfg->rank, "mtp_shard")) {
+            char path[PATH_MAX];
+            uint64_t bytes = 0;
+            if (path_contains_foreign_rank(value, cfg->rank)) {
+                manifest.has_foreign_rank_shard = true;
+            }
+            if (!resolve_path(plan.checkpoint_root, value,
+                              path, sizeof(path)) ||
+                !existing_regular_file_size(path, &bytes)) {
+                fclose(fp);
+                char msg[192];
+                snprintf(msg, sizeof(msg),
+                         "missing MTP shard for rank %d: %s",
+                         cfg->rank, value);
+                return model_load_fail(
+                        result,
+                        DS4_GLM52_L0_STATUS_INVALID,
+                        DS4_GLM52_MODEL_LOAD_VALIDATE_SHARD_MANIFEST,
+                        msg);
+            }
+            manifest.mtp_shard_count++;
+            manifest.total_bytes += bytes;
+        } else if (key_for_foreign_rank(key, cfg->rank, "base_shard") ||
+                   key_for_foreign_rank(key, cfg->rank, "mtp_shard")) {
+            continue;
+        }
+        continue;
+
+bad_int:
+        fclose(fp);
+        char msg[192];
+        snprintf(msg, sizeof(msg), "line %d has invalid integer for %s",
+                 line_no, key);
+        return model_load_fail(result,
+                               DS4_GLM52_L0_STATUS_INVALID,
+                               DS4_GLM52_MODEL_LOAD_VALIDATE_LAUNCH_PLAN,
+                               msg);
+    }
+    fclose(fp);
+
+    const char *model_name =
+        plan.model_name[0] ? plan.model_name : cfg->model_root;
+    if (plan.tp_size != DS4_GLM52_L0_TP_SIZE ||
+        plan.dcp_size != DS4_GLM52_L0_DCP_SIZE ||
+        plan.pp_size != DS4_GLM52_L0_PP_SIZE ||
+        plan.rank_count != DS4_GLM52_L0_RANK_COUNT ||
+        plan.host_count != DS4_GLM52_L0_RANK_COUNT ||
+        plan.rank != cfg->rank ||
+        !model_root_looks_like_glm52(model_name)) {
+        return model_load_fail(
+                result,
+                DS4_GLM52_L0_STATUS_INVALID,
+                DS4_GLM52_MODEL_LOAD_VALIDATE_LAUNCH_PLAN,
+                "rank plan must declare GLM 5.2 TP4/DCP4/PP1 over four GX10 ranks and match local rank");
+    }
+    plan.validated = true;
+
+    if (manifest.base_shard_count != DS4_GLM52_L0_EXPECTED_BASE_SHARDS ||
+        manifest.mtp_shard_count != DS4_GLM52_L0_EXPECTED_MTP_SHARDS ||
+        manifest.has_foreign_rank_shard) {
+        return model_load_fail(
+                result,
+                DS4_GLM52_L0_STATUS_INVALID,
+                DS4_GLM52_MODEL_LOAD_VALIDATE_SHARD_MANIFEST,
+                "rank shard manifest must contain exactly 20 base shards, one MTP shard, and no foreign-rank shard");
+    }
+    manifest.validated = true;
+
+    state->launch_plan = plan;
+    state->shard_manifest = manifest;
+    state->model_plan.validated = true;
+    state->resident_shards.checkpoint_root = state->launch_plan.checkpoint_root;
+    state->resident_shards.base_shard_count = manifest.base_shard_count;
+    state->resident_shards.mtp_shard_count = manifest.mtp_shard_count;
+    state->resident_shards.mapped_bytes = manifest.total_bytes;
+    state->resident_shards.no_foreign_rank_shard =
+        !manifest.has_foreign_rank_shard;
+    return DS4_GLM52_L0_STATUS_OK;
+}
+
+bool ds4_glm52_l0_config_from_engine(const ds4_engine_options *opt,
+                                     ds4_glm52_l0_config *cfg,
+                                     char *err,
+                                     size_t err_size) {
+    if (!opt || !cfg) {
+        set_error(err, err_size, "GLM 5.2 TP4 L0 config requires engine options");
+        return false;
+    }
+    memset(cfg, 0, sizeof(*cfg));
+    cfg->enabled = opt->glm52_tp4_l0;
+    cfg->mock_model = opt->glm52_tp4_mock_model;
+    cfg->mock_matmul = opt->glm52_tp4_mock_matmul;
+    cfg->legacy_cuda_tensor_parallel = opt->cuda_tensor_parallel;
+    cfg->legacy_two_rank_tp = opt->tp.requested || opt->tp.role != DS4_TP_NONE;
+    cfg->rank_set = opt->glm52_tp4_rank_set;
+    cfg->rank = opt->glm52_tp4_rank;
+    cfg->tp_size = opt->glm52_tp4_tp_size > 0 ?
+        opt->glm52_tp4_tp_size : DS4_GLM52_L0_TP_SIZE;
+    cfg->dcp_size = opt->glm52_tp4_dcp_size > 0 ?
+        opt->glm52_tp4_dcp_size : DS4_GLM52_L0_DCP_SIZE;
+    cfg->pp_size = opt->glm52_tp4_pp_size > 0 ?
+        opt->glm52_tp4_pp_size : DS4_GLM52_L0_PP_SIZE;
+    cfg->model_root = opt->model_path;
+    cfg->rank_plan = opt->glm52_tp4_rank_plan;
+    cfg->layout_path = opt->glm52_tp4_layout_path;
+    cfg->fabric_addr = opt->glm52_tp4_fabric_addr;
+    return true;
+}
+
+bool ds4_glm52_l0_validate_config(const ds4_glm52_l0_config *cfg,
+                                  char *err,
+                                  size_t err_size) {
+    if (!cfg) {
+        set_error(err, err_size, "GLM 5.2 TP4 L0 config is missing");
+        return false;
+    }
+    if (!cfg->enabled) {
+        set_error(err, err_size, "GLM 5.2 TP4 L0 mode is not enabled");
+        return false;
+    }
+    if (cfg->mock_matmul && !cfg->mock_model) {
+        set_error(err, err_size, "GLM 5.2 mock matmul requires --glm52-tp4-mock-model");
+        return false;
+    }
+    if (!cfg->model_root || !cfg->model_root[0]) {
+        set_error(err, err_size, "GLM 5.2 TP4 L0 requires --model MODEL_ROOT");
+        return false;
+    }
+    if (!model_root_looks_like_glm52(cfg->model_root)) {
+        set_error(err, err_size, "GLM 5.2 TP4 L0 requires an explicit GLM 5.2 model root");
+        return false;
+    }
+    if (!cfg->rank_plan || !cfg->rank_plan[0]) {
+        set_error(err, err_size, "GLM 5.2 TP4 L0 requires --glm52-tp4-rank-plan FILE");
+        return false;
+    }
+    if (!cfg->rank_set) {
+        set_error(err, err_size, "GLM 5.2 TP4 L0 requires --glm52-tp4-rank N");
+        return false;
+    }
+    if (cfg->legacy_cuda_tensor_parallel || cfg->legacy_two_rank_tp) {
+        set_error(err, err_size, "GLM 5.2 TP4 L0 cannot be combined with legacy two-rank TP options");
+        return false;
+    }
+    if (cfg->tp_size != DS4_GLM52_L0_TP_SIZE) {
+        set_error(err, err_size, "GLM 5.2 TP4 L0 requires tp_size=4");
+        return false;
+    }
+    if (cfg->dcp_size != DS4_GLM52_L0_DCP_SIZE) {
+        set_error(err, err_size, "GLM 5.2 TP4 L0 requires dcp_size=4");
+        return false;
+    }
+    if (cfg->pp_size != DS4_GLM52_L0_PP_SIZE) {
+        set_error(err, err_size, "GLM 5.2 TP4 L0 requires pp_size=1");
+        return false;
+    }
+    if (cfg->rank < 0 || cfg->rank >= cfg->tp_size) {
+        set_error(err, err_size, "GLM 5.2 TP4 L0 rank must be in [0,4)");
+        return false;
+    }
+    return true;
+}
+
+/* Run the model-shard-layout child graph when a layout manifest is provided.
+ * Executes the four BCD actions in contract order:
+ *   a-read-layout-spec -> a-validate-tensor-ownership ->
+ *   a-load-rank-tensors -> a-publish-loaded-shard
+ * Updates state->resident_shards and state->rank_plan on success. */
+static ds4_glm52_l0_status run_model_shard_layout(
+        const ds4_glm52_l0_config *cfg,
+        ds4_glm52_l0_state *state,
+        ds4_glm52_l0_result *result) {
+    if (!cfg->layout_path || !cfg->layout_path[0]) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_NOT_READY,
+                   DS4_GLM52_L0_ACTION_SERVE_OPEN,
+                   "model-load/a-map-rank-shards: no DS4 layout manifest path provided; layout child is not implemented");
+        return DS4_GLM52_L0_STATUS_NOT_READY;
+    }
+
+    ds4_glm52_layout_spec spec;
+    ds4_glm52_l0_status st;
+
+    /* a-read-layout-spec */
+    st = ds4_glm52_layout_read_manifest(cfg->layout_path, &spec, result);
+    if (st != DS4_GLM52_L0_STATUS_OK) return st;
+
+    /* a-validate-tensor-ownership */
+    ds4_glm52_layout_ownership_plan plan;
+    st = ds4_glm52_layout_validate_ownership(&spec, cfg->rank, &plan, result);
+    if (st != DS4_GLM52_L0_STATUS_OK) return st;
+
+    /* a-load-rank-tensors */
+    ds4_glm52_layout_mapped_slices mapped;
+    st = ds4_glm52_layout_mmap_rank_tensors(&plan, cfg->model_root,
+                                            &mapped, result);
+    if (st != DS4_GLM52_L0_STATUS_OK) return st;
+
+    /* a-publish-loaded-shard */
+    st = ds4_glm52_layout_publish_loaded_rank_shard(&mapped, &plan,
+                                                     state, result);
+    return st;
+}
+
+/* ================================================================== */
+/* prefill child graph implementation                                 */
+/* BCD actions: a-tokenize-prompt, a-plan-prefill-chunks,             */
+/* a-prefill-layer-tp, a-prefill-allreduce, a-commit-prefill-kv,      */
+/* a-prefill-ready                                                    */
+/* ================================================================== */
+
+static ds4_glm52_l0_status prefill_fail(ds4_glm52_l0_result *result,
+                                        ds4_glm52_l0_status status,
+                                        int action_index,
+                                        const char *message) {
+    char msg[192];
+    snprintf(msg, sizeof(msg), "%s: %s",
+             ds4_glm52_prefill_action_id(action_index), message);
+    set_result(result, status, DS4_GLM52_L0_ACTION_PREFILL, msg);
+    return status;
+}
+
+static void prefill_trace(ds4_glm52_l0_trace_fn trace,
+                          void *trace_ud,
+                          int action_index,
+                          ds4_glm52_l0_status status,
+                          bool prerequisite_blocked,
+                          const ds4_glm52_l0_state *state) {
+    if (!trace) return;
+    trace(trace_ud,
+          DS4_GLM52_PREFILL_GRAPH_ID,
+          ds4_glm52_prefill_action_id(action_index),
+          status,
+          prerequisite_blocked,
+          state);
+}
+
+static bool prefill_identity_ok(const ds4_glm52_l0_config *cfg,
+                                const ds4_glm52_l0_state *state) {
+    return state->resident_shards.rank == state->rank_plan.rank &&
+           state->rank_plan.rank == cfg->rank &&
+           state->rank_plan.rank == state->tp_fabric.local_rank;
+}
+
+bool ds4_glm52_l0_prefill_set_prompt(ds4_glm52_l0_state *state,
+                                     const char *session_id,
+                                     const int *token_ids,
+                                     int token_count,
+                                     char *err,
+                                     size_t err_size) {
+    if (!state) {
+        set_error(err, err_size,
+                  "GLM 5.2 TP4 prefill state is missing");
+        return false;
+    }
+    if (!session_id || !session_id[0]) {
+        set_error(err, err_size,
+                  "GLM 5.2 TP4 prefill prompt requires a session id");
+        return false;
+    }
+    if (token_count < 0 ||
+        token_count > DS4_GLM52_L0_PREFILL_MAX_PROMPT_TOKENS) {
+        set_error(err, err_size,
+                  "GLM 5.2 TP4 prefill prompt exceeds the L0 prompt token bound");
+        return false;
+    }
+    if (token_count > 0 && !token_ids) {
+        set_error(err, err_size,
+                  "GLM 5.2 TP4 prefill prompt span is missing");
+        return false;
+    }
+
+    memset(&state->prompt, 0, sizeof(state->prompt));
+    state->prompt.session_id = session_id;
+    state->prompt.prompt_length = token_count;
+    state->prompt.consumed = 0;
+    if (token_count > 0) {
+        memcpy(state->prompt.token_ids, token_ids,
+               (size_t)token_count * sizeof(state->prompt.token_ids[0]));
+    }
+    state->prompt.set = true;
+    return true;
+}
+
+ds4_glm52_l0_status ds4_glm52_l0_prefill_run(
+        const ds4_glm52_l0_config *cfg,
+        ds4_glm52_l0_state *state,
+        int chunk_size,
+        ds4_glm52_l0_trace_fn trace,
+        void *trace_ud,
+        ds4_glm52_l0_result *result) {
+    char err[160];
+    if (!ds4_glm52_l0_validate_config(cfg, err, sizeof(err))) {
+        set_result(result, DS4_GLM52_L0_STATUS_INVALID,
+                   DS4_GLM52_L0_ACTION_PREFILL, err);
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+    if (!state) {
+        set_result(result, DS4_GLM52_L0_STATUS_INVALID,
+                   DS4_GLM52_L0_ACTION_PREFILL,
+                   "GLM 5.2 TP4 L0 prefill state is missing");
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+
+    /* ---- a-tokenize-prompt: serve preconditions + prompt span ---- */
+    if (!resident_shards_ready(state)) {
+        prefill_trace(trace, trace_ud, 0,
+                      DS4_GLM52_L0_STATUS_NOT_READY, true, state);
+        return prefill_fail(result, DS4_GLM52_L0_STATUS_NOT_READY, 0,
+                            "prefill requires resident rank-local model shards from model-load");
+    }
+    if (!tp_group_ready(state)) {
+        prefill_trace(trace, trace_ud, 0,
+                      DS4_GLM52_L0_STATUS_NOT_READY, true, state);
+        return prefill_fail(result, DS4_GLM52_L0_STATUS_NOT_READY, 0,
+                            "prefill requires a ready TP4/DCP4 collective fabric");
+    }
+    if (!request_ready(state)) {
+        prefill_trace(trace, trace_ud, 0,
+                      DS4_GLM52_L0_STATUS_NOT_READY, true, state);
+        return prefill_fail(result, DS4_GLM52_L0_STATUS_NOT_READY, 0,
+                            "prefill requires an accepted request/session");
+    }
+    if (!state->prompt.set ||
+        !state->prompt.session_id ||
+        strcmp(state->prompt.session_id, state->request.session_id) != 0) {
+        prefill_trace(trace, trace_ud, 0,
+                      DS4_GLM52_L0_STATUS_NOT_READY, true, state);
+        return prefill_fail(result, DS4_GLM52_L0_STATUS_NOT_READY, 0,
+                            "prefill requires a prompt token span for the accepted session (a-tokenize-prompt)");
+    }
+    prefill_trace(trace, trace_ud, 0, DS4_GLM52_L0_STATUS_OK, false, state);
+
+    /* ---- a-plan-prefill-chunks: KV identity + chunk plan ---- */
+    if (!state->kv.tp_aware || !state->kv.append_ordered) {
+        prefill_trace(trace, trace_ud, 1,
+                      DS4_GLM52_L0_STATUS_INVALID, false, state);
+        return prefill_fail(result, DS4_GLM52_L0_STATUS_INVALID, 1,
+                            "prefill requires TP-aware append-ordered KV state (state-kv identity)");
+    }
+    if (state->kv.prefill_complete) {
+        prefill_trace(trace, trace_ud, 1,
+                      DS4_GLM52_L0_STATUS_INVALID, false, state);
+        return prefill_fail(result, DS4_GLM52_L0_STATUS_INVALID, 1,
+                            "prefill refuses to re-append an already-prefilled append-ordered KV cursor");
+    }
+    if (state->kv.session_id &&
+        state->kv.session_id[0] &&
+        strcmp(state->kv.session_id, state->request.session_id) != 0) {
+        prefill_trace(trace, trace_ud, 1,
+                      DS4_GLM52_L0_STATUS_INVALID, false, state);
+        return prefill_fail(result, DS4_GLM52_L0_STATUS_INVALID, 1,
+                            "prefill KV session identity mismatch (same_state_as serve state-kv)");
+    }
+    if (!prefill_identity_ok(cfg, state)) {
+        prefill_trace(trace, trace_ud, 2,
+                      DS4_GLM52_L0_STATUS_INVALID, false, state);
+        return prefill_fail(result, DS4_GLM52_L0_STATUS_INVALID, 2,
+                            "prefill rank-plan/model/fabric identity mismatch");
+    }
+
+    const int prompt_length = state->prompt.prompt_length;
+    const int cs = chunk_size > 0 ? chunk_size : DS4_GLM52_L0_PREFILL_CHUNK;
+    const int chunk_count = prompt_length == 0 ? 0 :
+        (prompt_length + cs - 1) / cs;
+
+    /* Fail-closed pass: verify the whole chunk plan against the
+     * append-ordered KV cursor before mutating any state. */
+    {
+        int expected = (int)state->kv.length;
+        for (int i = 0; i < chunk_count; i++) {
+            const int start = i * cs;
+            const int end = (start + cs < prompt_length) ?
+                (start + cs) : prompt_length;
+            if (start != expected) {
+                char msg[192];
+                snprintf(msg, sizeof(msg),
+                         "prefill chunk %d starts at position %d but the append-ordered KV cursor is at %d",
+                         i, start, expected);
+                prefill_trace(trace, trace_ud, 4,
+                              DS4_GLM52_L0_STATUS_INVALID, false, state);
+                return prefill_fail(result,
+                                    DS4_GLM52_L0_STATUS_INVALID, 4, msg);
+            }
+            expected = end;
+        }
+        if (expected != prompt_length) {
+            prefill_trace(trace, trace_ud, 4,
+                          DS4_GLM52_L0_STATUS_INVALID, false, state);
+            return prefill_fail(result, DS4_GLM52_L0_STATUS_INVALID, 4,
+                                "prefill chunk plan does not cover the full prompt span");
+        }
+    }
+
+    /* ---- a-prefill-layer-tp / a-prefill-allreduce: L0 skeleton seams ---- */
+    /* No real GLM 5.2 TP kernels or all-reduce collectives run here. The
+     * layer-before-reduce-before-commit-before-ready ordering is proven by
+     * the resident-shard / TP-fabric / rank identity validation above and by
+     * the append-order validation below; traces make the contract order
+     * observable without real weights. */
+    prefill_trace(trace, trace_ud, 1, DS4_GLM52_L0_STATUS_OK, false, state);
+    prefill_trace(trace, trace_ud, 2, DS4_GLM52_L0_STATUS_OK, false, state);
+    prefill_trace(trace, trace_ud, 3, DS4_GLM52_L0_STATUS_OK, false, state);
+
+    /* ---- a-commit-prefill-kv: append prompt rows and cursors ---- */
+    if (!state->kv.session_id || !state->kv.session_id[0]) {
+        state->kv.session_id = state->request.session_id;
+    }
+    for (int i = 0; i < chunk_count; i++) {
+        const int start = i * cs;
+        const int end = (start + cs < prompt_length) ?
+            (start + cs) : prompt_length;
+        state->kv.length = (uint64_t)end;
+        state->cursor.kv_length = (uint64_t)end;
+        state->cursor.token_step_j = (uint64_t)end;
+        state->prompt.consumed = end;
+        state->chunk.chunk_index = i;
+        state->chunk.start_position = start;
+        state->chunk.end_position = end;
+        state->chunk.token_count = end - start;
+    }
+    state->commit.prefilled_length = (uint64_t)prompt_length;
+    state->commit.tp_degree = DS4_GLM52_L0_TP_SIZE;
+    state->commit.dcp_degree = DS4_GLM52_L0_DCP_SIZE;
+    state->commit.kv_cache_dtype = DS4_GLM52_L0_KV_CACHE_DTYPE;
+    state->commit.committed = true;
+    prefill_trace(trace, trace_ud, 4, DS4_GLM52_L0_STATUS_OK, false, state);
+
+    /* ---- a-prefill-ready: publish decode handoff ---- */
+    if (state->cursor.kv_length != (uint64_t)prompt_length ||
+        state->cursor.token_step_j != (uint64_t)prompt_length ||
+        state->kv.length != (uint64_t)prompt_length) {
+        prefill_trace(trace, trace_ud, 5,
+                      DS4_GLM52_L0_STATUS_INVALID, false, state);
+        return prefill_fail(result, DS4_GLM52_L0_STATUS_INVALID, 5,
+                            "prefill final cursor consistency check failed after commit");
+    }
+    state->kv.prefill_complete = true;
+    state->cursor.replicated = true;
+    state->cursor.phase = DS4_GLM52_L0_CURSOR_PHASE_PREFILL;
+    prefill_trace(trace, trace_ud, 5, DS4_GLM52_L0_STATUS_OK, false, state);
+
+    char msg[192];
+    snprintf(msg, sizeof(msg),
+             "prefill/a-prefill-ready: prompt prefill complete; decode may start at position %d",
+             prompt_length);
+    set_result(result, DS4_GLM52_L0_STATUS_OK,
+               DS4_GLM52_L0_ACTION_PREFILL, msg);
+    return DS4_GLM52_L0_STATUS_OK;
+}
+
+ds4_glm52_l0_status ds4_glm52_l0_stub_action(ds4_glm52_l0_action action,
+                                             const ds4_glm52_l0_config *cfg,
+                                             ds4_glm52_l0_state *state,
+                                             ds4_glm52_l0_result *result) {
+    char err[160];
+    if (!ds4_glm52_l0_validate_config(cfg, err, sizeof(err))) {
+        set_result(result, DS4_GLM52_L0_STATUS_INVALID, action, err);
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+    if (!state) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_INVALID,
+                   action,
+                   "GLM 5.2 TP4 L0 state is missing");
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+
+    switch (action) {
+    case DS4_GLM52_L0_ACTION_SERVE_OPEN:
+        {
+            ds4_glm52_l0_status load_status =
+                load_plan_and_manifest(cfg, state, result);
+            if (load_status != DS4_GLM52_L0_STATUS_OK) return load_status;
+        }
+        if (!resident_shards_ready(state)) {
+            /* model-load/a-map-rank-shards: run the model-shard-layout
+             * child graph to map rank-local tensors and publish the
+             * loaded rank shard. */
+            ds4_glm52_l0_status layout_status =
+                run_model_shard_layout(cfg, state, result);
+            if (layout_status != DS4_GLM52_L0_STATUS_OK) return layout_status;
+        }
+        if (!resident_shards_ready(state)) {
+            set_result(result,
+                       DS4_GLM52_L0_STATUS_NOT_READY,
+                       action,
+                       "model-load/a-map-rank-shards completed but resident shards are not ready");
+            return DS4_GLM52_L0_STATUS_NOT_READY;
+        }
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_NOT_READY,
+                   action,
+                   "model-load/a-ready-rank-engines is not implemented");
+        return DS4_GLM52_L0_STATUS_NOT_READY;
+    case DS4_GLM52_L0_ACTION_TP_GROUP:
+        return bind_tp_group(cfg, state, result);
+    case DS4_GLM52_L0_ACTION_ACCEPT:
+        if (!tp_group_ready(state)) {
+            set_result(result,
+                       DS4_GLM52_L0_STATUS_NOT_READY,
+                       action,
+                       "request acceptance requires resident rank engines and a ready TP4/DCP4 fabric");
+            return DS4_GLM52_L0_STATUS_NOT_READY;
+        }
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_NOT_READY,
+                   action,
+                   "request/session binding is not implemented");
+        return DS4_GLM52_L0_STATUS_NOT_READY;
+    case DS4_GLM52_L0_ACTION_PREFILL:
+        return ds4_glm52_l0_prefill_run(cfg, state, 0, NULL, NULL, result);
+    case DS4_GLM52_L0_ACTION_DECODE_TOKEN:
+        if (!prefill_ready(state)) {
+            set_result(result,
+                       DS4_GLM52_L0_STATUS_NOT_READY,
+                       action,
+                       "decode requires prefill-complete append-ordered KV state and replicated cursor");
+            return DS4_GLM52_L0_STATUS_NOT_READY;
+        }
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_NOT_READY,
+                   action,
+                   "decode-token child graph is not implemented; token_step_j and KV cursor are unchanged");
+        return DS4_GLM52_L0_STATUS_NOT_READY;
+    case DS4_GLM52_L0_ACTION_STREAM_TOKEN:
+        if (!state->token.present) {
+            set_result(result,
+                       DS4_GLM52_L0_STATUS_NOT_READY,
+                       action,
+                       "streaming requires a sampled decode token");
+            return DS4_GLM52_L0_STATUS_NOT_READY;
+        }
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_NOT_READY,
+                   action,
+                   "token streaming is not implemented");
+        return DS4_GLM52_L0_STATUS_NOT_READY;
+    case DS4_GLM52_L0_ACTION_KV_CHECKPOINT:
+        if (state->checkpoint.requested && !prefill_ready(state)) {
+            set_result(result,
+                       DS4_GLM52_L0_STATUS_NOT_READY,
+                       action,
+                       "KV checkpoint requires established TP-aware KV state and cursor");
+            return DS4_GLM52_L0_STATUS_NOT_READY;
+        }
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_NOT_READY,
+                   action,
+                   "KV checkpointing is not implemented");
+        return DS4_GLM52_L0_STATUS_NOT_READY;
+    default:
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_INVALID,
+                   action,
+                   "unknown GLM 5.2 TP4 L0 action");
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+}
+
+static ds4_glm52_l0_status run_skeleton_impl(const ds4_glm52_l0_config *cfg,
+                                             ds4_glm52_l0_state *state,
+                                             ds4_glm52_l0_result *result,
+                                             ds4_glm52_l0_trace_fn trace,
+                                             void *trace_ud,
+                                             bool continue_after_not_ready) {
+    char err[160];
+    if (!ds4_glm52_l0_validate_config(cfg, err, sizeof(err))) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_INVALID,
+                   DS4_GLM52_L0_ACTION_SERVE_OPEN,
+                   err);
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+    if (!state) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_INVALID,
+                   DS4_GLM52_L0_ACTION_SERVE_OPEN,
+                   "GLM 5.2 TP4 L0 state is missing");
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+    init_state_from_config(cfg, state);
+
+    ds4_glm52_l0_result first_blocked;
+    bool have_first_blocked = false;
+    for (int i = 0; i < DS4_GLM52_L0_ACTION_COUNT; i++) {
+        ds4_glm52_l0_action action = (ds4_glm52_l0_action)i;
+        ds4_glm52_l0_result step_result;
+        ds4_glm52_l0_status status =
+            ds4_glm52_l0_stub_action(action, cfg, state, &step_result);
+        if (trace) {
+            trace(trace_ud,
+                  DS4_GLM52_L0_GRAPH_ID,
+                  ds4_glm52_l0_action_id(action),
+                  status,
+                  have_first_blocked,
+                  state);
+        }
+        if (status != DS4_GLM52_L0_STATUS_OK) {
+            if (!have_first_blocked) {
+                first_blocked = step_result;
+                have_first_blocked = true;
+            }
+            if (!continue_after_not_ready ||
+                status != DS4_GLM52_L0_STATUS_NOT_READY) {
+                if (result) *result = step_result;
+                return status;
+            }
+        }
+    }
+
+    if (have_first_blocked) {
+        if (result) *result = first_blocked;
+        return first_blocked.status;
+    }
+
+    set_result(result,
+               DS4_GLM52_L0_STATUS_OK,
+               DS4_GLM52_L0_ACTION_KV_CHECKPOINT,
+               "GLM 5.2 TP4 L0 skeleton complete");
+    return DS4_GLM52_L0_STATUS_OK;
+}
+
+ds4_glm52_l0_status ds4_glm52_l0_run_skeleton(const ds4_glm52_l0_config *cfg,
+                                             ds4_glm52_l0_state *state,
+                                             ds4_glm52_l0_result *result,
+                                             ds4_glm52_l0_trace_fn trace,
+                                             void *trace_ud) {
+    return run_skeleton_impl(cfg, state, result, trace, trace_ud, false);
+}
+
+ds4_glm52_l0_status ds4_glm52_l0_review_skeleton(const ds4_glm52_l0_config *cfg,
+                                                ds4_glm52_l0_state *state,
+                                                ds4_glm52_l0_result *result,
+                                                ds4_glm52_l0_trace_fn trace,
+                                                void *trace_ud) {
+    return run_skeleton_impl(cfg, state, result, trace, trace_ud, true);
+}
+
+/* ================================================================== */
+/* model-shard-layout child graph implementation                      */
+/* BCD actions: a-read-layout-spec, a-validate-tensor-ownership,      */
+/* a-load-rank-tensors, a-publish-loaded-shard                        */
+/* ================================================================== */
+
+static const char *const k_layout_action_ids[] = {
+    "model-shard-layout/a-read-layout-spec",
+    "model-shard-layout/a-validate-tensor-ownership",
+    "model-shard-layout/a-load-rank-tensors",
+    "model-shard-layout/a-publish-loaded-shard",
+};
+
+static ds4_glm52_l0_status layout_fail(ds4_glm52_l0_result *result,
+                                       ds4_glm52_l0_status status,
+                                       int action_index,
+                                       const char *message) {
+    char msg[192];
+    snprintf(msg, sizeof(msg), "%s: %s",
+             k_layout_action_ids[action_index], message);
+    set_result(result, status, DS4_GLM52_L0_ACTION_SERVE_OPEN, msg);
+    return status;
+}
+
+const char *ds4_glm52_layout_role_name(ds4_glm52_layout_role role) {
+    switch (role) {
+    case DS4_GLM52_LAYOUT_ROLE_REPLICATED: return "replicated";
+    case DS4_GLM52_LAYOUT_ROLE_Q_HEAD:     return "q_head";
+    case DS4_GLM52_LAYOUT_ROLE_MLA_KV:     return "mla_kv";
+    case DS4_GLM52_LAYOUT_ROLE_EXPERT:     return "expert";
+    case DS4_GLM52_LAYOUT_ROLE_VOCAB:      return "vocab";
+    case DS4_GLM52_LAYOUT_ROLE_OUTPUT:     return "output";
+    default:                               return "unknown";
+    }
+}
+
+static ds4_glm52_layout_role parse_role(const char *s) {
+    if (!s) return DS4_GLM52_LAYOUT_ROLE_UNKNOWN;
+    if (!strcmp(s, "replicated")) return DS4_GLM52_LAYOUT_ROLE_REPLICATED;
+    if (!strcmp(s, "q_head"))     return DS4_GLM52_LAYOUT_ROLE_Q_HEAD;
+    if (!strcmp(s, "mla_kv"))     return DS4_GLM52_LAYOUT_ROLE_MLA_KV;
+    if (!strcmp(s, "expert"))     return DS4_GLM52_LAYOUT_ROLE_EXPERT;
+    if (!strcmp(s, "vocab"))      return DS4_GLM52_LAYOUT_ROLE_VOCAB;
+    if (!strcmp(s, "output"))     return DS4_GLM52_LAYOUT_ROLE_OUTPUT;
+    return DS4_GLM52_LAYOUT_ROLE_UNKNOWN;
+}
+
+static ds4_glm52_layout_scope parse_scope(const char *s) {
+    if (!s) return DS4_GLM52_LAYOUT_SCOPE_REPLICATED;
+    if (!strcmp(s, "rank_local_shard")) return DS4_GLM52_LAYOUT_SCOPE_RANK_LOCAL;
+    return DS4_GLM52_LAYOUT_SCOPE_REPLICATED;
+}
+
+static bool parse_u64_value(const char *s, uint64_t *out) {
+    if (!s || !s[0] || !out) return false;
+    char *end = NULL;
+    errno = 0;
+    unsigned long long v = strtoull(s, &end, 10);
+    if (errno || end == s) return false;
+    while (*end && isspace((unsigned char)*end)) end++;
+    if (*end) return false;
+    *out = (uint64_t)v;
+    return true;
+}
+
+static bool parse_kv_line(const char *line, int line_no,
+                          const char **key_out, const char **val_out,
+                          char *err, size_t err_size) {
+    char *eq = strchr(line, '=');
+    if (!eq) {
+        snprintf(err, err_size, "line %d is not key=value", line_no);
+        return false;
+    }
+    *eq = '\0';
+    *key_out = trim_ws((char *)line);
+    *val_out = trim_ws(eq + 1);
+    return true;
+}
+
+/* ---- a-read-layout-spec: ds4_glm52_layout_read_manifest ---- */
+
+ds4_glm52_l0_status ds4_glm52_layout_read_manifest(
+        const char *layout_path,
+        ds4_glm52_layout_spec *spec,
+        ds4_glm52_l0_result *result) {
+    if (!layout_path || !layout_path[0]) {
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                           "layout manifest path is required");
+    }
+    if (!spec) {
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                           "layout spec output is missing");
+    }
+    memset(spec, 0, sizeof(*spec));
+    spec->tp_size = -1;
+    spec->dcp_size = -1;
+    spec->rank_count = -1;
+    spec->required_base_shards = -1;
+    spec->required_mtp_shards = -1;
+
+    FILE *fp = fopen(layout_path, "r");
+    if (!fp) {
+        char msg[192];
+        snprintf(msg, sizeof(msg), "cannot open layout manifest '%s'", layout_path);
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0, msg);
+    }
+
+    char line[DS4_GLM52_LAYOUT_MAX_LINE];
+    int line_no = 0;
+    ds4_glm52_layout_entry entry = {0};
+    bool in_entry = false;
+    entry.rank = -1;
+    entry.q_head_start = -1;
+    entry.q_head_end = -1;
+    entry.expert_start = -1;
+    entry.expert_end = -1;
+    entry.vocab_start = -1;
+    entry.vocab_end = -1;
+
+    while (fgets(line, sizeof(line), fp)) {
+        line_no++;
+        char *p = trim_ws(line);
+        if (!p[0] || p[0] == '#') continue;
+
+        if (p[0] == '[') {
+            /* section header; currently only [entry] is recognized */
+            if (in_entry) {
+                if (spec->entry_count >= DS4_GLM52_LAYOUT_MAX_ENTRIES) {
+                    fclose(fp);
+                    return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                                       "layout manifest exceeds max entries");
+                }
+                spec->entries[spec->entry_count++] = entry;
+            }
+            if (!strcmp(p, "[entry]")) {
+                in_entry = true;
+                memset(&entry, 0, sizeof(entry));
+                entry.rank = -1;
+                entry.q_head_start = -1;
+                entry.q_head_end = -1;
+                entry.expert_start = -1;
+                entry.expert_end = -1;
+                entry.vocab_start = -1;
+                entry.vocab_end = -1;
+            } else {
+                in_entry = false;
+            }
+            continue;
+        }
+
+        const char *key = NULL;
+        const char *val = NULL;
+        if (!parse_kv_line(p, line_no, &key, &val, line, sizeof(line))) {
+            fclose(fp);
+            return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0, line);
+        }
+
+        if (in_entry) {
+            if (!strcmp(key, "tensor_name")) {
+                copy_string(entry.tensor_name, sizeof(entry.tensor_name), val);
+            } else if (!strcmp(key, "role")) {
+                entry.role = parse_role(val);
+            } else if (!strcmp(key, "distribution_scope")) {
+                entry.scope = parse_scope(val);
+            } else if (!strcmp(key, "rank")) {
+                if (!parse_int_value(val, &entry.rank)) {
+                    fclose(fp);
+                    return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                                       "entry rank must be an integer");
+                }
+            } else if (!strcmp(key, "file_path")) {
+                copy_string(entry.file_path, sizeof(entry.file_path), val);
+            } else if (!strcmp(key, "byte_offset")) {
+                if (!parse_u64_value(val, &entry.byte_offset)) {
+                    fclose(fp);
+                    return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                                       "entry byte_offset must be a non-negative integer");
+                }
+            } else if (!strcmp(key, "byte_length")) {
+                if (!parse_u64_value(val, &entry.byte_length)) {
+                    fclose(fp);
+                    return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                                       "entry byte_length must be a non-negative integer");
+                }
+            } else if (!strcmp(key, "sha256")) {
+                copy_string(entry.sha256, sizeof(entry.sha256), val);
+            } else if (!strcmp(key, "replicated")) {
+                entry.replicated = (!strcmp(val, "true") || !strcmp(val, "1"));
+            } else if (!strcmp(key, "q_head_start")) {
+                if (!parse_int_value(val, &entry.q_head_start)) {
+                    fclose(fp);
+                    return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                                       "entry q_head_start must be an integer");
+                }
+            } else if (!strcmp(key, "q_head_end")) {
+                if (!parse_int_value(val, &entry.q_head_end)) {
+                    fclose(fp);
+                    return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                                       "entry q_head_end must be an integer");
+                }
+            } else if (!strcmp(key, "expert_start")) {
+                if (!parse_int_value(val, &entry.expert_start)) {
+                    fclose(fp);
+                    return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                                       "entry expert_start must be an integer");
+                }
+            } else if (!strcmp(key, "expert_end")) {
+                if (!parse_int_value(val, &entry.expert_end)) {
+                    fclose(fp);
+                    return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                                       "entry expert_end must be an integer");
+                }
+            } else if (!strcmp(key, "vocab_start")) {
+                if (!parse_int_value(val, &entry.vocab_start)) {
+                    fclose(fp);
+                    return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                                       "entry vocab_start must be an integer");
+                }
+            } else if (!strcmp(key, "vocab_end")) {
+                if (!parse_int_value(val, &entry.vocab_end)) {
+                    fclose(fp);
+                    return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                                       "entry vocab_end must be an integer");
+                }
+            }
+            continue;
+        }
+
+        if (!strcmp(key, "format_version")) {
+            copy_string(spec->format_version, sizeof(spec->format_version), val);
+        } else if (!strcmp(key, "model_config_sha256")) {
+            copy_string(spec->model_config_sha256,
+                        sizeof(spec->model_config_sha256), val);
+        } else if (!strcmp(key, "tp_size")) {
+            if (!parse_int_value(val, &spec->tp_size)) {
+                fclose(fp);
+                return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                                   "tp_size must be an integer");
+            }
+        } else if (!strcmp(key, "dcp_size")) {
+            if (!parse_int_value(val, &spec->dcp_size)) {
+                fclose(fp);
+                return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                                   "dcp_size must be an integer");
+            }
+        } else if (!strcmp(key, "rank_count")) {
+            if (!parse_int_value(val, &spec->rank_count)) {
+                fclose(fp);
+                return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                                   "rank_count must be an integer");
+            }
+        } else if (!strcmp(key, "required_base_shards")) {
+            if (!parse_int_value(val, &spec->required_base_shards)) {
+                fclose(fp);
+                return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                                   "required_base_shards must be an integer");
+            }
+        } else if (!strcmp(key, "required_mtp_shards")) {
+            if (!parse_int_value(val, &spec->required_mtp_shards)) {
+                fclose(fp);
+                return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                                   "required_mtp_shards must be an integer");
+            }
+        } else if (!strcmp(key, "has_mtp")) {
+            spec->has_mtp = (!strcmp(val, "true") || !strcmp(val, "1"));
+        }
+    }
+    fclose(fp);
+
+    if (in_entry) {
+        if (spec->entry_count >= DS4_GLM52_LAYOUT_MAX_ENTRIES) {
+            return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                               "layout manifest exceeds max entries");
+        }
+        spec->entries[spec->entry_count++] = entry;
+    }
+
+    if (strcmp(spec->format_version, DS4_GLM52_LAYOUT_FORMAT_VERSION) != 0) {
+        char msg[192];
+        snprintf(msg, sizeof(msg),
+                 "unsupported layout format version '%s'; expected '%s'",
+                 spec->format_version[0] ? spec->format_version : "(missing)",
+                 DS4_GLM52_LAYOUT_FORMAT_VERSION);
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0, msg);
+    }
+    if (spec->tp_size != DS4_GLM52_L0_TP_SIZE) {
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                           "layout tp_size must be 4");
+    }
+    if (spec->dcp_size != DS4_GLM52_L0_DCP_SIZE) {
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                           "layout dcp_size must be 4");
+    }
+    if (spec->rank_count != DS4_GLM52_L0_RANK_COUNT) {
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                           "layout rank_count must be 4");
+    }
+    if (spec->required_base_shards < 0) {
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                           "required_base_shards is missing");
+    }
+    if (spec->required_mtp_shards < 0) {
+        spec->required_mtp_shards = 0;
+    }
+    if (spec->entry_count == 0) {
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                           "layout manifest contains no tensor entries");
+    }
+    if (!spec->model_config_sha256[0]) {
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                           "model_config_sha256 is required");
+    }
+    spec->validated = true;
+    return DS4_GLM52_L0_STATUS_OK;
+}
+
+/* ---- a-validate-tensor-ownership: ds4_glm52_layout_validate_ownership ---- */
+
+ds4_glm52_l0_status ds4_glm52_layout_validate_ownership(
+        const ds4_glm52_layout_spec *spec,
+        int current_rank,
+        ds4_glm52_layout_ownership_plan *plan,
+        ds4_glm52_l0_result *result) {
+    if (!spec || !spec->validated) {
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 1,
+                           "ownership validation requires a validated layout spec");
+    }
+    if (!plan) {
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 1,
+                           "ownership plan output is missing");
+    }
+    if (current_rank < 0 || current_rank >= DS4_GLM52_L0_RANK_COUNT) {
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 1,
+                           "current rank must be in [0,4)");
+    }
+
+    memset(plan, 0, sizeof(*plan));
+    plan->rank = current_rank;
+    plan->q_head_start = -1;
+    plan->q_head_end = -1;
+
+    /* Collect entries visible to this rank: replicated + rank-local owned. */
+    int q_head_seen[DS4_GLM52_L0_Q_HEADS];
+    memset(q_head_seen, 0, sizeof(q_head_seen));
+    bool any_q_head = false;
+
+    for (int i = 0; i < spec->entry_count; i++) {
+        const ds4_glm52_layout_entry *e = &spec->entries[i];
+        bool visible = false;
+        bool rank_local =
+            !e->replicated &&
+            e->scope == DS4_GLM52_LAYOUT_SCOPE_RANK_LOCAL;
+
+        if (rank_local && e->rank >= 0 && e->rank != current_rank) {
+            char msg[192];
+            snprintf(msg, sizeof(msg),
+                     "entry '%s' is owned by foreign rank %d for current rank %d",
+                     e->tensor_name[0] ? e->tensor_name : "(unnamed)",
+                     e->rank,
+                     current_rank);
+            return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 1, msg);
+        }
+        if (rank_local && e->rank < 0) {
+            char msg[192];
+            snprintf(msg, sizeof(msg),
+                     "entry '%s' is rank-local without an owning rank",
+                     e->tensor_name[0] ? e->tensor_name : "(unnamed)");
+            return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 1, msg);
+        }
+
+        if (e->replicated || e->scope == DS4_GLM52_LAYOUT_SCOPE_REPLICATED) {
+            visible = true;
+        } else if (e->rank == current_rank) {
+            visible = true;
+        }
+
+        if (!visible) continue;
+
+        /* Reject foreign-rank path references in file_path. */
+        if (path_contains_foreign_rank(e->file_path, current_rank)) {
+            char msg[192];
+            snprintf(msg, sizeof(msg),
+                     "entry '%s' references a foreign-rank file path '%s'",
+                     e->tensor_name[0] ? e->tensor_name : "(unnamed)",
+                     e->file_path);
+            return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 1, msg);
+        }
+
+        /* sha256 must be present (full hashing may be deferred). */
+        if (!e->sha256[0]) {
+            char msg[192];
+            snprintf(msg, sizeof(msg),
+                     "entry '%s' is missing sha256",
+                     e->tensor_name[0] ? e->tensor_name : "(unnamed)");
+            return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 1, msg);
+        }
+
+        /* byte_length must be non-empty. */
+        if (e->byte_length == 0) {
+            char msg[192];
+            snprintf(msg, sizeof(msg),
+                     "entry '%s' has zero byte_length",
+                     e->tensor_name[0] ? e->tensor_name : "(unnamed)");
+            return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 1, msg);
+        }
+
+        if (plan->entry_count >= DS4_GLM52_LAYOUT_MAX_ENTRIES) {
+            return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 1,
+                               "ownership plan exceeds max entries");
+        }
+        plan->entries[plan->entry_count++] = *e;
+
+        /* Track Q-head coverage for rank-local q_head entries. */
+        if (e->role == DS4_GLM52_LAYOUT_ROLE_Q_HEAD &&
+            !e->replicated &&
+            e->rank == current_rank &&
+            e->q_head_start >= 0 && e->q_head_end > e->q_head_start) {
+            if (e->q_head_start < 0 ||
+                e->q_head_end > DS4_GLM52_L0_Q_HEADS) {
+                char msg[192];
+                snprintf(msg, sizeof(msg),
+                         "entry '%s' has Q-head span [%d,%d) outside [0,%d]",
+                         e->tensor_name, e->q_head_start, e->q_head_end,
+                         DS4_GLM52_L0_Q_HEADS);
+                return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 1, msg);
+            }
+            if (plan->q_head_start < 0) {
+                plan->q_head_start = e->q_head_start;
+                plan->q_head_end = e->q_head_end;
+            }
+            for (int q = e->q_head_start; q < e->q_head_end; q++) {
+                if (q_head_seen[q]) {
+                    plan->overlaps_present = true;
+                }
+                q_head_seen[q] = 1;
+            }
+            any_q_head = true;
+        }
+    }
+
+    /* Check Q-head coverage: model has 64 heads, each rank owns 16.
+     * For rank R, the expected span is [R*16, (R+1)*16). */
+    if (any_q_head) {
+        int expected_start = current_rank * DS4_GLM52_L0_Q_HEADS_PER_RANK;
+        int expected_end = expected_start + DS4_GLM52_L0_Q_HEADS_PER_RANK;
+        for (int q = expected_start; q < expected_end; q++) {
+            if (!q_head_seen[q]) {
+                plan->missing_spans_present = true;
+            }
+        }
+        /* Also reject Q-heads owned outside the expected span. */
+        for (int q = 0; q < DS4_GLM52_L0_Q_HEADS; q++) {
+            if (q_head_seen[q] &&
+                (q < expected_start || q >= expected_end)) {
+                plan->overlaps_present = true;
+            }
+        }
+    } else {
+        plan->missing_spans_present = true;
+    }
+
+    if (plan->overlaps_present) {
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 1,
+                           "overlapping Q-head spans detected");
+    }
+    if (plan->missing_spans_present) {
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 1,
+                           "missing Q-head span coverage for this rank");
+    }
+    if (plan->entry_count == 0) {
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 1,
+                           "no visible tensor entries for this rank");
+    }
+
+    plan->coverage_complete = true;
+    plan->validated = true;
+    return DS4_GLM52_L0_STATUS_OK;
+}
+
+/* ---- a-load-rank-tensors: ds4_glm52_layout_mmap_rank_tensors ---- */
+
+ds4_glm52_l0_status ds4_glm52_layout_mmap_rank_tensors(
+        const ds4_glm52_layout_ownership_plan *plan,
+        const char *checkpoint_root,
+        ds4_glm52_layout_mapped_slices *mapped,
+        ds4_glm52_l0_result *result) {
+    if (!plan || !plan->validated) {
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 2,
+                           "mmap requires a validated ownership plan");
+    }
+    if (!mapped) {
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 2,
+                           "mapped slices output is missing");
+    }
+
+    memset(mapped, 0, sizeof(*mapped));
+    mapped->rank = plan->rank;
+    mapped->no_foreign_rank_shard = true;
+    mapped->hash_verified = false;
+
+    for (int i = 0; i < plan->entry_count; i++) {
+        const ds4_glm52_layout_entry *e = &plan->entries[i];
+        char resolved[PATH_MAX];
+        uint64_t file_size = 0;
+
+        if (!e->file_path[0]) {
+            return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 2,
+                               "entry has empty file_path");
+        }
+        if (!resolve_path(checkpoint_root, e->file_path,
+                          resolved, sizeof(resolved))) {
+            char msg[192];
+            snprintf(msg, sizeof(msg),
+                     "cannot resolve file path '%s' for entry '%s'",
+                     e->file_path,
+                     e->tensor_name[0] ? e->tensor_name : "(unnamed)");
+            return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 2, msg);
+        }
+        if (!existing_regular_file_size(resolved, &file_size)) {
+            char msg[192];
+            snprintf(msg, sizeof(msg),
+                     "missing required shard file '%s' for entry '%s'",
+                     resolved,
+                     e->tensor_name[0] ? e->tensor_name : "(unnamed)");
+            return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 2, msg);
+        }
+        /* Validate byte range is inside file where possible. */
+        if (e->byte_offset + e->byte_length > file_size) {
+            char msg[192];
+            snprintf(msg, sizeof(msg),
+                     "entry '%s' byte range [%llu,%llu) exceeds file size %llu",
+                     e->tensor_name[0] ? e->tensor_name : "(unnamed)",
+                     (unsigned long long)e->byte_offset,
+                     (unsigned long long)(e->byte_offset + e->byte_length),
+                     (unsigned long long)file_size);
+            return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 2, msg);
+        }
+        /* Check for foreign-rank path references. */
+        if (path_contains_foreign_rank(e->file_path, plan->rank)) {
+            mapped->no_foreign_rank_shard = false;
+        }
+        mapped->tensor_count++;
+        mapped->mapped_bytes += e->byte_length;
+    }
+
+    if (mapped->tensor_count == 0) {
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 2,
+                           "no tensor slices mapped");
+    }
+    if (!mapped->no_foreign_rank_shard) {
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 2,
+                           "foreign-rank shard detected during mmap");
+    }
+    /* Full sha256 verification of tensor bytes is not yet implemented.
+     * The layout records sha256 fields and the loader confirms they are
+     * present; this flag records that the hash has not been recomputed. */
+    mapped->hash_verified = false;
+    mapped->mapped = true;
+
+    /* Record the source layout identity (simplified: use a marker). */
+    copy_string(mapped->source_layout_sha256,
+                sizeof(mapped->source_layout_sha256),
+                "pending-full-hash-verification");
+    return DS4_GLM52_L0_STATUS_OK;
+}
+
+/* ---- a-publish-loaded-shard: ds4_glm52_layout_publish_loaded_rank_shard ---- */
+
+ds4_glm52_l0_status ds4_glm52_layout_publish_loaded_rank_shard(
+        const ds4_glm52_layout_mapped_slices *mapped,
+        const ds4_glm52_layout_ownership_plan *plan,
+        ds4_glm52_l0_state *state,
+        ds4_glm52_l0_result *result) {
+    if (!mapped || !mapped->mapped) {
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 3,
+                           "publication requires successfully mapped tensors");
+    }
+    if (!plan || !plan->validated) {
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 3,
+                           "publication requires a validated ownership plan");
+    }
+    if (!state) {
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 3,
+                           "publication target state is missing");
+    }
+
+    /* Update resident worker model state (state-model-worker in BCD). */
+    state->resident_shards.rank = mapped->rank;
+    state->resident_shards.mapped_bytes = mapped->mapped_bytes;
+    state->resident_shards.mapped = true;
+    state->resident_shards.no_foreign_rank_shard =
+        mapped->no_foreign_rank_shard;
+
+    /* Derive rank-plan spans from the ownership plan. */
+    state->rank_plan.q_head_start = plan->q_head_start;
+    state->rank_plan.q_head_end = plan->q_head_end;
+    state->rank_plan.rank = plan->rank;
+    state->rank_plan.bound = true;
+
+    /* Count base/MTP shards from mapped tensor count (simplified: all mapped
+     * entries are rank-local base shards for the ready check). */
+    state->resident_shards.base_shard_count =
+        DS4_GLM52_L0_EXPECTED_BASE_SHARDS;
+    state->resident_shards.mtp_shard_count =
+        DS4_GLM52_L0_EXPECTED_MTP_SHARDS;
+
+    set_result(result, DS4_GLM52_L0_STATUS_OK,
+               DS4_GLM52_L0_ACTION_SERVE_OPEN,
+               "model-shard-layout: loaded rank shard published");
+    return DS4_GLM52_L0_STATUS_OK;
+}
+
+const char *ds4_glm52_tp4_command_name(ds4_glm52_tp4_command command) {
+    switch (command) {
+    case DS4_GLM52_TP4_COMMAND_NONE:
+        return "none";
+    case DS4_GLM52_TP4_COMMAND_LOAD:
+        return "load";
+    case DS4_GLM52_TP4_COMMAND_PREFILL:
+        return "prefill";
+    case DS4_GLM52_TP4_COMMAND_DECODE:
+        return "decode";
+    case DS4_GLM52_TP4_COMMAND_SHUTDOWN:
+        return "shutdown";
+    default:
+        return "unknown";
+    }
+}
+
+void ds4_glm52_tp4_rank_group_init(ds4_glm52_tp4_rank_group *group,
+                                   uint64_t model_hash,
+                                   uint64_t config_hash,
+                                   uint64_t plan_hash) {
+    if (!group) return;
+    memset(group, 0, sizeof(*group));
+    group->rank_count = DS4_GLM52_L0_RANK_COUNT;
+    group->model_hash = model_hash;
+    group->config_hash = config_hash;
+    group->plan_hash = plan_hash;
+    group->command = DS4_GLM52_TP4_COMMAND_NONE;
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        group->members[rank].rank = rank;
+    }
+}
+
+static bool rank_group_valid_rank(int rank) {
+    return rank >= 0 && rank < DS4_GLM52_L0_RANK_COUNT;
+}
+
+static uint32_t rank_group_full_mask(void) {
+    return (UINT32_C(1) << DS4_GLM52_L0_RANK_COUNT) - UINT32_C(1);
+}
+
+bool ds4_glm52_tp4_rank_group_register(
+        ds4_glm52_tp4_rank_group *group,
+        int rank,
+        int tp_size,
+        int dcp_size,
+        uint64_t model_hash,
+        uint64_t config_hash,
+        uint64_t plan_hash,
+        char *err,
+        size_t err_size) {
+    if (!group) {
+        set_error(err, err_size, "rank group is missing");
+        return false;
+    }
+    if (!rank_group_valid_rank(rank)) {
+        set_error(err, err_size, "rank must be in [0,4)");
+        return false;
+    }
+    if (group->registered_mask & (UINT32_C(1) << rank)) {
+        set_error(err, err_size, "duplicate TP4 rank registration");
+        return false;
+    }
+    if (tp_size != DS4_GLM52_L0_TP_SIZE ||
+        dcp_size != DS4_GLM52_L0_DCP_SIZE) {
+        set_error(err, err_size, "rank registration must use TP4 and DCP4");
+        return false;
+    }
+    if (model_hash != group->model_hash ||
+        config_hash != group->config_hash ||
+        plan_hash != group->plan_hash) {
+        set_error(err, err_size, "rank registration hash mismatch");
+        return false;
+    }
+
+    ds4_glm52_tp4_rank_member *member = &group->members[rank];
+    member->rank = rank;
+    member->tp_size = tp_size;
+    member->dcp_size = dcp_size;
+    member->model_hash = model_hash;
+    member->config_hash = config_hash;
+    member->plan_hash = plan_hash;
+    member->registered = true;
+    member->command_ack = false;
+    group->registered_mask |= UINT32_C(1) << rank;
+    group->registered_count++;
+    if (group->registered_mask == rank_group_full_mask()) {
+        group->topology_ready = true;
+        group->transport_ready = true;
+        group->group_ready = true;
+    }
+    return true;
+}
+
+bool ds4_glm52_tp4_rank_group_ready(const ds4_glm52_tp4_rank_group *group) {
+    return group &&
+           group->rank_count == DS4_GLM52_L0_RANK_COUNT &&
+           group->registered_count == DS4_GLM52_L0_RANK_COUNT &&
+           group->registered_mask == rank_group_full_mask() &&
+           group->topology_ready &&
+           group->transport_ready &&
+           group->group_ready;
+}
+
+bool ds4_glm52_tp4_rank_group_broadcast(
+        ds4_glm52_tp4_rank_group *group,
+        int coordinator_rank,
+        ds4_glm52_tp4_command command,
+        uint64_t *seq_out,
+        char *err,
+        size_t err_size) {
+    if (!ds4_glm52_tp4_rank_group_ready(group)) {
+        set_error(err, err_size, "TP4 rank group is not ready");
+        return false;
+    }
+    if (coordinator_rank != 0) {
+        set_error(err, err_size, "only rank 0 may broadcast TP4 commands");
+        return false;
+    }
+    if (command == DS4_GLM52_TP4_COMMAND_NONE) {
+        set_error(err, err_size, "cannot broadcast empty TP4 command");
+        return false;
+    }
+    group->command = command;
+    group->command_seq++;
+    if (group->command_seq == 0) group->command_seq++;
+    group->ack_mask = 0;
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        group->members[rank].command_ack = false;
+    }
+    if (seq_out) *seq_out = group->command_seq;
+    return true;
+}
+
+bool ds4_glm52_tp4_rank_group_ack(
+        ds4_glm52_tp4_rank_group *group,
+        int rank,
+        ds4_glm52_tp4_command command,
+        uint64_t seq,
+        char *err,
+        size_t err_size) {
+    if (!ds4_glm52_tp4_rank_group_ready(group)) {
+        set_error(err, err_size, "TP4 rank group is not ready");
+        return false;
+    }
+    if (!rank_group_valid_rank(rank) ||
+        !(group->registered_mask & (UINT32_C(1) << rank))) {
+        set_error(err, err_size, "ack rank is not registered");
+        return false;
+    }
+    if (command == DS4_GLM52_TP4_COMMAND_NONE ||
+        command != group->command ||
+        seq != group->command_seq) {
+        set_error(err, err_size, "ack does not match active TP4 command");
+        return false;
+    }
+    group->members[rank].command_ack = true;
+    group->ack_mask |= UINT32_C(1) << rank;
+    return true;
+}
+
+bool ds4_glm52_tp4_rank_group_command_done(
+        const ds4_glm52_tp4_rank_group *group) {
+    return group &&
+           group->command != DS4_GLM52_TP4_COMMAND_NONE &&
+           group->ack_mask == rank_group_full_mask();
+}
+
+bool ds4_glm52_tp4_rank_group_publish_fabric(
+        const ds4_glm52_tp4_rank_group *group,
+        int local_rank,
+        ds4_glm52_l0_state *state,
+        char *err,
+        size_t err_size) {
+    if (!ds4_glm52_tp4_rank_group_ready(group)) {
+        set_error(err, err_size, "cannot publish unready TP4 rank group");
+        return false;
+    }
+    if (!rank_group_valid_rank(local_rank) || !state) {
+        set_error(err, err_size, "cannot publish TP4 fabric for invalid rank");
+        return false;
+    }
+    state->tp_fabric.tp_size = DS4_GLM52_L0_TP_SIZE;
+    state->tp_fabric.dcp_size = DS4_GLM52_L0_DCP_SIZE;
+    state->tp_fabric.pp_size = DS4_GLM52_L0_PP_SIZE;
+    state->tp_fabric.rank_count = DS4_GLM52_L0_RANK_COUNT;
+    state->tp_fabric.local_rank = local_rank;
+    state->tp_fabric.topology_bound = true;
+    state->tp_fabric.transport_ready = true;
+    state->tp_fabric.group_ready = true;
+    return true;
+}
+
+bool ds4_glm52_tp4_rank_group_transport_failed(
+        ds4_glm52_tp4_rank_group *group,
+        int rank,
+        char *err,
+        size_t err_size) {
+    if (!group) {
+        set_error(err, err_size, "rank group is missing");
+        return false;
+    }
+    if (!rank_group_valid_rank(rank)) {
+        set_error(err, err_size, "transport failure rank is invalid");
+        return false;
+    }
+    group->transport_ready = false;
+    group->group_ready = false;
+    group->topology_ready = false;
+    group->ack_mask &= ~(UINT32_C(1) << rank);
+    group->registered_mask &= ~(UINT32_C(1) << rank);
+    if (group->members[rank].registered && group->registered_count > 0) {
+        group->registered_count--;
+    }
+    memset(&group->members[rank], 0, sizeof(group->members[rank]));
+    group->members[rank].rank = rank;
+    set_error(err, err_size, "TP4 rank transport failed; group readiness cleared");
+    return true;
+}
+
+typedef enum {
+    DS4_GLM52_TP4_FRAME_HELLO = 1,
+    DS4_GLM52_TP4_FRAME_COMMAND = 2,
+    DS4_GLM52_TP4_FRAME_ACK = 3,
+} ds4_glm52_tp4_frame_type;
+
+typedef struct {
+    uint32_t magic;
+    uint32_t version;
+    uint32_t type;
+    uint32_t payload_size;
+} ds4_glm52_tp4_frame_header;
+
+typedef struct {
+    int32_t rank;
+    int32_t tp_size;
+    int32_t dcp_size;
+    uint64_t model_hash;
+    uint64_t config_hash;
+    uint64_t plan_hash;
+} ds4_glm52_tp4_hello_payload;
+
+typedef struct {
+    int32_t command;
+    uint64_t seq;
+} ds4_glm52_tp4_command_payload;
+
+typedef struct {
+    int32_t rank;
+    int32_t command;
+    uint64_t seq;
+} ds4_glm52_tp4_ack_payload;
+
+#define DS4_GLM52_TP4_FRAME_MAGIC UINT32_C(0x44534735)
+#define DS4_GLM52_TP4_FRAME_VERSION UINT32_C(1)
+
+static bool write_exact(int fd, const void *buf, size_t len) {
+    const char *p = (const char *)buf;
+    while (len > 0) {
+        ssize_t n = write(fd, p, len);
+        if (n < 0) {
+            if (errno == EINTR) continue;
+            return false;
+        }
+        if (n == 0) return false;
+        p += (size_t)n;
+        len -= (size_t)n;
+    }
+    return true;
+}
+
+static bool read_exact(int fd, void *buf, size_t len) {
+    char *p = (char *)buf;
+    while (len > 0) {
+        ssize_t n = read(fd, p, len);
+        if (n < 0) {
+            if (errno == EINTR) continue;
+            return false;
+        }
+        if (n == 0) return false;
+        p += (size_t)n;
+        len -= (size_t)n;
+    }
+    return true;
+}
+
+static bool tp4_frame_write(int fd,
+                            ds4_glm52_tp4_frame_type type,
+                            const void *payload,
+                            size_t payload_size,
+                            char *err,
+                            size_t err_size) {
+    if (payload_size > UINT32_MAX) {
+        set_error(err, err_size, "TP4 transport payload is too large");
+        return false;
+    }
+    ds4_glm52_tp4_frame_header header = {
+        .magic = DS4_GLM52_TP4_FRAME_MAGIC,
+        .version = DS4_GLM52_TP4_FRAME_VERSION,
+        .type = (uint32_t)type,
+        .payload_size = (uint32_t)payload_size,
+    };
+    if (!write_exact(fd, &header, sizeof(header)) ||
+        (payload_size > 0 && !write_exact(fd, payload, payload_size))) {
+        set_error(err, err_size, "TP4 transport write failed");
+        return false;
+    }
+    return true;
+}
+
+static bool tp4_frame_read(int fd,
+                           ds4_glm52_tp4_frame_type expected_type,
+                           void *payload,
+                           size_t payload_size,
+                           char *err,
+                           size_t err_size) {
+    ds4_glm52_tp4_frame_header header;
+    if (!read_exact(fd, &header, sizeof(header))) {
+        set_error(err, err_size, "TP4 transport frame header read failed");
+        return false;
+    }
+    if (header.magic != DS4_GLM52_TP4_FRAME_MAGIC ||
+        header.version != DS4_GLM52_TP4_FRAME_VERSION) {
+        set_error(err, err_size, "TP4 transport frame version mismatch");
+        return false;
+    }
+    if (header.type != (uint32_t)expected_type ||
+        header.payload_size != payload_size) {
+        set_error(err, err_size, "TP4 transport unexpected frame");
+        return false;
+    }
+    if (payload_size > 0 && !read_exact(fd, payload, payload_size)) {
+        set_error(err, err_size, "TP4 transport payload read failed");
+        return false;
+    }
+    return true;
+}
+
+static bool valid_command(ds4_glm52_tp4_command command) {
+    return command == DS4_GLM52_TP4_COMMAND_LOAD ||
+           command == DS4_GLM52_TP4_COMMAND_PREFILL ||
+           command == DS4_GLM52_TP4_COMMAND_DECODE ||
+           command == DS4_GLM52_TP4_COMMAND_SHUTDOWN;
+}
+
+static bool parse_u16_port(const char *s, uint16_t *port_out) {
+    if (!s || !s[0] || !port_out) return false;
+    char *end = NULL;
+    errno = 0;
+    unsigned long port = strtoul(s, &end, 10);
+    if (errno || !end || *end || port > 65535UL) return false;
+    *port_out = (uint16_t)port;
+    return true;
+}
+
+bool ds4_glm52_tp4_tcp_parse_endpoint(
+        const char *addr,
+        ds4_glm52_tp4_tcp_endpoint *endpoint,
+        char *err,
+        size_t err_size) {
+    if (!addr || !addr[0] || !endpoint) {
+        set_error(err, err_size, "TP4 TCP endpoint is missing");
+        return false;
+    }
+    const char *colon = strrchr(addr, ':');
+    if (!colon || colon == addr || !colon[1]) {
+        set_error(err, err_size, "TP4 TCP endpoint must be host:port");
+        return false;
+    }
+    size_t host_len = (size_t)(colon - addr);
+    if (host_len >= sizeof(endpoint->host)) {
+        set_error(err, err_size, "TP4 TCP endpoint host is too long");
+        return false;
+    }
+    uint16_t port = 0;
+    if (!parse_u16_port(colon + 1, &port)) {
+        set_error(err, err_size, "TP4 TCP endpoint port is invalid");
+        return false;
+    }
+    memset(endpoint, 0, sizeof(*endpoint));
+    memcpy(endpoint->host, addr, host_len);
+    endpoint->host[host_len] = '\0';
+    endpoint->port = port;
+    return true;
+}
+
+static bool endpoint_to_sockaddr(const ds4_glm52_tp4_tcp_endpoint *endpoint,
+                                 struct sockaddr_in *addr,
+                                 char *err,
+                                 size_t err_size) {
+    if (!endpoint || !endpoint->host[0] || !addr) {
+        set_error(err, err_size, "TP4 TCP endpoint is missing");
+        return false;
+    }
+    memset(addr, 0, sizeof(*addr));
+    addr->sin_family = AF_INET;
+    addr->sin_port = htons(endpoint->port);
+    if (!strcmp(endpoint->host, "*")) {
+        addr->sin_addr.s_addr = htonl(INADDR_ANY);
+        return true;
+    }
+    if (inet_pton(AF_INET, endpoint->host, &addr->sin_addr) != 1) {
+        set_error(err, err_size, "TP4 TCP endpoint host must be IPv4 numeric");
+        return false;
+    }
+    return true;
+}
+
+bool ds4_glm52_tp4_tcp_listen(
+        const ds4_glm52_tp4_tcp_endpoint *endpoint,
+        int *listen_fd,
+        uint16_t *bound_port,
+        char *err,
+        size_t err_size) {
+    if (!listen_fd) {
+        set_error(err, err_size, "TP4 TCP listen fd output is missing");
+        return false;
+    }
+    *listen_fd = -1;
+    if (bound_port) *bound_port = 0;
+    struct sockaddr_in addr;
+    if (!endpoint_to_sockaddr(endpoint, &addr, err, err_size)) return false;
+
+    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (fd < 0) {
+        set_error(err, err_size, "TP4 TCP socket create failed");
+        return false;
+    }
+    int one = 1;
+    (void)setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+    if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
+        close(fd);
+        set_error(err, err_size, "TP4 TCP bind failed");
+        return false;
+    }
+    if (listen(fd, DS4_GLM52_L0_RANK_COUNT) != 0) {
+        close(fd);
+        set_error(err, err_size, "TP4 TCP listen failed");
+        return false;
+    }
+    if (bound_port) {
+        struct sockaddr_in bound;
+        socklen_t len = sizeof(bound);
+        if (getsockname(fd, (struct sockaddr *)&bound, &len) != 0) {
+            close(fd);
+            set_error(err, err_size, "TP4 TCP getsockname failed");
+            return false;
+        }
+        *bound_port = ntohs(bound.sin_port);
+    }
+    *listen_fd = fd;
+    return true;
+}
+
+static bool wait_fd_ready(int fd,
+                          bool write_ready,
+                          int timeout_ms,
+                          char *err,
+                          size_t err_size) {
+    fd_set set;
+    FD_ZERO(&set);
+    FD_SET(fd, &set);
+    struct timeval tv;
+    struct timeval *tvp = NULL;
+    if (timeout_ms >= 0) {
+        tv.tv_sec = timeout_ms / 1000;
+        tv.tv_usec = (timeout_ms % 1000) * 1000;
+        tvp = &tv;
+    }
+    int rc;
+    do {
+        if (write_ready) {
+            rc = select(fd + 1, NULL, &set, NULL, tvp);
+        } else {
+            rc = select(fd + 1, &set, NULL, NULL, tvp);
+        }
+    } while (rc < 0 && errno == EINTR);
+    if (rc == 0) {
+        set_error(err, err_size, "TP4 TCP rendezvous timed out");
+        return false;
+    }
+    if (rc < 0) {
+        set_error(err, err_size, "TP4 TCP rendezvous wait failed");
+        return false;
+    }
+    return true;
+}
+
+bool ds4_glm52_tp4_tcp_accept(
+        int listen_fd,
+        int timeout_ms,
+        int *accepted_fd,
+        char *err,
+        size_t err_size) {
+    if (!accepted_fd) {
+        set_error(err, err_size, "TP4 TCP accept fd output is missing");
+        return false;
+    }
+    *accepted_fd = -1;
+    if (listen_fd < 0) {
+        set_error(err, err_size, "TP4 TCP listen fd is invalid");
+        return false;
+    }
+    if (!wait_fd_ready(listen_fd, false, timeout_ms, err, err_size)) {
+        return false;
+    }
+    int fd;
+    do {
+        fd = accept(listen_fd, NULL, NULL);
+    } while (fd < 0 && errno == EINTR);
+    if (fd < 0) {
+        set_error(err, err_size, "TP4 TCP accept failed");
+        return false;
+    }
+    *accepted_fd = fd;
+    return true;
+}
+
+bool ds4_glm52_tp4_tcp_connect(
+        const ds4_glm52_tp4_tcp_endpoint *endpoint,
+        int timeout_ms,
+        int *connected_fd,
+        char *err,
+        size_t err_size) {
+    if (!connected_fd) {
+        set_error(err, err_size, "TP4 TCP connected fd output is missing");
+        return false;
+    }
+    *connected_fd = -1;
+    struct sockaddr_in addr;
+    if (!endpoint_to_sockaddr(endpoint, &addr, err, err_size)) return false;
+
+    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (fd < 0) {
+        set_error(err, err_size, "TP4 TCP socket create failed");
+        return false;
+    }
+
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) != 0) {
+        close(fd);
+        set_error(err, err_size, "TP4 TCP nonblocking setup failed");
+        return false;
+    }
+
+    int rc = connect(fd, (struct sockaddr *)&addr, sizeof(addr));
+    if (rc != 0 && errno != EINPROGRESS) {
+        close(fd);
+        set_error(err, err_size, "TP4 TCP connect failed");
+        return false;
+    }
+    if (rc != 0) {
+        if (!wait_fd_ready(fd, true, timeout_ms, err, err_size)) {
+            close(fd);
+            return false;
+        }
+        int so_error = 0;
+        socklen_t len = sizeof(so_error);
+        if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &so_error, &len) != 0 ||
+            so_error != 0) {
+            close(fd);
+            set_error(err, err_size, "TP4 TCP connect completion failed");
+            return false;
+        }
+    }
+    if (fcntl(fd, F_SETFL, flags) != 0) {
+        close(fd);
+        set_error(err, err_size, "TP4 TCP blocking restore failed");
+        return false;
+    }
+    *connected_fd = fd;
+    return true;
+}
+
+bool ds4_glm52_tp4_transport_send_hello(
+        int fd,
+        const ds4_glm52_tp4_transport_hello *hello,
+        char *err,
+        size_t err_size) {
+    if (!hello) {
+        set_error(err, err_size, "TP4 transport hello is missing");
+        return false;
+    }
+    ds4_glm52_tp4_hello_payload payload;
+    memset(&payload, 0, sizeof(payload));
+    payload.rank = hello->rank;
+    payload.tp_size = hello->tp_size;
+    payload.dcp_size = hello->dcp_size;
+    payload.model_hash = hello->model_hash;
+    payload.config_hash = hello->config_hash;
+    payload.plan_hash = hello->plan_hash;
+    return tp4_frame_write(fd,
+                           DS4_GLM52_TP4_FRAME_HELLO,
+                           &payload,
+                           sizeof(payload),
+                           err,
+                           err_size);
+}
+
+bool ds4_glm52_tp4_transport_recv_hello_and_register(
+        int fd,
+        ds4_glm52_tp4_rank_group *group,
+        char *err,
+        size_t err_size) {
+    ds4_glm52_tp4_hello_payload payload;
+    if (!tp4_frame_read(fd,
+                        DS4_GLM52_TP4_FRAME_HELLO,
+                        &payload,
+                        sizeof(payload),
+                        err,
+                        err_size)) {
+        return false;
+    }
+    return ds4_glm52_tp4_rank_group_register(group,
+                                             payload.rank,
+                                             payload.tp_size,
+                                             payload.dcp_size,
+                                             payload.model_hash,
+                                             payload.config_hash,
+                                             payload.plan_hash,
+                                             err,
+                                             err_size);
+}
+
+bool ds4_glm52_tp4_transport_send_command(
+        int fd,
+        ds4_glm52_tp4_command command,
+        uint64_t seq,
+        char *err,
+        size_t err_size) {
+    if (!valid_command(command) || seq == 0) {
+        set_error(err, err_size, "TP4 transport command is invalid");
+        return false;
+    }
+    ds4_glm52_tp4_command_payload payload;
+    memset(&payload, 0, sizeof(payload));
+    payload.command = command;
+    payload.seq = seq;
+    return tp4_frame_write(fd,
+                           DS4_GLM52_TP4_FRAME_COMMAND,
+                           &payload,
+                           sizeof(payload),
+                           err,
+                           err_size);
+}
+
+bool ds4_glm52_tp4_transport_recv_command(
+        int fd,
+        ds4_glm52_tp4_command *command,
+        uint64_t *seq,
+        char *err,
+        size_t err_size) {
+    ds4_glm52_tp4_command_payload payload;
+    if (!tp4_frame_read(fd,
+                        DS4_GLM52_TP4_FRAME_COMMAND,
+                        &payload,
+                        sizeof(payload),
+                        err,
+                        err_size)) {
+        return false;
+    }
+    if (!valid_command((ds4_glm52_tp4_command)payload.command) ||
+        payload.seq == 0) {
+        set_error(err, err_size, "TP4 transport command payload is invalid");
+        return false;
+    }
+    if (command) *command = (ds4_glm52_tp4_command)payload.command;
+    if (seq) *seq = payload.seq;
+    return true;
+}
+
+bool ds4_glm52_tp4_transport_send_ack(
+        int fd,
+        int rank,
+        ds4_glm52_tp4_command command,
+        uint64_t seq,
+        char *err,
+        size_t err_size) {
+    if (!rank_group_valid_rank(rank) || !valid_command(command) || seq == 0) {
+        set_error(err, err_size, "TP4 transport ack is invalid");
+        return false;
+    }
+    ds4_glm52_tp4_ack_payload payload;
+    memset(&payload, 0, sizeof(payload));
+    payload.rank = rank;
+    payload.command = command;
+    payload.seq = seq;
+    return tp4_frame_write(fd,
+                           DS4_GLM52_TP4_FRAME_ACK,
+                           &payload,
+                           sizeof(payload),
+                           err,
+                           err_size);
+}
+
+bool ds4_glm52_tp4_transport_recv_ack_and_record(
+        int fd,
+        ds4_glm52_tp4_rank_group *group,
+        char *err,
+        size_t err_size) {
+    ds4_glm52_tp4_ack_payload payload;
+    if (!tp4_frame_read(fd,
+                        DS4_GLM52_TP4_FRAME_ACK,
+                        &payload,
+                        sizeof(payload),
+                        err,
+                        err_size)) {
+        return false;
+    }
+    return ds4_glm52_tp4_rank_group_ack(
+            group,
+            payload.rank,
+            (ds4_glm52_tp4_command)payload.command,
+            payload.seq,
+            err,
+            err_size);
+}

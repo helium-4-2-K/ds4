@@ -1,0 +1,1753 @@
+{
+  "schema": "blueprint-write-request/v11",
+  "action": "mutate",
+  "request_id": "mutate-model-shard-layout-contract-v5",
+  "root": "/Users/helium/src/ds4-gb10x4-bcd/bdev",
+  "record_dir": "/Users/helium/src/ds4-gb10x4-bcd/dev-artifacts/03_record",
+  "expected_blueprint_sha256": "c80c8377089a6b917a54b4fd4a4f70941c210de5e4e6df4c636db99ba3ae6b50",
+  "validation_stage": "complete",
+  "operations": [
+    {
+      "verb": "remove",
+      "entity": "semantic",
+      "graph_id": "model-load",
+      "entity_id": "a-map-rank-shards-cu",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "a-map-rank-shards"
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "graph",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "display_name": "Define and map DS4-native GLM 5.2 TP4 shard layout",
+        "graph_version": "1.0",
+        "package": "blueprint.work.ds4_arch",
+        "overall_semantic": {
+          "overview": "Each rank memory maps only its Q/head, expert, vocab, and layer shard files and records its owned spans.",
+          "support_refs": [
+            {
+              "node_id": "a-load-rank-tensors"
+            },
+            {
+              "node_id": "d-loaded-rank-shard"
+            }
+          ]
+        },
+        "architecture_rationale": {
+          "entry_id": "model-shard-layout-arch",
+          "value": "The DS4-native layout is a separate child graph because file format, tensor ownership, and mmap rules are the load-bearing decisions hidden by the parent mapper action.",
+          "support_refs": [
+            {
+              "node_id": "a-load-rank-tensors"
+            }
+          ]
+        },
+        "semantics": [
+          {
+            "entry_id": "shard-manifest-in",
+            "key": "input_use",
+            "value": "Consumes d-shard-manifest.",
+            "status": "supported",
+            "object_ref": {
+              "port": {
+                "owner": "graph",
+                "direction": "input",
+                "port_id": "shard-manifest-in"
+              }
+            }
+          },
+          {
+            "entry_id": "loaded-shard-out",
+            "key": "output",
+            "value": "Produces d-loaded-rank-shard.",
+            "status": "supported",
+            "object_ref": {
+              "port": {
+                "owner": "graph",
+                "direction": "output",
+                "port_id": "loaded-shard-out"
+              }
+            }
+          },
+          {
+            "entry_id": "a-map-rank-shards-ef",
+            "key": "effect",
+            "value": "Each rank memory maps only its Q/head, expert, vocab, and layer shard files and records its owned spans.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-load-rank-tensors"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-map-rank-shards-exit",
+            "key": "exit",
+            "value": "a-map-rank-shards-done",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "d-loaded-rank-shard"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-map-rank-shards-im",
+            "key": "implementation_choice",
+            "value": "requires_new_ds4_dwarfstar_glm52_tp4_support",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-load-rank-tensors"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-map-rank-shards-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-load-rank-tensors"
+              }
+            ]
+          },
+          {
+            "entry_id": "model-shard-layout-guide",
+            "key": "implementation_guide",
+            "value": "Use a DS4-native converted shard manifest at runtime rather than ad hoc safetensors discovery; the converter may consume Bird/vLLM rank checkpoints, but serving validates a compact DS4 manifest with hashes, offsets, and ownership spans.",
+            "status": "supported"
+          }
+        ],
+        "input_ports": [
+          {
+            "port_id": "shard-manifest-in",
+            "node_id": "d-shard-manifest",
+            "type_ref": "blueprint.work.ds4_arch.shard_manifest",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "loaded-shard-out",
+            "node_id": "d-loaded-rank-shard",
+            "type_ref": "blueprint.work.ds4_arch.loaded_rank_shard",
+            "cardinality": "exactly_one"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "type_import",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "import_path": "model-load.types.proto"
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "type_import",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "import_path": "serve.types.proto"
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "message_type",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "name": "tensor_shard_entry",
+        "contract": {
+          "type_id": "blueprint.work.ds4_arch.tensor_shard_entry",
+          "represents": "One DS4-native tensor slice entry with ownership, file identity, and mapping coordinates.",
+          "semantics": [
+            {
+              "entry_id": "t-tensor-shard-entry",
+              "key": "meaning",
+              "value": "One DS4-native tensor slice entry with ownership, file identity, and mapping coordinates.",
+              "status": "supported"
+            }
+          ],
+          "operations": []
+        },
+        "fields": [
+          {
+            "name": "tensor_name",
+            "number": 1,
+            "type_ref": "string",
+            "contract": {
+              "meaning": "canonical DS4 tensor name",
+              "semantics": []
+            }
+          },
+          {
+            "name": "tensor_role",
+            "number": 2,
+            "type_ref": "string",
+            "contract": {
+              "meaning": "role such as replicated, q_head, mla_kv, expert, vocab, or output",
+              "semantics": []
+            }
+          },
+          {
+            "name": "distribution_scope",
+            "number": 3,
+            "type_ref": "string",
+            "contract": {
+              "meaning": "rank_local_shard or replicated",
+              "semantics": []
+            }
+          },
+          {
+            "name": "rank",
+            "number": 4,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "owning rank for rank-local entries or -1 for replicated",
+              "semantics": []
+            }
+          },
+          {
+            "name": "file_path",
+            "number": 5,
+            "type_ref": "string",
+            "contract": {
+              "meaning": "rank-local DS4 shard file path",
+              "semantics": []
+            }
+          },
+          {
+            "name": "byte_offset",
+            "number": 6,
+            "type_ref": "uint64",
+            "contract": {
+              "meaning": "byte offset in the shard file",
+              "semantics": []
+            }
+          },
+          {
+            "name": "byte_length",
+            "number": 7,
+            "type_ref": "uint64",
+            "contract": {
+              "meaning": "mapped byte length",
+              "semantics": []
+            }
+          },
+          {
+            "name": "sha256",
+            "number": 8,
+            "type_ref": "string",
+            "contract": {
+              "meaning": "hash for the tensor slice bytes or containing shard segment",
+              "semantics": []
+            }
+          },
+          {
+            "name": "replicated",
+            "number": 9,
+            "type_ref": "bool",
+            "contract": {
+              "meaning": "true when every rank must map identical bytes",
+              "semantics": []
+            }
+          },
+          {
+            "name": "q_head_start",
+            "number": 10,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "first owned Q head or -1",
+              "semantics": []
+            }
+          },
+          {
+            "name": "q_head_end",
+            "number": 11,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "exclusive end owned Q head or -1",
+              "semantics": []
+            }
+          },
+          {
+            "name": "expert_start",
+            "number": 12,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "first owned routed expert or -1",
+              "semantics": []
+            }
+          },
+          {
+            "name": "expert_end",
+            "number": 13,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "exclusive end routed expert or -1",
+              "semantics": []
+            }
+          },
+          {
+            "name": "vocab_start",
+            "number": 14,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "first owned vocab/output row or -1",
+              "semantics": []
+            }
+          },
+          {
+            "name": "vocab_end",
+            "number": 15,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "exclusive end vocab/output row or -1",
+              "semantics": []
+            }
+          }
+        ],
+        "oneofs": [],
+        "reserved_numbers": [],
+        "reserved_names": []
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "message_type",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "name": "ds4_shard_layout",
+        "contract": {
+          "type_id": "blueprint.work.ds4_arch.ds4_shard_layout",
+          "represents": "The DS4-native GLM 5.2 TP4 shard layout manifest consumed by runtime loading.",
+          "semantics": [
+            {
+              "entry_id": "t-ds4-shard-layout",
+              "key": "meaning",
+              "value": "The DS4-native GLM 5.2 TP4 shard layout manifest consumed by runtime loading.",
+              "status": "supported"
+            }
+          ],
+          "operations": []
+        },
+        "fields": [
+          {
+            "name": "format_version",
+            "number": 1,
+            "type_ref": "string",
+            "contract": {
+              "meaning": "DS4 shard layout format version",
+              "semantics": []
+            }
+          },
+          {
+            "name": "model_config_sha256",
+            "number": 2,
+            "type_ref": "string",
+            "contract": {
+              "meaning": "hash binding layout to GLM 5.2 config and tensor metadata",
+              "semantics": []
+            }
+          },
+          {
+            "name": "tp_size",
+            "number": 3,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "fixed tensor parallel degree 4",
+              "semantics": []
+            }
+          },
+          {
+            "name": "dcp_size",
+            "number": 4,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "fixed DCP degree 4",
+              "semantics": []
+            }
+          },
+          {
+            "name": "rank_count",
+            "number": 5,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "fixed rank count 4",
+              "semantics": []
+            }
+          },
+          {
+            "name": "required_base_shards",
+            "number": 6,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "20 base files per rank for the Bird-derived layout",
+              "semantics": []
+            }
+          },
+          {
+            "name": "required_mtp_shards",
+            "number": 7,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "one MTP/speculator file per rank when present in the converted checkpoint",
+              "semantics": []
+            }
+          },
+          {
+            "name": "entries",
+            "number": 8,
+            "type_ref": "blueprint.work.ds4_arch.tensor_shard_entry",
+            "contract": {
+              "meaning": "all tensor entries for replicated and rank-local slices",
+              "semantics": []
+            },
+            "label": "repeated"
+          }
+        ],
+        "oneofs": [],
+        "reserved_numbers": [],
+        "reserved_names": []
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "message_type",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "name": "tensor_ownership_plan",
+        "contract": {
+          "type_id": "blueprint.work.ds4_arch.tensor_ownership_plan",
+          "represents": "Validated tensor ownership coverage for one rank and the global TP4 layout.",
+          "semantics": [
+            {
+              "entry_id": "t-tensor-ownership-plan",
+              "key": "meaning",
+              "value": "Validated tensor ownership coverage for one rank and the global TP4 layout.",
+              "status": "supported"
+            }
+          ],
+          "operations": []
+        },
+        "fields": [
+          {
+            "name": "rank",
+            "number": 1,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "rank id 0..3",
+              "semantics": []
+            }
+          },
+          {
+            "name": "q_head_start",
+            "number": 2,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "first owned Q head",
+              "semantics": []
+            }
+          },
+          {
+            "name": "q_head_end",
+            "number": 3,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "exclusive end owned Q head",
+              "semantics": []
+            }
+          },
+          {
+            "name": "coverage_complete",
+            "number": 4,
+            "type_ref": "bool",
+            "contract": {
+              "meaning": "true only when all required replicated and sharded tensor spans are covered exactly once",
+              "semantics": []
+            }
+          },
+          {
+            "name": "overlaps_present",
+            "number": 5,
+            "type_ref": "bool",
+            "contract": {
+              "meaning": "must be false before mmap",
+              "semantics": []
+            }
+          },
+          {
+            "name": "missing_spans_present",
+            "number": 6,
+            "type_ref": "bool",
+            "contract": {
+              "meaning": "must be false before mmap",
+              "semantics": []
+            }
+          },
+          {
+            "name": "entries",
+            "number": 7,
+            "type_ref": "blueprint.work.ds4_arch.tensor_shard_entry",
+            "contract": {
+              "meaning": "validated current-rank and replicated entries",
+              "semantics": []
+            },
+            "label": "repeated"
+          }
+        ],
+        "oneofs": [],
+        "reserved_numbers": [],
+        "reserved_names": []
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "message_type",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "name": "mapped_tensor_slices",
+        "contract": {
+          "type_id": "blueprint.work.ds4_arch.mapped_tensor_slices",
+          "represents": "Runtime mmap result for current-rank DS4-native tensor slices.",
+          "semantics": [
+            {
+              "entry_id": "t-mapped-tensor-slices",
+              "key": "meaning",
+              "value": "Runtime mmap result for current-rank DS4-native tensor slices.",
+              "status": "supported"
+            }
+          ],
+          "operations": []
+        },
+        "fields": [
+          {
+            "name": "rank",
+            "number": 1,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "rank id 0..3",
+              "semantics": []
+            }
+          },
+          {
+            "name": "tensor_count",
+            "number": 2,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "number of mapped tensor slices",
+              "semantics": []
+            }
+          },
+          {
+            "name": "mapped_bytes",
+            "number": 3,
+            "type_ref": "uint64",
+            "contract": {
+              "meaning": "total mapped bytes",
+              "semantics": []
+            }
+          },
+          {
+            "name": "source_layout_sha256",
+            "number": 4,
+            "type_ref": "string",
+            "contract": {
+              "meaning": "hash of accepted ds4_shard_layout",
+              "semantics": []
+            }
+          },
+          {
+            "name": "no_foreign_rank_shard",
+            "number": 5,
+            "type_ref": "bool",
+            "contract": {
+              "meaning": "true only when no foreign-rank slice was mapped",
+              "semantics": []
+            }
+          }
+        ],
+        "oneofs": [],
+        "reserved_numbers": [],
+        "reserved_names": []
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "data",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "d-shard-manifest",
+        "kind": "DATA",
+        "label": "validated parent shard manifest",
+        "data_type": "blueprint.work.ds4_arch.shard_manifest",
+        "semantics": [
+          {
+            "entry_id": "d-shard-manifest-data-role",
+            "key": "data_role",
+            "value": "parent-validated rank checkpoint file list",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-shard-manifest-dist",
+            "key": "distribution_scope",
+            "value": "rank_local_shard",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-shard-manifest-identity",
+            "key": "identity",
+            "value": "d-shard-manifest is the named occurrence in this graph.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-shard-manifest-no-ordering",
+            "key": "no_ordering",
+            "value": "not a stream-ordered data item.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-shard-manifest-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-shard-manifest-provenance",
+            "key": "provenance",
+            "value": "enters through graph input shard-manifest-in",
+            "status": "supported"
+          }
+        ],
+        "sources": [
+          {
+            "source_id": "src-shard-manifest-in",
+            "kind": "graph_input",
+            "source_ref": "model-load/a-map-rank-shards input port",
+            "graph_input_port_id": "shard-manifest-in",
+            "meaning": "parent supplies validated per-rank shard manifest"
+          }
+        ],
+        "same_state_as": []
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "data",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "d-layout-spec",
+        "kind": "DATA",
+        "label": "DS4-native shard layout",
+        "data_type": "blueprint.work.ds4_arch.ds4_shard_layout",
+        "semantics": [
+          {
+            "entry_id": "d-layout-spec-data-role",
+            "key": "data_role",
+            "value": "DS4-native manifest with tensor entries, hashes, byte spans, and ownership",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-layout-spec-dist",
+            "key": "distribution_scope",
+            "value": "rank_local_shard",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-layout-spec-identity",
+            "key": "identity",
+            "value": "d-layout-spec is the named occurrence in this graph.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-layout-spec-no-ordering",
+            "key": "no_ordering",
+            "value": "not a stream-ordered data item.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-layout-spec-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-layout-spec-provenance",
+            "key": "provenance",
+            "value": "produced by a-read-layout-spec",
+            "status": "supported"
+          }
+        ],
+        "sources": [],
+        "same_state_as": []
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "data",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "d-ownership-plan",
+        "kind": "DATA",
+        "label": "validated tensor ownership plan",
+        "data_type": "blueprint.work.ds4_arch.tensor_ownership_plan",
+        "semantics": [
+          {
+            "entry_id": "d-ownership-plan-data-role",
+            "key": "data_role",
+            "value": "validated tensor span coverage and current-rank ownership",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-ownership-plan-dist",
+            "key": "distribution_scope",
+            "value": "rank_local_shard",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-ownership-plan-identity",
+            "key": "identity",
+            "value": "d-ownership-plan is the named occurrence in this graph.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-ownership-plan-no-ordering",
+            "key": "no_ordering",
+            "value": "not a stream-ordered data item.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-ownership-plan-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-ownership-plan-provenance",
+            "key": "provenance",
+            "value": "produced by a-validate-tensor-ownership",
+            "status": "supported"
+          }
+        ],
+        "sources": [],
+        "same_state_as": []
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "data",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "d-mapped-tensor-slices",
+        "kind": "DATA",
+        "label": "mapped current-rank tensor slices",
+        "data_type": "blueprint.work.ds4_arch.mapped_tensor_slices",
+        "semantics": [
+          {
+            "entry_id": "d-mapped-tensor-slices-data-role",
+            "key": "data_role",
+            "value": "runtime mmap handles and byte totals for accepted current-rank tensor slices",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-mapped-tensor-slices-dist",
+            "key": "distribution_scope",
+            "value": "rank_local_shard",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-mapped-tensor-slices-identity",
+            "key": "identity",
+            "value": "d-mapped-tensor-slices is the named occurrence in this graph.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-mapped-tensor-slices-no-ordering",
+            "key": "no_ordering",
+            "value": "not a stream-ordered data item.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-mapped-tensor-slices-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-mapped-tensor-slices-provenance",
+            "key": "provenance",
+            "value": "produced by a-load-rank-tensors",
+            "status": "supported"
+          }
+        ],
+        "sources": [],
+        "same_state_as": []
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "data",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "d-loaded-rank-shard",
+        "kind": "DATA",
+        "label": "loaded rank shard map",
+        "data_type": "blueprint.work.ds4_arch.loaded_rank_shard",
+        "semantics": [
+          {
+            "entry_id": "d-loaded-rank-shard-data-role",
+            "key": "data_role",
+            "value": "parent-visible resident mapped weight state for this rank",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-loaded-rank-shard-dist",
+            "key": "distribution_scope",
+            "value": "rank_local_shard",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-loaded-rank-shard-identity",
+            "key": "identity",
+            "value": "d-loaded-rank-shard is the named occurrence in this graph.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-loaded-rank-shard-no-ordering",
+            "key": "no_ordering",
+            "value": "not a stream-ordered data item.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-loaded-rank-shard-presence",
+            "key": "presence",
+            "value": "graph output",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-loaded-rank-shard-provenance",
+            "key": "provenance",
+            "value": "produced by a-publish-loaded-shard",
+            "status": "supported"
+          }
+        ],
+        "sources": [],
+        "same_state_as": []
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "state",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "state-model-worker",
+        "kind": "STATE",
+        "label": "same resident TP worker model state",
+        "data_type": "blueprint.work.ds4_arch.model",
+        "semantics": [
+          {
+            "entry_id": "state-model-worker-data-role",
+            "key": "data_role",
+            "value": "same resident worker model state updated by parent model-load graph",
+            "status": "supported"
+          },
+          {
+            "entry_id": "state-model-worker-dist",
+            "key": "distribution_scope",
+            "value": "rank_local_shard",
+            "status": "supported"
+          },
+          {
+            "entry_id": "state-model-worker-identity",
+            "key": "identity",
+            "value": "state-model-worker is the named occurrence in this graph.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "state-model-worker-no-ordering",
+            "key": "no_ordering",
+            "value": "not a stream-ordered data item.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "state-model-worker-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "state-model-worker-provenance",
+            "key": "provenance",
+            "value": "same_state_as parent model-load state",
+            "status": "supported"
+          }
+        ],
+        "sources": [],
+        "same_state_as": [
+          {
+            "graph_id": "model-load",
+            "state_node_id": "state-model-worker",
+            "relation": "same resident worker state as model-load graph",
+            "meaning": "child publishes the mapped layout into the same resident model state"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "action",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "a-read-layout-spec",
+        "kind": "ACTION",
+        "label": "01 read DS4 shard layout",
+        "input_ports": [
+          {
+            "port_id": "layout-manifest-in",
+            "node_id": "d-shard-manifest",
+            "type_ref": "blueprint.work.ds4_arch.shard_manifest",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "layout-spec-out",
+            "node_id": "d-layout-spec",
+            "type_ref": "blueprint.work.ds4_arch.ds4_shard_layout",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "a-read-layout-spec-ov",
+            "key": "overview",
+            "value": "Read the DS4-native layout manifest named by the parent shard manifest, verify the format version and GLM 5.2 TP4/DCP4 header, and produce a typed layout spec.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "layout-manifest-in",
+            "key": "input_use",
+            "value": "Consumes d-shard-manifest.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-read-layout-spec"
+                  },
+                  "direction": "input",
+                  "port_id": "layout-manifest-in"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-shard-manifest"
+            }
+          },
+          {
+            "entry_id": "layout-spec-out",
+            "key": "output",
+            "value": "Produces d-layout-spec.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-read-layout-spec"
+                  },
+                  "direction": "output",
+                  "port_id": "layout-spec-out"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-layout-spec"
+            }
+          },
+          {
+            "entry_id": "a-read-layout-spec-ef",
+            "key": "effect",
+            "value": "Read the DS4-native layout manifest named by the parent shard manifest, verify the format version and GLM 5.2 TP4/DCP4 header, and produce a typed layout spec.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-read-layout-spec"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-read-layout-spec-exit",
+            "key": "exit",
+            "value": "a-read-layout-spec-done",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-read-layout-spec"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-read-layout-spec-im",
+            "key": "implementation_choice",
+            "value": "fixed_by_ds4_native_layout_contract",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-read-layout-spec-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-read-layout-spec-authority",
+            "key": "authority",
+            "value": "Runtime accepts the DS4-native layout manifest, not arbitrary runtime safetensors discovery.",
+            "status": "supported"
+          }
+        ],
+        "state_set": []
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "action",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "a-validate-tensor-ownership",
+        "kind": "ACTION",
+        "label": "02 validate tensor ownership",
+        "input_ports": [
+          {
+            "port_id": "layout-spec-in",
+            "node_id": "d-layout-spec",
+            "type_ref": "blueprint.work.ds4_arch.ds4_shard_layout",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "ownership-plan-out",
+            "node_id": "d-ownership-plan",
+            "type_ref": "blueprint.work.ds4_arch.tensor_ownership_plan",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "a-validate-tensor-ownership-ov",
+            "key": "overview",
+            "value": "Validate that replicated tensors are present for every rank, rank-local tensor spans cover Q heads, MLA/KV-related tensors, routed experts, and vocab/output rows exactly once, and no current-rank entry references a foreign rank.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "layout-spec-in",
+            "key": "input_use",
+            "value": "Consumes d-layout-spec.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-validate-tensor-ownership"
+                  },
+                  "direction": "input",
+                  "port_id": "layout-spec-in"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-layout-spec"
+            }
+          },
+          {
+            "entry_id": "ownership-plan-out",
+            "key": "output",
+            "value": "Produces d-ownership-plan.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-validate-tensor-ownership"
+                  },
+                  "direction": "output",
+                  "port_id": "ownership-plan-out"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-ownership-plan"
+            }
+          },
+          {
+            "entry_id": "a-validate-tensor-ownership-ef",
+            "key": "effect",
+            "value": "Validate that replicated tensors are present for every rank, rank-local tensor spans cover Q heads, MLA/KV-related tensors, routed experts, and vocab/output rows exactly once, and no current-rank entry references a foreign rank.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-validate-tensor-ownership"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-validate-tensor-ownership-exit",
+            "key": "exit",
+            "value": "a-validate-tensor-ownership-done",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-validate-tensor-ownership"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-validate-tensor-ownership-im",
+            "key": "implementation_choice",
+            "value": "fixed_by_ds4_native_layout_contract",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-validate-tensor-ownership-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-validate-tensor-ownership-inv",
+            "key": "invariant",
+            "value": "coverage_complete must be true, overlaps_present false, missing_spans_present false, hashes present for every mapped tensor entry.",
+            "status": "supported"
+          }
+        ],
+        "state_set": []
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "action",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "a-load-rank-tensors",
+        "kind": "ACTION",
+        "label": "03 mmap current-rank tensor slices",
+        "input_ports": [
+          {
+            "port_id": "ownership-plan-in",
+            "node_id": "d-ownership-plan",
+            "type_ref": "blueprint.work.ds4_arch.tensor_ownership_plan",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "mapped-slices-out",
+            "node_id": "d-mapped-tensor-slices",
+            "type_ref": "blueprint.work.ds4_arch.mapped_tensor_slices",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "a-load-rank-tensors-ov",
+            "key": "overview",
+            "value": "Memory-map only current-rank and required replicated tensor slices after hash and byte-range validation; reject foreign-rank, stale-hash, missing-span, overlapping-span, and unsupported-layout inputs before touching resident engine state.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "ownership-plan-in",
+            "key": "input_use",
+            "value": "Consumes d-ownership-plan.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-load-rank-tensors"
+                  },
+                  "direction": "input",
+                  "port_id": "ownership-plan-in"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-ownership-plan"
+            }
+          },
+          {
+            "entry_id": "mapped-slices-out",
+            "key": "output",
+            "value": "Produces d-mapped-tensor-slices.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-load-rank-tensors"
+                  },
+                  "direction": "output",
+                  "port_id": "mapped-slices-out"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-mapped-tensor-slices"
+            }
+          },
+          {
+            "entry_id": "a-load-rank-tensors-ef",
+            "key": "effect",
+            "value": "Memory-map only current-rank and required replicated tensor slices after hash and byte-range validation; reject foreign-rank, stale-hash, missing-span, overlapping-span, and unsupported-layout inputs before touching resident engine state.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-load-rank-tensors"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-load-rank-tensors-exit",
+            "key": "exit",
+            "value": "a-load-rank-tensors-done",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-load-rank-tensors"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-load-rank-tensors-im",
+            "key": "implementation_choice",
+            "value": "fixed_by_ds4_native_layout_contract",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-load-rank-tensors-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-load-rank-tensors-authority",
+            "key": "authority",
+            "value": "This is the first action allowed to create runtime mmap handles, and it may only map entries proven by d-ownership-plan.",
+            "status": "supported"
+          }
+        ],
+        "state_set": []
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "action",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "a-publish-loaded-shard",
+        "kind": "ACTION",
+        "label": "04 publish loaded rank shard",
+        "input_ports": [
+          {
+            "port_id": "mapped-slices-in",
+            "node_id": "d-mapped-tensor-slices",
+            "type_ref": "blueprint.work.ds4_arch.mapped_tensor_slices",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "publish-loaded-shard-out",
+            "node_id": "d-loaded-rank-shard",
+            "type_ref": "blueprint.work.ds4_arch.loaded_rank_shard",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "a-publish-loaded-shard-ov",
+            "key": "overview",
+            "value": "Convert mapped tensor slices into the parent-visible loaded_rank_shard record and update resident worker model state only after the complete rank-local layout is mapped.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "mapped-slices-in",
+            "key": "input_use",
+            "value": "Consumes d-mapped-tensor-slices.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-publish-loaded-shard"
+                  },
+                  "direction": "input",
+                  "port_id": "mapped-slices-in"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-mapped-tensor-slices"
+            }
+          },
+          {
+            "entry_id": "publish-loaded-shard-out",
+            "key": "output",
+            "value": "Produces d-loaded-rank-shard.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-publish-loaded-shard"
+                  },
+                  "direction": "output",
+                  "port_id": "publish-loaded-shard-out"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-loaded-rank-shard"
+            }
+          },
+          {
+            "entry_id": "a-publish-loaded-shard-ef",
+            "key": "effect",
+            "value": "Convert mapped tensor slices into the parent-visible loaded_rank_shard record and update resident worker model state only after the complete rank-local layout is mapped.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-publish-loaded-shard"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-publish-loaded-shard-exit",
+            "key": "exit",
+            "value": "a-publish-loaded-shard-done",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-publish-loaded-shard"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-publish-loaded-shard-im",
+            "key": "implementation_choice",
+            "value": "fixed_by_ds4_native_layout_contract",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-publish-loaded-shard-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-publish-loaded-shard-transition",
+            "key": "ordering",
+            "value": "state-model-worker becomes resident for this rank only after d-loaded-rank-shard exists.",
+            "status": "supported"
+          }
+        ],
+        "state_set": [
+          {
+            "state_node_id": "state-model-worker",
+            "access": "update",
+            "meaning": "publish mapped rank-local tensors as resident worker model state"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "e-manifest-to-read",
+        "source_node_id": "d-shard-manifest",
+        "target_node_id": "a-read-layout-spec",
+        "family": "dataflow",
+        "kind": "input",
+        "label": "validated parent manifest identifies the DS4 layout file",
+        "semantics": [
+          {
+            "entry_id": "e-manifest-to-read-r",
+            "key": "relationship",
+            "value": "validated parent manifest identifies the DS4 layout file",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "e-read-to-layout",
+        "source_node_id": "a-read-layout-spec",
+        "target_node_id": "d-layout-spec",
+        "family": "dataflow",
+        "kind": "output",
+        "label": "layout reader produces DS4-native shard layout",
+        "semantics": [
+          {
+            "entry_id": "e-read-to-layout-r",
+            "key": "relationship",
+            "value": "layout reader produces DS4-native shard layout",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "e-layout-to-ownership",
+        "source_node_id": "d-layout-spec",
+        "target_node_id": "a-validate-tensor-ownership",
+        "family": "dataflow",
+        "kind": "input",
+        "label": "layout spec feeds tensor ownership validation",
+        "semantics": [
+          {
+            "entry_id": "e-layout-to-ownership-r",
+            "key": "relationship",
+            "value": "layout spec feeds tensor ownership validation",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "e-ownership-out",
+        "source_node_id": "a-validate-tensor-ownership",
+        "target_node_id": "d-ownership-plan",
+        "family": "dataflow",
+        "kind": "output",
+        "label": "ownership validation produces covered rank-local plan",
+        "semantics": [
+          {
+            "entry_id": "e-ownership-out-r",
+            "key": "relationship",
+            "value": "ownership validation produces covered rank-local plan",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "e-ownership-to-mmap",
+        "source_node_id": "d-ownership-plan",
+        "target_node_id": "a-load-rank-tensors",
+        "family": "dataflow",
+        "kind": "input",
+        "label": "validated ownership plan authorizes mmap",
+        "semantics": [
+          {
+            "entry_id": "e-ownership-to-mmap-r",
+            "key": "relationship",
+            "value": "validated ownership plan authorizes mmap",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "e-mmap-out",
+        "source_node_id": "a-load-rank-tensors",
+        "target_node_id": "d-mapped-tensor-slices",
+        "family": "dataflow",
+        "kind": "output",
+        "label": "mmap produces current-rank tensor slice handles",
+        "semantics": [
+          {
+            "entry_id": "e-mmap-out-r",
+            "key": "relationship",
+            "value": "mmap produces current-rank tensor slice handles",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "e-mapped-to-publish",
+        "source_node_id": "d-mapped-tensor-slices",
+        "target_node_id": "a-publish-loaded-shard",
+        "family": "dataflow",
+        "kind": "input",
+        "label": "mapped slices feed loaded shard publication",
+        "semantics": [
+          {
+            "entry_id": "e-mapped-to-publish-r",
+            "key": "relationship",
+            "value": "mapped slices feed loaded shard publication",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "e-publish-out",
+        "source_node_id": "a-publish-loaded-shard",
+        "target_node_id": "d-loaded-rank-shard",
+        "family": "dataflow",
+        "kind": "output",
+        "label": "publication produces parent-visible loaded rank shard",
+        "semantics": [
+          {
+            "entry_id": "e-publish-out-r",
+            "key": "relationship",
+            "value": "publication produces parent-visible loaded rank shard",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "e-publish-state",
+        "source_node_id": "a-publish-loaded-shard",
+        "target_node_id": "state-model-worker",
+        "family": "state",
+        "kind": "state-access",
+        "label": "publication updates resident model worker state",
+        "semantics": [
+          {
+            "entry_id": "e-publish-state-r",
+            "key": "relationship",
+            "value": "publication updates resident model worker state",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-publish-state-s",
+            "key": "state_update",
+            "value": "resident model worker state records mapped current-rank tensors",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "state-model-worker"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "e-read-before-ownership",
+        "source_node_id": "a-read-layout-spec",
+        "target_node_id": "a-validate-tensor-ownership",
+        "family": "causal",
+        "kind": "ordering",
+        "label": "layout format validation completes before ownership validation",
+        "semantics": [
+          {
+            "entry_id": "e-read-before-ownership-r",
+            "key": "relationship",
+            "value": "layout format validation completes before ownership validation",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "e-ownership-before-mmap",
+        "source_node_id": "a-validate-tensor-ownership",
+        "target_node_id": "a-load-rank-tensors",
+        "family": "causal",
+        "kind": "ordering",
+        "label": "ownership and hash validation completes before mmap",
+        "semantics": [
+          {
+            "entry_id": "e-ownership-before-mmap-r",
+            "key": "relationship",
+            "value": "ownership and hash validation completes before mmap",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "e-mmap-before-publish",
+        "source_node_id": "a-load-rank-tensors",
+        "target_node_id": "a-publish-loaded-shard",
+        "family": "causal",
+        "kind": "ordering",
+        "label": "mmap completes before resident state publication",
+        "semantics": [
+          {
+            "entry_id": "e-mmap-before-publish-r",
+            "key": "relationship",
+            "value": "mmap completes before resident state publication",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "operation",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "operation_id": "op-model-shard-layout",
+        "name": "Define and map DS4-native rank shard layout",
+        "overview": "Read the DS4-native GLM 5.2 TP4 layout manifest, validate tensor ownership and hashes, mmap current-rank tensor slices, and publish the loaded rank shard map.",
+        "members": [
+          {
+            "ref": {
+              "node_id": "d-shard-manifest"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "d-layout-spec"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "d-ownership-plan"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "d-mapped-tensor-slices"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "d-loaded-rank-shard"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "state-model-worker"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "a-read-layout-spec"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "a-validate-tensor-ownership"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "a-load-rank-tensors"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "a-publish-loaded-shard"
+            },
+            "role": "member"
+          }
+        ],
+        "data_flow_ids": [],
+        "semantics": [
+          {
+            "entry_id": "op-model-shard-layout-goal",
+            "key": "target_state",
+            "value": "current rank has only validated DS4-native tensor slices mapped and parent-visible loaded_rank_shard produced",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "d-loaded-rank-shard"
+              }
+            ]
+          }
+        ],
+        "end_goals": [
+          {
+            "goal_id": "goal-layout-mapped",
+            "intent": "Current rank maps exactly its GLM 5.2 TP4 tensor slices plus required replicated tensors, with complete coverage and no foreign-rank mappings.",
+            "bindings": [
+              {
+                "ref": {
+                  "node_id": "d-loaded-rank-shard"
+                },
+                "role": "parent output",
+                "semantics": [
+                  {
+                    "entry_id": "goal-loaded-rank-shard",
+                    "key": "target_state",
+                    "value": "loaded_rank_shard reflects the accepted DS4-native layout and mapped byte total",
+                    "status": "supported"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "expansion",
+      "graph_id": "model-load",
+      "entity_id": "a-map-rank-shards",
+      "params": {
+        "child_graph_id": "model-shard-layout"
+      }
+    }
+  ],
+  "contract_validation": {
+    "profile": "composite",
+    "graph_ids": [
+      "model-load"
+    ]
+  }
+}

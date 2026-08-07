@@ -1,0 +1,208 @@
+syntax = "proto3";
+
+package blueprint.work.ds4_arch;
+
+import "blueprint/v1/blueprint.proto";
+
+import "serve.types.proto";
+message token {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.token"
+    represents: "one decode token occurrence"
+    semantics {
+      entry_id: "t-token"
+      key: "meaning"
+      value: "one decode token occurrence"
+      status: SUPPORTED
+    }
+  };
+  int32 id = 1 [(blueprint.v1.field_contract) = { meaning: "token id" }];
+  int32 position = 2 [(blueprint.v1.field_contract) = { meaning: "sequence position" }];
+}
+
+
+
+
+
+
+message hidden {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.hidden"
+    represents: "full GLM 5.2 hidden activation; occurrence declares replicated or rank-local scope"
+    semantics {
+      entry_id: "t-hidden"
+      key: "meaning"
+      value: "full GLM 5.2 hidden activation; occurrence declares replicated or rank-local scope"
+      status: SUPPORTED
+    }
+  };
+  repeated float value = 1 [(blueprint.v1.field_contract) = { meaning: "hidden vector [6144]" }];
+  int32 position = 2 [(blueprint.v1.field_contract) = { meaning: "token position" }];
+  int32 layer_index = 3 [(blueprint.v1.field_contract) = { meaning: "current decoder layer index" }];
+}
+
+
+
+message logits {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.logits"
+    represents: "coordinator-visible logits or distributed top-k result assembled from TP shards"
+    semantics {
+      entry_id: "t-logits"
+      key: "meaning"
+      value: "coordinator-visible logits or distributed top-k result assembled from TP shards"
+      status: SUPPORTED
+    }
+  };
+  repeated float value = 1 [(blueprint.v1.field_contract) = { meaning: "full logits or top-k equivalent" }];
+  int32 position = 2 [(blueprint.v1.field_contract) = { meaning: "token position" }];
+  int32 source_tp_degree = 3 [(blueprint.v1.field_contract) = { meaning: "TP degree that produced the logits" }];
+}
+
+
+message kvpos {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.kvpos"
+    represents: "append-only TP decode cursor shared by GLM 5.2 ranks"
+    semantics {
+      entry_id: "t-kvpos"
+      key: "meaning"
+      value: "append-only TP decode cursor shared by GLM 5.2 ranks"
+      status: SUPPORTED
+    }
+  };
+  int32 length = 1 [(blueprint.v1.field_contract) = { meaning: "cached-token count" }];
+  int32 position = 2 [(blueprint.v1.field_contract) = { meaning: "current token position j" }];
+  int32 tp_degree = 3 [(blueprint.v1.field_contract) = { meaning: "tensor parallel degree, fixed to 4" }];
+}
+
+message qkv_shard {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.qkv_shard"
+    represents: "rank-owned TP Q/K/V or MLA projection shard for layer i"
+    semantics {
+      entry_id: "t-qkv-shard"
+      key: "meaning"
+      value: "rank-owned TP Q/K/V or MLA projection shard for layer i"
+      status: SUPPORTED
+    }
+  };
+  int32 rank = 1 [(blueprint.v1.field_contract) = { meaning: "TP rank 0..3" }];
+  int32 layer_index = 2 [(blueprint.v1.field_contract) = { meaning: "decoder layer i" }];
+  int32 q_head_start = 3 [(blueprint.v1.field_contract) = { meaning: "first owned query head" }];
+  int32 q_head_end = 4 [(blueprint.v1.field_contract) = { meaning: "last owned query head" }];
+  repeated float values = 5 [(blueprint.v1.field_contract) = { meaning: "rank-local QKV/MLA tensor values" }];
+}
+
+message tensor_partial {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.tensor_partial"
+    represents: "rank-local additive partial of a full hidden-width tensor"
+    semantics {
+      entry_id: "t-tensor-partial"
+      key: "meaning"
+      value: "rank-local additive partial of a full hidden-width tensor"
+      status: SUPPORTED
+    }
+  };
+  int32 rank = 1 [(blueprint.v1.field_contract) = { meaning: "TP rank 0..3" }];
+  int32 layer_index = 2 [(blueprint.v1.field_contract) = { meaning: "decoder layer i" }];
+  repeated float value = 3 [(blueprint.v1.field_contract) = { meaning: "partial full-width contribution [6144]" }];
+}
+
+message logits_shard {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.logits_shard"
+    represents: "rank-owned vocabulary logits shard"
+    semantics {
+      entry_id: "t-logits-shard"
+      key: "meaning"
+      value: "rank-owned vocabulary logits shard"
+      status: SUPPORTED
+    }
+  };
+  int32 rank = 1 [(blueprint.v1.field_contract) = { meaning: "TP rank 0..3" }];
+  int32 vocab_start = 2 [(blueprint.v1.field_contract) = { meaning: "first owned vocabulary row" }];
+  int32 vocab_end = 3 [(blueprint.v1.field_contract) = { meaning: "last owned vocabulary row" }];
+  repeated float value = 4 [(blueprint.v1.field_contract) = { meaning: "rank-local logits shard" }];
+}
+
+message rank_plan {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.rank_plan"
+    represents: "rank-local TP4 hosting and ownership spans for one GLM 5.2 rank"
+    semantics {
+      entry_id: "t-rank-plan"
+      key: "meaning"
+      value: "rank-local TP4 hosting and ownership spans for one GLM 5.2 rank"
+      status: SUPPORTED
+    }
+  };
+  int32 tp_size = 1 [(blueprint.v1.field_contract) = { meaning: "tensor parallel degree, fixed to 4" }];
+  int32 rank = 2 [(blueprint.v1.field_contract) = { meaning: "rank id 0..3" }];
+  int32 q_head_start = 3 [(blueprint.v1.field_contract) = { meaning: "first owned query head" }];
+  int32 q_head_end = 4 [(blueprint.v1.field_contract) = { meaning: "exclusive end of owned query heads" }];
+  int32 dcp_rank = 5 [(blueprint.v1.field_contract) = { meaning: "decode-context partition id" }];
+  int32 expert_start = 6 [(blueprint.v1.field_contract) = { meaning: "first owned routed expert id" }];
+  int32 expert_end = 7 [(blueprint.v1.field_contract) = { meaning: "exclusive end of owned routed experts" }];
+  int32 vocab_start = 8 [(blueprint.v1.field_contract) = { meaning: "first owned vocabulary row" }];
+  int32 vocab_end = 9 [(blueprint.v1.field_contract) = { meaning: "exclusive end of owned vocabulary rows" }];
+}
+
+message mla_cache_row {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.mla_cache_row"
+    represents: "one GLM 5.2 MLA cache row for position j under TP4/DCP4 ownership"
+    semantics {
+      entry_id: "t-mla-cache-row"
+      key: "meaning"
+      value: "one GLM 5.2 MLA cache row for position j under TP4/DCP4 ownership"
+      status: SUPPORTED
+    }
+  };
+  int32 rank = 1 [(blueprint.v1.field_contract) = { meaning: "TP rank that owns the row occurrence" }];
+  int32 layer_index = 2 [(blueprint.v1.field_contract) = { meaning: "decoder layer i" }];
+  int32 position = 3 [(blueprint.v1.field_contract) = { meaning: "token position j" }];
+  int32 dcp_rank = 4 [(blueprint.v1.field_contract) = { meaning: "context shard owner for this row" }];
+  repeated float kv_lora = 5 [(blueprint.v1.field_contract) = { meaning: "KV latent vector [512]" }];
+  repeated float k_rope = 6 [(blueprint.v1.field_contract) = { meaning: "RoPE K tail [64]" }];
+}
+
+message sparse_selection {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.sparse_selection"
+    represents: "global sparse attention row selection for one rank and layer"
+    semantics {
+      entry_id: "t-sparse-selection"
+      key: "meaning"
+      value: "global sparse attention row selection for one rank and layer"
+      status: SUPPORTED
+    }
+  };
+  int32 rank = 1 [(blueprint.v1.field_contract) = { meaning: "TP rank that will consume the selection" }];
+  int32 layer_index = 2 [(blueprint.v1.field_contract) = { meaning: "decoder layer i" }];
+  int32 position = 3 [(blueprint.v1.field_contract) = { meaning: "token position j" }];
+  int32 top_k = 4 [(blueprint.v1.field_contract) = { meaning: "selected sparse top-k count" }];
+  repeated int32 selected_positions = 5 [(blueprint.v1.field_contract) = { meaning: "selected cache positions" }];
+  repeated int32 selected_dcp_ranks = 6 [(blueprint.v1.field_contract) = { meaning: "DCP owner rank for each selected position" }];
+  bool global_merge_done = 7 [(blueprint.v1.field_contract) = { meaning: "true when cross-rank top-k merge has completed" }];
+}
+
+message expert_selection {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.expert_selection"
+    represents: "routed and shared expert selection visible to TP4 rank-local FFN execution"
+    semantics {
+      entry_id: "t-expert-selection"
+      key: "meaning"
+      value: "routed and shared expert selection visible to TP4 rank-local FFN execution"
+      status: SUPPORTED
+    }
+  };
+  int32 rank = 1 [(blueprint.v1.field_contract) = { meaning: "TP rank that will consume the expert selection" }];
+  int32 layer_index = 2 [(blueprint.v1.field_contract) = { meaning: "decoder layer i" }];
+  int32 position = 3 [(blueprint.v1.field_contract) = { meaning: "token position j" }];
+  repeated int32 selected_expert_ids = 4 [(blueprint.v1.field_contract) = { meaning: "top-8 routed expert ids plus shared-expert marker when present" }];
+  repeated float selected_expert_weights = 5 [(blueprint.v1.field_contract) = { meaning: "router weights for selected experts" }];
+  repeated bool owned_mask = 6 [(blueprint.v1.field_contract) = { meaning: "true for expert ids resident on this rank" }];
+}

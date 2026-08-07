@@ -1,0 +1,3580 @@
+{
+  "schema": "blueprint-write-request/v11",
+  "action": "mutate",
+  "request_id": "redo-decode-ordered-explicit-contracts",
+  "root": "/Users/helium/src/ds4-gb10x4-bcd/bdev",
+  "record_dir": "/Users/helium/src/ds4-gb10x4-bcd/dev-artifacts/ds4-arch-bp/records",
+  "expected_blueprint_sha256": "d6a23ca1c463acdeb4ca479cdb5dbf120ef20814211d11ee3cbd06630e6a414f",
+  "validation_stage": "complete",
+  "operations": [
+    {
+      "verb": "update",
+      "entity": "action",
+      "graph_id": "decode",
+      "entity_id": "a-attn-resid",
+      "params": {
+        "id": "a-attn-resid",
+        "kind": "ACTION",
+        "label": "[06] Per-layer attention residual and norm on both ranks",
+        "state_set": [
+          {
+            "state_node_id": "s-model",
+            "access": "read",
+            "meaning": "norm weights"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "attnresid-ov",
+            "key": "overview",
+            "value": "Both ranks add the combined attention contribution to the residual path and apply the layer's normalization contract, preserving mirrored hidden state.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "attnresid-exit",
+            "key": "exit",
+            "value": "normed",
+            "status": "supported"
+          },
+          {
+            "entry_id": "attnresid-cu",
+            "key": "code_unit",
+            "value": "residual + rmsnorm",
+            "status": "supported"
+          },
+          {
+            "entry_id": "attnresid-im",
+            "key": "implementation_choice",
+            "value": "free",
+            "status": "supported"
+          },
+          {
+            "entry_id": "attnresid-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "attnresid-group-in",
+            "key": "input_use",
+            "value": "Consumes d-group as the stage 06 input; the exact DATA occurrence and port must match the incoming dataflow edge.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "d-group"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-attn-resid"
+                  },
+                  "direction": "input",
+                  "port_id": "attnresid-group-in"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "attnresid-hidden-out",
+            "key": "output",
+            "value": "Produces d-hattn as the stage 06 result; the exact DATA occurrence and port must match the outgoing dataflow edge.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "d-hattn"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-attn-resid"
+                  },
+                  "direction": "output",
+                  "port_id": "attnresid-hidden-out"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "attn-resid-effect",
+            "key": "no_effect",
+            "value": "No externally observable effect; establishes post-attention hidden state.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "attn-resid-order",
+            "key": "ordering",
+            "value": "Stage 06 of token-j decode. Runs after the preceding numbered stage has produced its declared input.",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": [
+          "ev-eval"
+        ],
+        "preconditions": [
+          {
+            "condition_id": "a-attn-resid-pre",
+            "kind": "input",
+            "text": "d-group returned from ATTN gate"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "a-attn-resid-pos",
+            "kind": "state",
+            "text": "d-hattn holds post-attention hidden for layer i"
+          }
+        ],
+        "input_ports": [
+          {
+            "port_id": "attnresid-group-in",
+            "node_id": "d-group",
+            "type_ref": "blueprint.work.ds4_arch.group_out",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "attnresid-hidden-out",
+            "node_id": "d-hattn",
+            "type_ref": "blueprint.work.ds4_arch.hidden",
+            "cardinality": "exactly_one"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "action",
+      "graph_id": "decode",
+      "entity_id": "a-ctx",
+      "params": {
+        "id": "a-ctx",
+        "kind": "ACTION",
+        "label": "[04] Per-layer softmax and context on both ranks",
+        "state_set": [
+          {
+            "state_node_id": "s-kv",
+            "access": "read",
+            "meaning": "V values in KV prefix"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "ctx-ov",
+            "key": "overview",
+            "value": "For layer i, each rank normalizes attention scores and combines them with cached V to produce the replicated attended context.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "ctx-exit",
+            "key": "exit",
+            "value": "context",
+            "status": "supported"
+          },
+          {
+            "entry_id": "ctx-cu",
+            "key": "code_unit",
+            "value": "flash attention",
+            "status": "supported"
+          },
+          {
+            "entry_id": "ctx-im",
+            "key": "implementation_choice",
+            "value": "free",
+            "status": "supported"
+          },
+          {
+            "entry_id": "ctx-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "ctx-scores-in",
+            "key": "input_use",
+            "value": "Consumes d-scores as the stage 04 input; the exact DATA occurrence and port must match the incoming dataflow edge.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "d-scores"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-ctx"
+                  },
+                  "direction": "input",
+                  "port_id": "ctx-scores-in"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "ctx-context-out",
+            "key": "output",
+            "value": "Produces d-ctx as the stage 04 result; the exact DATA occurrence and port must match the outgoing dataflow edge.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "d-ctx"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-ctx"
+                  },
+                  "direction": "output",
+                  "port_id": "ctx-context-out"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "ctx-effect",
+            "key": "no_effect",
+            "value": "No externally observable effect; establishes the attended context.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "ctx-order",
+            "key": "ordering",
+            "value": "Stage 04 of token-j decode. Runs after the preceding numbered stage has produced its declared input.",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": [
+          "ev-attn_outproj"
+        ],
+        "preconditions": [
+          {
+            "condition_id": "a-ctx-pre",
+            "kind": "input",
+            "text": "scores ready; V cached"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "a-ctx-pos",
+            "kind": "state",
+            "text": "d-ctx holds attended values for token j"
+          }
+        ],
+        "input_ports": [
+          {
+            "port_id": "ctx-scores-in",
+            "node_id": "d-scores",
+            "type_ref": "blueprint.work.ds4_arch.scores",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "ctx-context-out",
+            "node_id": "d-ctx",
+            "type_ref": "blueprint.work.ds4_arch.context",
+            "cardinality": "exactly_one"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "action",
+      "graph_id": "decode",
+      "entity_id": "a-emb",
+      "params": {
+        "id": "a-emb",
+        "kind": "ACTION",
+        "label": "[01] Token embedding on both ranks",
+        "state_set": [
+          {
+            "state_node_id": "s-model",
+            "access": "read",
+            "meaning": "embedding rows + position encoding"
+          },
+          {
+            "state_node_id": "s-pos",
+            "access": "read",
+            "meaning": "read decode position j"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "emb-ov",
+            "key": "overview",
+            "value": "Both Macs look up the same input-token embedding. Position j remains explicit session state for the attention path; this stage produces the replicated hidden vector that starts layer 0.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "emb-exit",
+            "key": "exit",
+            "value": "embedded",
+            "status": "supported"
+          },
+          {
+            "entry_id": "emb-cu",
+            "key": "code_unit",
+            "value": "embed + rope",
+            "status": "supported"
+          },
+          {
+            "entry_id": "emb-im",
+            "key": "implementation_choice",
+            "value": "free",
+            "status": "supported"
+          },
+          {
+            "entry_id": "emb-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "emb-token-in",
+            "key": "input_use",
+            "value": "Consumes d-token-in as the stage 01 input; the exact DATA occurrence and port must match the incoming dataflow edge.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "d-token-in"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-emb"
+                  },
+                  "direction": "input",
+                  "port_id": "emb-token-in"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "emb-hidden-out",
+            "key": "output",
+            "value": "Produces d-hin as the stage 01 result; the exact DATA occurrence and port must match the outgoing dataflow edge.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "d-hin"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-emb"
+                  },
+                  "direction": "output",
+                  "port_id": "emb-hidden-out"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "emb-effect",
+            "key": "no_effect",
+            "value": "No externally observable effect; establishes the first hidden vector.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "emb-order",
+            "key": "ordering",
+            "value": "Stage 01 of token-j decode. Runs after the preceding numbered stage has produced its declared input.",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": [
+          "ev-eval"
+        ],
+        "preconditions": [
+          {
+            "condition_id": "a-emb-pre",
+            "kind": "input",
+            "text": "token j-1 id available"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "a-emb-pos",
+            "kind": "state",
+            "text": "d-emb holds embedding+position; d-hin ready"
+          }
+        ],
+        "input_ports": [
+          {
+            "port_id": "emb-token-in",
+            "node_id": "d-token-in",
+            "type_ref": "blueprint.work.ds4_arch.Token",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "emb-hidden-out",
+            "node_id": "d-hin",
+            "type_ref": "blueprint.work.ds4_arch.hidden",
+            "cardinality": "exactly_one"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "action",
+      "graph_id": "decode",
+      "entity_id": "a-expert",
+      "params": {
+        "id": "a-expert",
+        "kind": "ACTION",
+        "label": "[08] Per-layer split experts and FFN gate exchange",
+        "state_set": [
+          {
+            "state_node_id": "s-model",
+            "access": "read",
+            "meaning": "own routed-expert half for layer i"
+          },
+          {
+            "state_node_id": "s-tp",
+            "access": "update",
+            "meaning": "FFN gate partial"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "expert-ov",
+            "key": "overview",
+            "value": "Each Mac runs only selected experts resident in its half of the routed-expert table, then the pair exchanges FFN partials so both ranks recover the same expert contribution.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "expert-exit",
+            "key": "exit",
+            "value": "gated",
+            "status": "supported"
+          },
+          {
+            "entry_id": "expert-cu",
+            "key": "code_unit",
+            "value": "routed-expert matmul (ds4.c:55447)",
+            "status": "supported"
+          },
+          {
+            "entry_id": "expert-im",
+            "key": "implementation_choice",
+            "value": "free",
+            "status": "supported"
+          },
+          {
+            "entry_id": "expert-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "expert-route-in",
+            "key": "input_use",
+            "value": "Consumes d-routed as the stage 08 input; the exact DATA occurrence and port must match the incoming dataflow edge.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "d-routed"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-expert"
+                  },
+                  "direction": "input",
+                  "port_id": "expert-route-in"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "expert-contribution-out",
+            "key": "output",
+            "value": "Produces d-expert as the stage 08 result; the exact DATA occurrence and port must match the outgoing dataflow edge.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "d-expert"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-expert"
+                  },
+                  "direction": "output",
+                  "port_id": "expert-contribution-out"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "expert-effect",
+            "key": "effect",
+            "value": "Each rank computes only its resident expert half; both exchange and combine FFN partials at the second TP gate.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "expert-order",
+            "key": "ordering",
+            "value": "Stage 08 of token-j decode. Runs after the preceding numbered stage has produced its declared input.",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": [
+          "ev-halff",
+          "ev_expert_ffn"
+        ],
+        "preconditions": [
+          {
+            "condition_id": "a-expert-pre",
+            "kind": "input",
+            "text": "expert ids chosen; complementary halves resident"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "a-expert-pos",
+            "kind": "state",
+            "text": "d-expert contributes identically on both ranks after FFN gate"
+          }
+        ],
+        "input_ports": [
+          {
+            "port_id": "expert-route-in",
+            "node_id": "d-routed",
+            "type_ref": "blueprint.work.ds4_arch.routed",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "expert-contribution-out",
+            "node_id": "d-expert",
+            "type_ref": "blueprint.work.ds4_arch.expert_out",
+            "cardinality": "exactly_one"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "action",
+      "graph_id": "decode",
+      "entity_id": "a-ffn-resid",
+      "params": {
+        "id": "a-ffn-resid",
+        "kind": "ACTION",
+        "label": "[09] Per-layer FFN residual and loop decision on both ranks",
+        "state_set": [
+          {
+            "state_node_id": "s-model",
+            "access": "read",
+            "meaning": "norm weights"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "ffnresid-ov",
+            "key": "overview",
+            "value": "Both ranks add the combined FFN contribution and normalize. For a non-final layer the result becomes the next layer's input; after the final layer it becomes the output-head input.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "ffnresid-exit",
+            "key": "exit",
+            "value": "normed",
+            "status": "supported"
+          },
+          {
+            "entry_id": "ffnresid-cu",
+            "key": "code_unit",
+            "value": "residual + rmsnorm",
+            "status": "supported"
+          },
+          {
+            "entry_id": "ffnresid-im",
+            "key": "implementation_choice",
+            "value": "free",
+            "status": "supported"
+          },
+          {
+            "entry_id": "ffnresid-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "ffnresid-expert-in",
+            "key": "input_use",
+            "value": "Consumes d-expert as the stage 09 input; the exact DATA occurrence and port must match the incoming dataflow edge.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "d-expert"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-ffn-resid"
+                  },
+                  "direction": "input",
+                  "port_id": "ffnresid-expert-in"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "ffnresid-next-hidden",
+            "key": "output",
+            "value": "Produces d-hin as the stage 09 result; the exact DATA occurrence and port must match the outgoing dataflow edge.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "d-hin"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-ffn-resid"
+                  },
+                  "direction": "output",
+                  "port_id": "ffnresid-next-hidden"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "ffnresid-final-hidden",
+            "key": "output",
+            "value": "Produces d-hffn as the stage 09 result; the exact DATA occurrence and port must match the outgoing dataflow edge.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "d-hffn"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-ffn-resid"
+                  },
+                  "direction": "output",
+                  "port_id": "ffnresid-final-hidden"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "ffn-resid-effect",
+            "key": "no_effect",
+            "value": "No externally observable effect; either advances to layer i+1 or exposes the final-layer hidden vector.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "ffn-resid-order",
+            "key": "ordering",
+            "value": "Stage 09 of token-j decode. Loop to stage 02 when i is not the final layer; otherwise continue to stage 10.",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": [
+          "ev-eval"
+        ],
+        "preconditions": [
+          {
+            "condition_id": "a-ffn-resid-pre",
+            "kind": "input",
+            "text": "expert contribution from FFN gate"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "a-ffn-resid-pos",
+            "kind": "state",
+            "text": "d-hffn is layer-i output / layer-(i+1) input"
+          }
+        ],
+        "input_ports": [
+          {
+            "port_id": "ffnresid-expert-in",
+            "node_id": "d-expert",
+            "type_ref": "blueprint.work.ds4_arch.expert_out",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "ffnresid-next-hidden",
+            "node_id": "d-hin",
+            "type_ref": "blueprint.work.ds4_arch.hidden",
+            "cardinality": "zero_or_one"
+          },
+          {
+            "port_id": "ffnresid-final-hidden",
+            "node_id": "d-hffn",
+            "type_ref": "blueprint.work.ds4_arch.hidden",
+            "cardinality": "zero_or_one"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "action",
+      "graph_id": "decode",
+      "entity_id": "a-head",
+      "params": {
+        "id": "a-head",
+        "kind": "ACTION",
+        "label": "[10] Vocab-split output head on both ranks",
+        "state_set": [
+          {
+            "state_node_id": "s-tp",
+            "access": "update",
+            "meaning": "deliver logits half"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "head-ov",
+            "key": "overview",
+            "value": "After the last decoder layer, each Mac applies its vocabulary slice of the output head to the mirrored final hidden vector, producing one non-overlapping logits half.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "head-exit",
+            "key": "exit",
+            "value": "merged",
+            "status": "supported"
+          },
+          {
+            "entry_id": "head-cu",
+            "key": "code_unit",
+            "value": "output-head matmul (ds4_tp:1896)",
+            "status": "supported"
+          },
+          {
+            "entry_id": "head-im",
+            "key": "implementation_choice",
+            "value": "free",
+            "status": "supported"
+          },
+          {
+            "entry_id": "head-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "head-hidden-in",
+            "key": "input_use",
+            "value": "Consumes d-hffn as the stage 10 input; the exact DATA occurrence and port must match the incoming dataflow edge.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "d-hffn"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-head"
+                  },
+                  "direction": "input",
+                  "port_id": "head-hidden-in"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "head-logits-half-out",
+            "key": "output",
+            "value": "Produces d-lhalf as the stage 10 result; the exact DATA occurrence and port must match the outgoing dataflow edge.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "d-lhalf"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-head"
+                  },
+                  "direction": "output",
+                  "port_id": "head-logits-half-out"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "head-effect",
+            "key": "effect",
+            "value": "Each rank produces and transmits its vocabulary-logit half for final assembly.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "head-order",
+            "key": "ordering",
+            "value": "Stage 10 of token-j decode. Runs after the preceding numbered stage has produced its declared input.",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": [
+          "ev-vocab",
+          "ev-vocabsplit"
+        ],
+        "preconditions": [
+          {
+            "condition_id": "a-head-pre",
+            "kind": "input",
+            "text": "all N layers done; complementary vocab halves on the pair"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "a-head-pos",
+            "kind": "state",
+            "text": "d-lhalf ready for merge on the leader"
+          }
+        ],
+        "input_ports": [
+          {
+            "port_id": "head-hidden-in",
+            "node_id": "d-hffn",
+            "type_ref": "blueprint.work.ds4_arch.hidden",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "head-logits-half-out",
+            "node_id": "d-lhalf",
+            "type_ref": "blueprint.work.ds4_arch.logits_half",
+            "cardinality": "exactly_one"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "action",
+      "graph_id": "decode",
+      "entity_id": "a-merge",
+      "params": {
+        "id": "a-merge",
+        "kind": "ACTION",
+        "label": "[11] Merge logits halves on the leader",
+        "state_set": [
+          {
+            "state_node_id": "s-tp",
+            "access": "update",
+            "meaning": "deliver/recv logits half"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "merge-ov",
+            "key": "overview",
+            "value": "The leader combines its local vocabulary slice with the worker's transmitted slice in global vocabulary order. The worker does not sample.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "merge-exit",
+            "key": "exit",
+            "value": "merged",
+            "status": "supported"
+          },
+          {
+            "entry_id": "merge-cu",
+            "key": "code_unit",
+            "value": "ds4_tp send/recv_logits_half",
+            "status": "supported"
+          },
+          {
+            "entry_id": "merge-im",
+            "key": "implementation_choice",
+            "value": "free",
+            "status": "supported"
+          },
+          {
+            "entry_id": "merge-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "merge-half-in",
+            "key": "input_use",
+            "value": "Consumes d-lhalf as the stage 11 input; the exact DATA occurrence and port must match the incoming dataflow edge.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "d-lhalf"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-merge"
+                  },
+                  "direction": "input",
+                  "port_id": "merge-half-in"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "merge-logits-out",
+            "key": "output",
+            "value": "Produces d-logits as the stage 11 result; the exact DATA occurrence and port must match the outgoing dataflow edge.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "d-logits"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-merge"
+                  },
+                  "direction": "output",
+                  "port_id": "merge-logits-out"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "merge-effect",
+            "key": "effect",
+            "value": "The leader receives the worker half and assembles one full vocabulary-order logits vector.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "merge-order",
+            "key": "ordering",
+            "value": "Stage 11 of token-j decode. Runs after the preceding numbered stage has produced its declared input.",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": [
+          "ev-vocab",
+          "ev-vocabsplit"
+        ],
+        "preconditions": [
+          {
+            "condition_id": "a-merge-pre",
+            "kind": "input",
+            "text": "both ranks hold complementary halves"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "a-merge-pos",
+            "kind": "state",
+            "text": "d-logits complete on the leader"
+          }
+        ],
+        "input_ports": [
+          {
+            "port_id": "merge-half-in",
+            "node_id": "d-lhalf",
+            "type_ref": "blueprint.work.ds4_arch.logits_half",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "merge-logits-out",
+            "node_id": "d-logits",
+            "type_ref": "blueprint.work.ds4_arch.logits",
+            "cardinality": "exactly_one"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "action",
+      "graph_id": "decode",
+      "entity_id": "a-outproj",
+      "params": {
+        "id": "a-outproj",
+        "kind": "ACTION",
+        "label": "[05] Per-layer attention projection and ATTN gate exchange",
+        "state_set": [
+          {
+            "state_node_id": "s-model",
+            "access": "read",
+            "meaning": "per-group A/B out-proj for layer i"
+          },
+          {
+            "state_node_id": "s-tp",
+            "access": "update",
+            "meaning": "ATTN gate partial"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "outproj-ov",
+            "key": "overview",
+            "value": "Each Mac computes its attention output-projection contribution, exchanges the partial through the ATTN gate, and leaves the same combined attention contribution on both ranks.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "outproj-exit",
+            "key": "exit",
+            "value": "gated",
+            "status": "supported"
+          },
+          {
+            "entry_id": "outproj-cu",
+            "key": "code_unit",
+            "value": "group-sliced output matmul (ds4.c:23031)",
+            "status": "supported"
+          },
+          {
+            "entry_id": "outproj-im",
+            "key": "implementation_choice",
+            "value": "free",
+            "status": "supported"
+          },
+          {
+            "entry_id": "outproj-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "outproj-context-in",
+            "key": "input_use",
+            "value": "Consumes d-ctx as the stage 05 input; the exact DATA occurrence and port must match the incoming dataflow edge.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "d-ctx"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-outproj"
+                  },
+                  "direction": "input",
+                  "port_id": "outproj-context-in"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "outproj-group-out",
+            "key": "output",
+            "value": "Produces d-group as the stage 05 result; the exact DATA occurrence and port must match the outgoing dataflow edge.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "d-group"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-outproj"
+                  },
+                  "direction": "output",
+                  "port_id": "outproj-group-out"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "outproj-effect",
+            "key": "effect",
+            "value": "Both ranks exchange and combine their ATTN partials at the layer's first TP gate.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "outproj-order",
+            "key": "ordering",
+            "value": "Stage 05 of token-j decode. Runs after the preceding numbered stage has produced its declared input.",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": [
+          "ev-attn_outproj"
+        ],
+        "preconditions": [
+          {
+            "condition_id": "a-outproj-pre",
+            "kind": "input",
+            "text": "context ready; per-group A/B on both ranks; lockstep"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "a-outproj-pos",
+            "kind": "state",
+            "text": "d-group identical across the pair after ATTN gate"
+          }
+        ],
+        "input_ports": [
+          {
+            "port_id": "outproj-context-in",
+            "node_id": "d-ctx",
+            "type_ref": "blueprint.work.ds4_arch.context",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "outproj-group-out",
+            "node_id": "d-group",
+            "type_ref": "blueprint.work.ds4_arch.group_out",
+            "cardinality": "exactly_one"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "action",
+      "graph_id": "decode",
+      "entity_id": "a-qkv",
+      "params": {
+        "id": "a-qkv",
+        "kind": "ACTION",
+        "label": "[02] Per-layer QKV projection and KV append on both ranks",
+        "state_set": [
+          {
+            "state_node_id": "s-model",
+            "access": "read",
+            "meaning": "layer-i QKV dense weights"
+          },
+          {
+            "state_node_id": "s-kv",
+            "access": "update",
+            "meaning": "append layer-i K/V for token position j"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "qkv-ov",
+            "key": "overview",
+            "value": "For layer i, both Macs apply the replicated QKV weights to the current hidden vector, apply the model's position treatment to Q/K, and append K/V for position j before attention reads the prefix.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "qkv-exit",
+            "key": "exit",
+            "value": "projected",
+            "status": "supported"
+          },
+          {
+            "entry_id": "qkv-cu",
+            "key": "code_unit",
+            "value": "QKV matmul",
+            "status": "supported"
+          },
+          {
+            "entry_id": "qkv-im",
+            "key": "implementation_choice",
+            "value": "free",
+            "status": "supported"
+          },
+          {
+            "entry_id": "qkv-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "qkv-hidden-in",
+            "key": "input_use",
+            "value": "Consumes d-hin as the stage 02 input; the exact DATA occurrence and port must match the incoming dataflow edge.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "d-hin"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-qkv"
+                  },
+                  "direction": "input",
+                  "port_id": "qkv-hidden-in"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "qkv-projection-out",
+            "key": "output",
+            "value": "Produces d-qkv as the stage 02 result; the exact DATA occurrence and port must match the outgoing dataflow edge.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "d-qkv"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-qkv"
+                  },
+                  "direction": "output",
+                  "port_id": "qkv-projection-out"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "qkv-effect",
+            "key": "no_effect",
+            "value": "No external effect; appends this layer's K/V at position j in session KV.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "qkv-order",
+            "key": "ordering",
+            "value": "Stage 02 of token-j decode. Stages 02-09 repeat for each decoder layer in increasing layer order.",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": [
+          "ev-eval",
+          "ev_qk_matmul"
+        ],
+        "preconditions": [
+          {
+            "condition_id": "a-qkv-pre",
+            "kind": "input",
+            "text": "d-hin ready; layer-i QKV weights resident both ranks"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "a-qkv-pos",
+            "kind": "state",
+            "text": "d-qkv holds q,k,v for token j"
+          }
+        ],
+        "input_ports": [
+          {
+            "port_id": "qkv-hidden-in",
+            "node_id": "d-hin",
+            "type_ref": "blueprint.work.ds4_arch.hidden",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "qkv-projection-out",
+            "node_id": "d-qkv",
+            "type_ref": "blueprint.work.ds4_arch.qkv",
+            "cardinality": "exactly_one"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "action",
+      "graph_id": "decode",
+      "entity_id": "a-route",
+      "params": {
+        "id": "a-route",
+        "kind": "ACTION",
+        "label": "[07] Per-layer expert routing on both ranks",
+        "state_set": [
+          {
+            "state_node_id": "s-model",
+            "access": "read",
+            "meaning": "router weights for layer i"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "route-ov",
+            "key": "overview",
+            "value": "Both ranks apply the replicated router to the post-attention hidden vector and select the same top-k routed experts and weights.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "route-exit",
+            "key": "exit",
+            "value": "routed",
+            "status": "supported"
+          },
+          {
+            "entry_id": "route-cu",
+            "key": "code_unit",
+            "value": "router linear",
+            "status": "supported"
+          },
+          {
+            "entry_id": "route-im",
+            "key": "implementation_choice",
+            "value": "free",
+            "status": "supported"
+          },
+          {
+            "entry_id": "route-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "route-hidden-in",
+            "key": "input_use",
+            "value": "Consumes d-hattn as the stage 07 input; the exact DATA occurrence and port must match the incoming dataflow edge.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "d-hattn"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-route"
+                  },
+                  "direction": "input",
+                  "port_id": "route-hidden-in"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "route-selection-out",
+            "key": "output",
+            "value": "Produces d-routed as the stage 07 result; the exact DATA occurrence and port must match the outgoing dataflow edge.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "d-routed"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-route"
+                  },
+                  "direction": "output",
+                  "port_id": "route-selection-out"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "route-effect",
+            "key": "no_effect",
+            "value": "No externally observable effect; establishes the same routed-expert selection on both ranks.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "route-order",
+            "key": "ordering",
+            "value": "Stage 07 of token-j decode. Runs after the preceding numbered stage has produced its declared input.",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": [
+          "ev-router"
+        ],
+        "preconditions": [
+          {
+            "condition_id": "a-route-pre",
+            "kind": "input",
+            "text": "post-attention hidden ready; router weights for layer i"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "a-route-pos",
+            "kind": "state",
+            "text": "top-k expert ids chosen for token j"
+          }
+        ],
+        "input_ports": [
+          {
+            "port_id": "route-hidden-in",
+            "node_id": "d-hattn",
+            "type_ref": "blueprint.work.ds4_arch.hidden",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "route-selection-out",
+            "node_id": "d-routed",
+            "type_ref": "blueprint.work.ds4_arch.routed",
+            "cardinality": "exactly_one"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "action",
+      "graph_id": "decode",
+      "entity_id": "a-sample",
+      "params": {
+        "id": "a-sample",
+        "kind": "ACTION",
+        "label": "[12] Sample token j on the leader",
+        "state_set": [
+          {
+            "state_node_id": "s-pos",
+            "access": "update",
+            "meaning": "advance j->j+1"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "samp-ov",
+            "key": "overview",
+            "value": "The leader applies the configured sampling policy to the merged logits, emits exactly one token j, and advances the session step. That token is the child graph output and the next decode iteration's input.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "samp-exit",
+            "key": "exit",
+            "value": "sampled",
+            "status": "supported"
+          },
+          {
+            "entry_id": "samp-cu",
+            "key": "code_unit",
+            "value": "sample_k / argmax",
+            "status": "supported"
+          },
+          {
+            "entry_id": "samp-im",
+            "key": "implementation_choice",
+            "value": "free",
+            "status": "supported"
+          },
+          {
+            "entry_id": "samp-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "sample-logits-in",
+            "key": "input_use",
+            "value": "Consumes d-logits as the stage 12 input; the exact DATA occurrence and port must match the incoming dataflow edge.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "d-logits"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-sample"
+                  },
+                  "direction": "input",
+                  "port_id": "sample-logits-in"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "sample-token-out",
+            "key": "output",
+            "value": "Produces d-token-out as the stage 12 result; the exact DATA occurrence and port must match the outgoing dataflow edge.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "d-token-out"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-sample"
+                  },
+                  "direction": "output",
+                  "port_id": "sample-token-out"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "sample-effect",
+            "key": "effect",
+            "value": "The leader selects token j and advances the decode-step index to j+1.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "sample-order",
+            "key": "ordering",
+            "value": "Stage 12 of token-j decode. Runs after the preceding numbered stage has produced its declared input.",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": [
+          "ev-eval",
+          "ev-vocab"
+        ],
+        "preconditions": [
+          {
+            "condition_id": "a-sample-pre",
+            "kind": "input",
+            "text": "merged logits on the leader"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "a-sample-pos",
+            "kind": "state",
+            "text": "d-token-out holds token j; s-kv appended; s-pos -> j+1"
+          }
+        ],
+        "input_ports": [
+          {
+            "port_id": "sample-logits-in",
+            "node_id": "d-logits",
+            "type_ref": "blueprint.work.ds4_arch.logits",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "sample-token-out",
+            "node_id": "d-token-out",
+            "type_ref": "blueprint.work.ds4_arch.Token",
+            "cardinality": "exactly_one"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "action",
+      "graph_id": "decode",
+      "entity_id": "a-score",
+      "params": {
+        "id": "a-score",
+        "kind": "ACTION",
+        "label": "[03] Per-layer attention scores on both ranks",
+        "state_set": [
+          {
+            "state_node_id": "s-kv",
+            "access": "read",
+            "meaning": "append-only KV prefix 0..j-1"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "score-ov",
+            "key": "overview",
+            "value": "For layer i, each rank computes Q against the replicated KV prefix through position j. No TP exchange occurs because dense attention state is mirrored.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "score-exit",
+            "key": "exit",
+            "value": "scored",
+            "status": "supported"
+          },
+          {
+            "entry_id": "score-cu",
+            "key": "code_unit",
+            "value": "qk matmul",
+            "status": "supported"
+          },
+          {
+            "entry_id": "score-im",
+            "key": "implementation_choice",
+            "value": "free",
+            "status": "supported"
+          },
+          {
+            "entry_id": "score-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "score-qkv-in",
+            "key": "input_use",
+            "value": "Consumes d-qkv as the stage 03 input; the exact DATA occurrence and port must match the incoming dataflow edge.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "d-qkv"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-score"
+                  },
+                  "direction": "input",
+                  "port_id": "score-qkv-in"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "score-scores-out",
+            "key": "output",
+            "value": "Produces d-scores as the stage 03 result; the exact DATA occurrence and port must match the outgoing dataflow edge.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "d-scores"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-score"
+                  },
+                  "direction": "output",
+                  "port_id": "score-scores-out"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "score-effect",
+            "key": "no_effect",
+            "value": "No externally observable effect; establishes attention scores.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "score-order",
+            "key": "ordering",
+            "value": "Stage 03 of token-j decode. Runs after the preceding numbered stage has produced its declared input.",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": [
+          "ev_qk_matmul"
+        ],
+        "preconditions": [
+          {
+            "condition_id": "a-score-pre",
+            "kind": "input",
+            "text": "KV prefix 0..j-1 on both ranks; q ready"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "a-score-pos",
+            "kind": "state",
+            "text": "d-scores[j,:] covers KV positions 0..j-1"
+          }
+        ],
+        "input_ports": [
+          {
+            "port_id": "score-qkv-in",
+            "node_id": "d-qkv",
+            "type_ref": "blueprint.work.ds4_arch.qkv",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "score-scores-out",
+            "node_id": "d-scores",
+            "type_ref": "blueprint.work.ds4_arch.scores",
+            "cardinality": "exactly_one"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "data",
+      "graph_id": "decode",
+      "entity_id": "d-ctx",
+      "params": {
+        "id": "d-ctx",
+        "kind": "DATA",
+        "label": "attended context",
+        "data_type": "blueprint.work.ds4_arch.context",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "d-ctx-role",
+            "key": "data_role",
+            "value": "result",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-ctx-id",
+            "key": "identity",
+            "value": "d-ctx",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-ctx-ng",
+            "key": "no_implementation_guide",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-ctx-ord",
+            "key": "no_ordering",
+            "value": "single",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-ctx-pres",
+            "key": "presence",
+            "value": "exactly one",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-ctx-prov",
+            "key": "provenance",
+            "value": "a-ctx",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": []
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "data",
+      "graph_id": "decode",
+      "entity_id": "d-expert",
+      "params": {
+        "id": "d-expert",
+        "kind": "DATA",
+        "label": "expert contribution",
+        "data_type": "blueprint.work.ds4_arch.expert_out",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "d-expert-role",
+            "key": "data_role",
+            "value": "result",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-expert-id",
+            "key": "identity",
+            "value": "d-expert",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-expert-ng",
+            "key": "no_implementation_guide",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-expert-ord",
+            "key": "no_ordering",
+            "value": "single",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-expert-pres",
+            "key": "presence",
+            "value": "exactly one",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-expert-prov",
+            "key": "provenance",
+            "value": "a-expert",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": []
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "data",
+      "graph_id": "decode",
+      "entity_id": "d-group",
+      "params": {
+        "id": "d-group",
+        "kind": "DATA",
+        "label": "TP group-sliced attention output",
+        "data_type": "blueprint.work.ds4_arch.group_out",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "d-group-role",
+            "key": "data_role",
+            "value": "result",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-group-id",
+            "key": "identity",
+            "value": "d-group",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-group-ng",
+            "key": "no_implementation_guide",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-group-ord",
+            "key": "no_ordering",
+            "value": "single",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-group-pres",
+            "key": "presence",
+            "value": "exactly one",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-group-prov",
+            "key": "provenance",
+            "value": "a-outproj",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": []
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "data",
+      "graph_id": "decode",
+      "entity_id": "d-hattn",
+      "params": {
+        "id": "d-hattn",
+        "kind": "DATA",
+        "label": "post-attention hidden (layer i)",
+        "data_type": "blueprint.work.ds4_arch.hidden",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "d-hattn-role",
+            "key": "data_role",
+            "value": "result",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-hattn-id",
+            "key": "identity",
+            "value": "d-hattn",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-hattn-ng",
+            "key": "no_implementation_guide",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-hattn-ord",
+            "key": "no_ordering",
+            "value": "single",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-hattn-pres",
+            "key": "presence",
+            "value": "exactly one",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-hattn-prov",
+            "key": "provenance",
+            "value": "a-attn-resid",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": []
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "data",
+      "graph_id": "decode",
+      "entity_id": "d-hffn",
+      "params": {
+        "id": "d-hffn",
+        "kind": "DATA",
+        "label": "post-FFN hidden (layer i)",
+        "data_type": "blueprint.work.ds4_arch.hidden",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "d-hffn-role",
+            "key": "data_role",
+            "value": "result",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-hffn-id",
+            "key": "identity",
+            "value": "d-hffn",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-hffn-ng",
+            "key": "no_implementation_guide",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-hffn-ord",
+            "key": "no_ordering",
+            "value": "single",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-hffn-pres",
+            "key": "presence",
+            "value": "exactly one",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-hffn-prov",
+            "key": "provenance",
+            "value": "a-ffn-resid",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": []
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "data",
+      "graph_id": "decode",
+      "entity_id": "d-hin",
+      "params": {
+        "id": "d-hin",
+        "kind": "DATA",
+        "label": "layer-i input hidden",
+        "data_type": "blueprint.work.ds4_arch.hidden",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "d-hin-role",
+            "key": "data_role",
+            "value": "result",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-hin-id",
+            "key": "identity",
+            "value": "d-hin",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-hin-ng",
+            "key": "no_implementation_guide",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-hin-ord",
+            "key": "no_ordering",
+            "value": "single",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-hin-pres",
+            "key": "presence",
+            "value": "exactly one",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-hin-prov",
+            "key": "provenance",
+            "value": "a-emb or a-ffn-resid",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": []
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "data",
+      "graph_id": "decode",
+      "entity_id": "d-lhalf",
+      "params": {
+        "id": "d-lhalf",
+        "kind": "DATA",
+        "label": "rank's logits half",
+        "data_type": "blueprint.work.ds4_arch.logits_half",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "d-lhalf-role",
+            "key": "data_role",
+            "value": "result",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-lhalf-id",
+            "key": "identity",
+            "value": "d-lhalf",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-lhalf-ng",
+            "key": "no_implementation_guide",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-lhalf-ord",
+            "key": "no_ordering",
+            "value": "single",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-lhalf-pres",
+            "key": "presence",
+            "value": "exactly one",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-lhalf-prov",
+            "key": "provenance",
+            "value": "a-head",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": []
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "data",
+      "graph_id": "decode",
+      "entity_id": "d-logits",
+      "params": {
+        "id": "d-logits",
+        "kind": "DATA",
+        "label": "merged vocab logits",
+        "data_type": "blueprint.work.ds4_arch.logits",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "d-logits-role",
+            "key": "data_role",
+            "value": "result",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-logits-id",
+            "key": "identity",
+            "value": "d-logits",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-logits-ng",
+            "key": "no_implementation_guide",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-logits-ord",
+            "key": "no_ordering",
+            "value": "single",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-logits-pres",
+            "key": "presence",
+            "value": "exactly one",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-logits-prov",
+            "key": "provenance",
+            "value": "a-merge",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": []
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "data",
+      "graph_id": "decode",
+      "entity_id": "d-qkv",
+      "params": {
+        "id": "d-qkv",
+        "kind": "DATA",
+        "label": "q,k,v for token j",
+        "data_type": "blueprint.work.ds4_arch.qkv",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "d-qkv-role",
+            "key": "data_role",
+            "value": "result",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-qkv-id",
+            "key": "identity",
+            "value": "d-qkv",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-qkv-ng",
+            "key": "no_implementation_guide",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-qkv-ord",
+            "key": "no_ordering",
+            "value": "single",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-qkv-pres",
+            "key": "presence",
+            "value": "exactly one",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-qkv-prov",
+            "key": "provenance",
+            "value": "a-qkv",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": []
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "data",
+      "graph_id": "decode",
+      "entity_id": "d-routed",
+      "params": {
+        "id": "d-routed",
+        "kind": "DATA",
+        "label": "routed expert stack",
+        "data_type": "blueprint.work.ds4_arch.routed",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "d-routed-role",
+            "key": "data_role",
+            "value": "result",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-routed-id",
+            "key": "identity",
+            "value": "d-routed",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-routed-ng",
+            "key": "no_implementation_guide",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-routed-ord",
+            "key": "no_ordering",
+            "value": "single",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-routed-pres",
+            "key": "presence",
+            "value": "exactly one",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-routed-prov",
+            "key": "provenance",
+            "value": "a-route",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": []
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "data",
+      "graph_id": "decode",
+      "entity_id": "d-scores",
+      "params": {
+        "id": "d-scores",
+        "kind": "DATA",
+        "label": "attention scores",
+        "data_type": "blueprint.work.ds4_arch.scores",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "d-scores-role",
+            "key": "data_role",
+            "value": "result",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-scores-id",
+            "key": "identity",
+            "value": "d-scores",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-scores-ng",
+            "key": "no_implementation_guide",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-scores-ord",
+            "key": "no_ordering",
+            "value": "single",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-scores-pres",
+            "key": "presence",
+            "value": "exactly one",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-scores-prov",
+            "key": "provenance",
+            "value": "a-score",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": []
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "data",
+      "graph_id": "decode",
+      "entity_id": "d-token-in",
+      "params": {
+        "id": "d-token-in",
+        "kind": "DATA",
+        "label": "input token (index j-1)",
+        "data_type": "blueprint.work.ds4_arch.Token",
+        "sources": [
+          {
+            "source_id": "src-d-token-in",
+            "kind": "graph_input",
+            "source_ref": "parent decode invocation",
+            "graph_input_port_id": "token-in",
+            "meaning": "The previous sampled token enters as token j-1 for this decode step."
+          }
+        ],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "d-token-in-role",
+            "key": "data_role",
+            "value": "result",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-token-in-id",
+            "key": "identity",
+            "value": "d-token-in",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-token-in-ng",
+            "key": "no_implementation_guide",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-token-in-ord",
+            "key": "no_ordering",
+            "value": "single",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-token-in-pres",
+            "key": "presence",
+            "value": "exactly one",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-token-in-prov",
+            "key": "provenance",
+            "value": "previous decode step",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": []
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "data",
+      "graph_id": "decode",
+      "entity_id": "d-token-out",
+      "params": {
+        "id": "d-token-out",
+        "kind": "DATA",
+        "label": "sampled token (index j)",
+        "data_type": "blueprint.work.ds4_arch.Token",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "d-token-out-role",
+            "key": "data_role",
+            "value": "result",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-token-out-id",
+            "key": "identity",
+            "value": "d-token-out",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-token-out-ng",
+            "key": "no_implementation_guide",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-token-out-ord",
+            "key": "no_ordering",
+            "value": "single",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-token-out-pres",
+            "key": "presence",
+            "value": "exactly one",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-token-out-prov",
+            "key": "provenance",
+            "value": "a-sample",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": []
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode",
+      "params": {
+        "id": "c-qkv-out",
+        "source_node_id": "a-qkv",
+        "target_node_id": "d-qkv",
+        "family": "dataflow",
+        "kind": "projection-output",
+        "label": "[02 -> 03] QKV projection",
+        "semantics": [
+          {
+            "entry_id": "c-qkv-out-relationship",
+            "key": "relationship",
+            "value": "a-qkv explicitly produces d-qkv; this wiring is validated against the action output contract.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode",
+      "params": {
+        "id": "c-score-out",
+        "source_node_id": "a-score",
+        "target_node_id": "d-scores",
+        "family": "dataflow",
+        "kind": "score-output",
+        "label": "[03 -> 04] attention scores",
+        "semantics": [
+          {
+            "entry_id": "c-score-out-relationship",
+            "key": "relationship",
+            "value": "a-score explicitly produces d-scores; this wiring is validated against the action output contract.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode",
+      "params": {
+        "id": "c-ctx-out",
+        "source_node_id": "a-ctx",
+        "target_node_id": "d-ctx",
+        "family": "dataflow",
+        "kind": "context-output",
+        "label": "[04 -> 05] attended context",
+        "semantics": [
+          {
+            "entry_id": "c-ctx-out-relationship",
+            "key": "relationship",
+            "value": "a-ctx explicitly produces d-ctx; this wiring is validated against the action output contract.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode",
+      "params": {
+        "id": "c-outproj-out",
+        "source_node_id": "a-outproj",
+        "target_node_id": "d-group",
+        "family": "dataflow",
+        "kind": "attn-gate-output",
+        "label": "[05 -> 06] combined ATTN partial",
+        "semantics": [
+          {
+            "entry_id": "c-outproj-out-relationship",
+            "key": "relationship",
+            "value": "a-outproj explicitly produces d-group; this wiring is validated against the action output contract.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode",
+      "params": {
+        "id": "c-attnresid-out",
+        "source_node_id": "a-attn-resid",
+        "target_node_id": "d-hattn",
+        "family": "dataflow",
+        "kind": "hidden-output",
+        "label": "[06 -> 07] post-attention hidden",
+        "semantics": [
+          {
+            "entry_id": "c-attnresid-out-relationship",
+            "key": "relationship",
+            "value": "a-attn-resid explicitly produces d-hattn; this wiring is validated against the action output contract.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode",
+      "params": {
+        "id": "c-route-out",
+        "source_node_id": "a-route",
+        "target_node_id": "d-routed",
+        "family": "dataflow",
+        "kind": "route-output",
+        "label": "[07 -> 08] selected experts",
+        "semantics": [
+          {
+            "entry_id": "c-route-out-relationship",
+            "key": "relationship",
+            "value": "a-route explicitly produces d-routed; this wiring is validated against the action output contract.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode",
+      "params": {
+        "id": "c-expert-out",
+        "source_node_id": "a-expert",
+        "target_node_id": "d-expert",
+        "family": "dataflow",
+        "kind": "ffn-gate-output",
+        "label": "[08 -> 09] combined FFN partial",
+        "semantics": [
+          {
+            "entry_id": "c-expert-out-relationship",
+            "key": "relationship",
+            "value": "a-expert explicitly produces d-expert; this wiring is validated against the action output contract.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode",
+      "params": {
+        "id": "c-ffnresid-final-out",
+        "source_node_id": "a-ffn-resid",
+        "target_node_id": "d-hffn",
+        "family": "dataflow",
+        "kind": "final-layer-output",
+        "label": "[09 -> 10] final-layer hidden",
+        "semantics": [
+          {
+            "entry_id": "c-ffnresid-final-out-relationship",
+            "key": "relationship",
+            "value": "a-ffn-resid explicitly produces d-hffn; this wiring is validated against the action output contract.",
+            "status": "supported"
+          }
+        ],
+        "conditions": [
+          {
+            "condition_id": "final-layer-hidden",
+            "kind": "guard",
+            "text": "layer i is the final decoder layer"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode",
+      "params": {
+        "id": "c-ffnresid-loop-out",
+        "source_node_id": "a-ffn-resid",
+        "target_node_id": "d-hin",
+        "family": "dataflow",
+        "kind": "loop-carried-output",
+        "label": "[09 -> 02] next-layer hidden",
+        "semantics": [
+          {
+            "entry_id": "c-ffnresid-loop-out-relationship",
+            "key": "relationship",
+            "value": "a-ffn-resid explicitly produces d-hin; this wiring is validated against the action output contract.",
+            "status": "supported"
+          }
+        ],
+        "conditions": [
+          {
+            "condition_id": "next-layer-hidden",
+            "kind": "guard",
+            "text": "layer i is not the final decoder layer"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode",
+      "params": {
+        "id": "c-head-out",
+        "source_node_id": "a-head",
+        "target_node_id": "d-lhalf",
+        "family": "dataflow",
+        "kind": "logits-half-output",
+        "label": "[10 -> 11] rank logits half",
+        "semantics": [
+          {
+            "entry_id": "c-head-out-relationship",
+            "key": "relationship",
+            "value": "a-head explicitly produces d-lhalf; this wiring is validated against the action output contract.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode",
+      "params": {
+        "id": "c-merge-out",
+        "source_node_id": "a-merge",
+        "target_node_id": "d-logits",
+        "family": "dataflow",
+        "kind": "merged-logits-output",
+        "label": "[11 -> 12] full leader logits",
+        "semantics": [
+          {
+            "entry_id": "c-merge-out-relationship",
+            "key": "relationship",
+            "value": "a-merge explicitly produces d-logits; this wiring is validated against the action output contract.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode",
+      "params": {
+        "id": "c-kv-qkv",
+        "source_node_id": "a-qkv",
+        "target_node_id": "s-kv",
+        "family": "state",
+        "kind": "state-update",
+        "label": "[02] append layer-i K/V at position j",
+        "semantics": [
+          {
+            "entry_id": "c-kv-qkv-relationship",
+            "key": "relationship",
+            "value": "QKV evaluation appends this layer's K/V before score and context stages read the prefix.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "c-kv-qkv-update",
+            "key": "state_update",
+            "value": "Append K and V for layer i at token position j while preserving append-only prefix order.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "s-kv"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "verb": "remove",
+      "entity": "edge",
+      "graph_id": "decode",
+      "entity_id": "c-kv-append",
+      "params": {}
+    },
+    {
+      "verb": "remove",
+      "entity": "edge",
+      "graph_id": "decode",
+      "entity_id": "c-tp-qkv",
+      "params": {}
+    },
+    {
+      "verb": "remove",
+      "entity": "edge",
+      "graph_id": "decode",
+      "entity_id": "c-tp-score",
+      "params": {}
+    },
+    {
+      "verb": "remove",
+      "entity": "edge",
+      "graph_id": "decode",
+      "entity_id": "c-tp-ctx",
+      "params": {}
+    },
+    {
+      "verb": "remove",
+      "entity": "edge",
+      "graph_id": "decode",
+      "entity_id": "c-out-up",
+      "params": {}
+    },
+    {
+      "verb": "remove",
+      "entity": "action",
+      "graph_id": "decode",
+      "entity_id": "a-out",
+      "params": {}
+    },
+    {
+      "verb": "add",
+      "entity": "port",
+      "graph_id": "decode",
+      "params": {
+        "owner": "graph",
+        "direction": "input",
+        "port": {
+          "port_id": "token-in",
+          "node_id": "d-token-in",
+          "type_ref": "blueprint.work.ds4_arch.Token",
+          "cardinality": "exactly_one"
+        }
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "port",
+      "graph_id": "decode",
+      "params": {
+        "owner": "graph",
+        "direction": "output",
+        "port": {
+          "port_id": "token-out",
+          "node_id": "d-token-out",
+          "type_ref": "blueprint.work.ds4_arch.Token",
+          "cardinality": "exactly_one"
+        }
+      }
+    },
+    {
+      "verb": "remove",
+      "entity": "semantic",
+      "graph_id": "decode",
+      "entity_id": "dec-ni",
+      "params": {
+        "owner_kind": "graph"
+      }
+    },
+    {
+      "verb": "remove",
+      "entity": "semantic",
+      "graph_id": "decode",
+      "entity_id": "dec-no",
+      "params": {
+        "owner_kind": "graph"
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "semantic",
+      "graph_id": "decode",
+      "params": {
+        "owner_kind": "graph",
+        "entry": {
+          "entry_id": "token-in",
+          "key": "input_use",
+          "value": "Receives exactly one previous token through graph port token-in.",
+          "status": "supported",
+          "object_ref": {
+            "port": {
+              "owner": "graph",
+              "direction": "input",
+              "port_id": "token-in"
+            }
+          },
+          "support_refs": [
+            {
+              "node_id": "d-token-in"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "semantic",
+      "graph_id": "decode",
+      "params": {
+        "owner_kind": "graph",
+        "entry": {
+          "entry_id": "token-out",
+          "key": "output",
+          "value": "Returns exactly one leader-sampled token j through graph port token-out.",
+          "status": "supported",
+          "object_ref": {
+            "port": {
+              "owner": "graph",
+              "direction": "output",
+              "port_id": "token-out"
+            }
+          },
+          "support_refs": [
+            {
+              "node_id": "d-token-out"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "semantic",
+      "graph_id": "decode",
+      "params": {
+        "owner_kind": "graph",
+        "entry": {
+          "entry_id": "dec-order",
+          "key": "ordering",
+          "value": "01 embed; for each layer i, 02 QKV/KV append, 03 scores, 04 context, 05 ATTN gate, 06 attention residual, 07 route, 08 split experts/FFN gate, 09 FFN residual; after the final layer, 10 vocab halves, 11 leader merge, 12 leader sample.",
+          "status": "supported",
+          "support_refs": [
+            {
+              "node_id": "a-emb"
+            },
+            {
+              "node_id": "a-qkv"
+            },
+            {
+              "node_id": "a-score"
+            },
+            {
+              "node_id": "a-ctx"
+            },
+            {
+              "node_id": "a-outproj"
+            },
+            {
+              "node_id": "a-attn-resid"
+            },
+            {
+              "node_id": "a-route"
+            },
+            {
+              "node_id": "a-expert"
+            },
+            {
+              "node_id": "a-ffn-resid"
+            },
+            {
+              "node_id": "a-head"
+            },
+            {
+              "node_id": "a-merge"
+            },
+            {
+              "node_id": "a-sample"
+            },
+            {
+              "edge_id": "c-layer-loop"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "semantic",
+      "graph_id": "decode",
+      "entity_id": "dec-exit",
+      "params": {
+        "owner_kind": "graph",
+        "entry": {
+          "entry_id": "dec-exit",
+          "key": "exit",
+          "value": "Success returns token j after both ranks complete every layer in lockstep and the leader samples.",
+          "status": "supported",
+          "support_refs": [
+            {
+              "node_id": "d-token-out"
+            },
+            {
+              "node_id": "a-sample"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "semantic",
+      "graph_id": "decode",
+      "entity_id": "cos2",
+      "params": {
+        "owner_kind": "graph",
+        "entry": {
+          "entry_id": "cos2",
+          "key": "operating_scenario",
+          "value": "Rank 0 and rank 1 execute stages 01-10 in lockstep; only stages 05 and 08 exchange per-layer partials, stage 11 assembles logits on rank 0, and stage 12 samples on rank 0.",
+          "status": "supported",
+          "support_refs": [
+            {
+              "node_id": "a-outproj"
+            },
+            {
+              "node_id": "a-expert"
+            },
+            {
+              "node_id": "a-merge"
+            },
+            {
+              "node_id": "a-sample"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "graph",
+      "graph_id": "decode",
+      "params": {
+        "display_name": "Decode token j on a 2-Mac tensor-parallel pair",
+        "overall_semantic": {
+          "overview": "Given token j-1 and session state at position j, run both Macs through every decoder layer in lockstep, exchange attention and FFN partials at two TP gates per layer, merge vocabulary logits on the leader, and return sampled token j.",
+          "support_refs": [
+            {
+              "node_id": "a-emb"
+            },
+            {
+              "node_id": "a-outproj"
+            },
+            {
+              "node_id": "a-expert"
+            },
+            {
+              "node_id": "a-sample"
+            }
+          ]
+        },
+        "architecture_rationale": {
+          "entry_id": "rat-dec2",
+          "value": "Both Macs mirror dense attention state and split routed experts. Numbered stages make the causal path explicit: two per-layer TP exchanges restore identical hidden state before the next layer, while vocabulary halves are merged only on the leader for sampling.",
+          "support_refs": [
+            {
+              "node_id": "a-outproj"
+            },
+            {
+              "node_id": "a-expert"
+            },
+            {
+              "node_id": "a-merge"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "edge",
+      "graph_id": "decode",
+      "entity_id": "c-layer-loop",
+      "params": {
+        "id": "c-layer-loop",
+        "source_node_id": "a-ffn-resid",
+        "target_node_id": "a-qkv",
+        "family": "loop",
+        "kind": "layer-loop",
+        "label": "[09 -> 02] repeat for layer i+1",
+        "semantics": [
+          {
+            "entry_id": "c-layer-loop-r",
+            "key": "relationship",
+            "value": "After producing d-hin for a non-final layer, both ranks advance together to QKV for layer i+1.",
+            "status": "supported"
+          }
+        ],
+        "conditions": [
+          {
+            "condition_id": "more-layers",
+            "kind": "guard",
+            "text": "layer i is not the final decoder layer"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "operation",
+      "graph_id": "decode",
+      "entity_id": "op-decode",
+      "params": {
+        "operation_id": "op-decode",
+        "name": "Decode token j on two tensor-parallel Macs",
+        "overview": "Execute stages 01-12 in numerical order. Stages 02-09 repeat once per decoder layer; stages 05 and 08 are the two cross-Mac gates; stages 11-12 are leader-only assembly and sampling.",
+        "members": [
+          {
+            "ref": {
+              "node_id": "a-emb"
+            },
+            "role": "stage 01"
+          },
+          {
+            "ref": {
+              "node_id": "a-qkv"
+            },
+            "role": "stage 02"
+          },
+          {
+            "ref": {
+              "node_id": "a-score"
+            },
+            "role": "stage 03"
+          },
+          {
+            "ref": {
+              "node_id": "a-ctx"
+            },
+            "role": "stage 04"
+          },
+          {
+            "ref": {
+              "node_id": "a-outproj"
+            },
+            "role": "stage 05"
+          },
+          {
+            "ref": {
+              "node_id": "a-attn-resid"
+            },
+            "role": "stage 06"
+          },
+          {
+            "ref": {
+              "node_id": "a-route"
+            },
+            "role": "stage 07"
+          },
+          {
+            "ref": {
+              "node_id": "a-expert"
+            },
+            "role": "stage 08"
+          },
+          {
+            "ref": {
+              "node_id": "a-ffn-resid"
+            },
+            "role": "stage 09"
+          },
+          {
+            "ref": {
+              "node_id": "a-head"
+            },
+            "role": "stage 10"
+          },
+          {
+            "ref": {
+              "node_id": "a-merge"
+            },
+            "role": "stage 11"
+          },
+          {
+            "ref": {
+              "node_id": "a-sample"
+            },
+            "role": "stage 12"
+          }
+        ],
+        "data_flow_ids": [],
+        "semantics": [
+          {
+            "entry_id": "cop1",
+            "key": "ordering",
+            "value": "The numeric action labels are normative execution order; the 09 -> 02 edge is the only per-layer loop.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "edge_id": "c-layer-loop"
+              }
+            ]
+          }
+        ],
+        "end_goals": [
+          {
+            "goal_id": "g-one-token",
+            "intent": "token j is sampled and delivered, append-only KV grows from length j to j+1, and the sequence index advances to j+1",
+            "bindings": [
+              {
+                "ref": {
+                  "node_id": "d-token-out"
+                },
+                "role": "produced_output",
+                "semantics": [
+                  {
+                    "entry_id": "cg1",
+                    "key": "end_condition",
+                    "value": "token j sampled on the leader",
+                    "status": "supported"
+                  }
+                ]
+              },
+              {
+                "ref": {
+                  "node_id": "s-kv"
+                },
+                "role": "final_state",
+                "semantics": [
+                  {
+                    "entry_id": "cg2",
+                    "key": "end_condition",
+                    "value": "append-only KV length j+1",
+                    "status": "supported"
+                  }
+                ]
+              },
+              {
+                "ref": {
+                  "node_id": "s-pos"
+                },
+                "role": "final_state",
+                "semantics": [
+                  {
+                    "entry_id": "cg3",
+                    "key": "end_condition",
+                    "value": "token-step index j+1",
+                    "status": "supported"
+                  }
+                ]
+              }
+            ],
+            "semantics": []
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "type_import",
+      "graph_id": "decode",
+      "params": {
+        "import_path": "serve.types.proto"
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "action",
+      "graph_id": "serve",
+      "entity_id": "action-decode-token",
+      "params": {
+        "id": "action-decode-token",
+        "kind": "ACTION",
+        "label": "Decode one token on the 2-Mac TP pair",
+        "expands_to_graph_id": "decode",
+        "state_set": [
+          {
+            "state_node_id": "state-tp",
+            "access": "update",
+            "meaning": "gate exchanges"
+          },
+          {
+            "state_node_id": "state-kv",
+            "access": "update",
+            "meaning": "append one token KV"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "dec-ov",
+            "key": "overview",
+            "value": "Given token j-1 and session state at position j, run both Macs through every decoder layer in lockstep, exchange attention and FFN partials at two TP gates per layer, merge vocabulary logits on the leader, and return sampled token j.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "dec-ef",
+            "key": "effect",
+            "value": "one token sampled; KV +1",
+            "status": "supported"
+          },
+          {
+            "entry_id": "dec-exit",
+            "key": "exit",
+            "value": "Success returns token j after both ranks complete every layer in lockstep and the leader samples.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "dec-im",
+            "key": "implementation_choice",
+            "value": "free",
+            "status": "supported"
+          },
+          {
+            "entry_id": "dec-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "token-in",
+            "key": "input_use",
+            "value": "Receives exactly one previous token through graph port token-in.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "data-token"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "action-decode-token"
+                  },
+                  "direction": "input",
+                  "port_id": "token-in"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "token-out",
+            "key": "output",
+            "value": "Returns exactly one leader-sampled token j through graph port token-out.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "data-token"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "action-decode-token"
+                  },
+                  "direction": "output",
+                  "port_id": "token-out"
+                }
+              }
+            ]
+          }
+        ],
+        "evidence_refs": [
+          "ev-decodew",
+          "ev-eval",
+          "ev-gateex",
+          "ev-qk_matmul",
+          "ev_expert_ffn"
+        ],
+        "preconditions": [
+          {
+            "condition_id": "action-decode-token-pre",
+            "kind": "input",
+            "text": "model positioned after the last token; TP pair in lockstep"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "action-decode-token-pos",
+            "kind": "state",
+            "text": "one new token sampled; KV advanced one step"
+          }
+        ],
+        "input_ports": [
+          {
+            "port_id": "token-in",
+            "node_id": "data-token",
+            "type_ref": "blueprint.work.ds4_arch.Token",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "token-out",
+            "node_id": "data-token",
+            "type_ref": "blueprint.work.ds4_arch.Token",
+            "cardinality": "exactly_one"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "action",
+      "graph_id": "serve",
+      "entity_id": "action-serve-accept",
+      "params": {
+        "id": "action-serve-accept",
+        "kind": "ACTION",
+        "label": "Accept and enqueue request",
+        "state_set": [
+          {
+            "state_node_id": "state-kv",
+            "access": "read",
+            "meaning": "find or empty session KV"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "acc-ov",
+            "key": "overview",
+            "value": "Accept a chat request, find its session (live KV or disk checkpoint), enqueue a slot job.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "acc-ef",
+            "key": "effect",
+            "value": "request queued against its session",
+            "status": "supported"
+          },
+          {
+            "entry_id": "acc-exit",
+            "key": "exit",
+            "value": "queued",
+            "status": "supported"
+          },
+          {
+            "entry_id": "acc-cu",
+            "key": "code_unit",
+            "value": "ds4-server handle + enqueue",
+            "status": "supported"
+          },
+          {
+            "entry_id": "acc-im",
+            "key": "implementation_choice",
+            "value": "free",
+            "status": "supported"
+          },
+          {
+            "entry_id": "acc-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "accept-request-in",
+            "key": "input_use",
+            "value": "Consumes data-request through the declared parent action contract.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "data-request"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "action-serve-accept"
+                  },
+                  "direction": "input",
+                  "port_id": "accept-request-in"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "action-serve-accept-no-output",
+            "key": "no_output",
+            "value": "This action has no typed return value; its continuation/effect is structurally explicit.",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": [
+          "ev-enqueue",
+          "ev-kvopen"
+        ],
+        "preconditions": [
+          {
+            "condition_id": "action-serve-accept-pre",
+            "kind": "input",
+            "text": "a request and a free decode slot"
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "action-serve-accept-pos",
+            "kind": "state",
+            "text": "a slot job is queued bound to the session id"
+          }
+        ],
+        "input_ports": [
+          {
+            "port_id": "accept-request-in",
+            "node_id": "data-request",
+            "type_ref": "blueprint.work.ds4_arch.ChatRequest",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": []
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "action",
+      "graph_id": "serve",
+      "entity_id": "action-stream-token",
+      "params": {
+        "id": "action-stream-token",
+        "kind": "ACTION",
+        "label": "Stream sampled token to the client",
+        "state_set": [],
+        "semantics": [
+          {
+            "entry_id": "str-ov",
+            "key": "overview",
+            "value": "Stream the sampled token to the client over SSE/HTTP.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "str-ef",
+            "key": "effect",
+            "value": "token delivered to the client",
+            "status": "supported"
+          },
+          {
+            "entry_id": "str-exit",
+            "key": "exit",
+            "value": "streaming",
+            "status": "supported"
+          },
+          {
+            "entry_id": "str-cu",
+            "key": "code_unit",
+            "value": "ds4-server HTTP streaming",
+            "status": "supported"
+          },
+          {
+            "entry_id": "str-im",
+            "key": "implementation_choice",
+            "value": "free",
+            "status": "supported"
+          },
+          {
+            "entry_id": "str-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "stream-token-in",
+            "key": "input_use",
+            "value": "Consumes data-token through the declared parent action contract.",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "data-token"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "action-stream-token"
+                  },
+                  "direction": "input",
+                  "port_id": "stream-token-in"
+                }
+              }
+            ]
+          },
+          {
+            "entry_id": "action-stream-token-no-output",
+            "key": "no_output",
+            "value": "This action has no typed return value; its continuation/effect is structurally explicit.",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": [
+          "ev-decodew",
+          "ev-main"
+        ],
+        "preconditions": [],
+        "postconditions": [],
+        "input_ports": [
+          {
+            "port_id": "stream-token-in",
+            "node_id": "data-token",
+            "type_ref": "blueprint.work.ds4_arch.Token",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": []
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "data",
+      "graph_id": "serve",
+      "entity_id": "data-token",
+      "params": {
+        "id": "data-token",
+        "kind": "DATA",
+        "label": "generated token",
+        "data_type": "blueprint.work.ds4_arch.Token",
+        "sources": [
+          {
+            "source_id": "src-data-token",
+            "kind": "graph_input",
+            "source_ref": "decode-loop token sequence",
+            "graph_input_port_id": "root-tok",
+            "meaning": "The token sequence enters at the root boundary and each decode action produces its next element."
+          }
+        ],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "data-token-role",
+            "key": "data_role",
+            "value": "result",
+            "status": "supported"
+          },
+          {
+            "entry_id": "data-token-id",
+            "key": "identity",
+            "value": "data-token",
+            "status": "supported"
+          },
+          {
+            "entry_id": "data-token-ng",
+            "key": "no_implementation_guide",
+            "value": "none",
+            "status": "supported"
+          },
+          {
+            "entry_id": "data-token-ord",
+            "key": "no_ordering",
+            "value": "single",
+            "status": "supported"
+          },
+          {
+            "entry_id": "data-token-pres",
+            "key": "presence",
+            "value": "exactly one",
+            "status": "supported"
+          },
+          {
+            "entry_id": "data-token-prov",
+            "key": "provenance",
+            "value": "<action-decode-token>",
+            "status": "supported"
+          }
+        ],
+        "evidence_refs": []
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "serve",
+      "params": {
+        "id": "e-token-decode",
+        "source_node_id": "data-token",
+        "target_node_id": "action-decode-token",
+        "family": "dataflow",
+        "kind": "token-input",
+        "label": "previous token enters the next decode step",
+        "semantics": [
+          {
+            "entry_id": "e-token-decode-relationship",
+            "key": "relationship",
+            "value": "The previous token occurrence satisfies the decode child token-in port.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "remove",
+      "entity": "edge",
+      "graph_id": "serve",
+      "entity_id": "e-dec-loop",
+      "params": {}
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "serve",
+      "params": {
+        "id": "e-stream-next-decode",
+        "source_node_id": "action-stream-token",
+        "target_node_id": "action-decode-token",
+        "family": "loop",
+        "kind": "decode-loop",
+        "label": "stream completes before next token decode",
+        "semantics": [
+          {
+            "entry_id": "e-stream-next-decode-relationship",
+            "key": "relationship",
+            "value": "After streaming a non-stop token, the leader and worker start the next child decode in lockstep.",
+            "status": "supported"
+          }
+        ],
+        "conditions": [
+          {
+            "condition_id": "continue-generation",
+            "kind": "guard",
+            "text": "the streamed token is not a stop token and the generation limit is not reached"
+          }
+        ]
+      }
+    }
+  ]
+}

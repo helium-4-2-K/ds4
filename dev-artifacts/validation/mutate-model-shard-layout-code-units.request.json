@@ -1,0 +1,97 @@
+{
+  "schema": "blueprint-write-request/v11",
+  "action": "mutate",
+  "request_id": "mutate-model-shard-layout-code-units",
+  "root": "/Users/helium/src/ds4-gb10x4-bcd/bdev",
+  "record_dir": "/Users/helium/src/ds4-gb10x4-bcd/dev-artifacts/03_record",
+  "expected_blueprint_sha256": "7e368072fc54ea561c1b3889dc25e737ba0d05dd879edd05b78d9cc88475555e",
+  "validation_stage": "complete",
+  "operations": [
+    {
+      "verb": "add",
+      "entity": "semantic",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "a-read-layout-spec",
+        "entry": {
+          "entry_id": "a-read-layout-spec-cu",
+          "key": "code_unit",
+          "value": "ds4_glm52_layout_read_manifest",
+          "status": "supported",
+          "support_refs": [
+            {
+              "node_id": "a-read-layout-spec"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "semantic",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "a-validate-tensor-ownership",
+        "entry": {
+          "entry_id": "a-validate-tensor-ownership-cu",
+          "key": "code_unit",
+          "value": "ds4_glm52_layout_validate_ownership",
+          "status": "supported",
+          "support_refs": [
+            {
+              "node_id": "a-validate-tensor-ownership"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "semantic",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "a-load-rank-tensors",
+        "entry": {
+          "entry_id": "a-load-rank-tensors-cu",
+          "key": "code_unit",
+          "value": "ds4_glm52_layout_mmap_rank_tensors",
+          "status": "supported",
+          "support_refs": [
+            {
+              "node_id": "a-load-rank-tensors"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "semantic",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "a-publish-loaded-shard",
+        "entry": {
+          "entry_id": "a-publish-loaded-shard-cu",
+          "key": "code_unit",
+          "value": "ds4_glm52_layout_publish_loaded_rank_shard",
+          "status": "supported",
+          "support_refs": [
+            {
+              "node_id": "a-publish-loaded-shard"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "contract_validation": {
+    "profile": "leaf",
+    "graph_ids": [
+      "model-shard-layout"
+    ]
+  }
+}

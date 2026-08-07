@@ -42,6 +42,8 @@
 
 #include "ds4.h"
 #include "ds4_distributed.h"
+#include "ds4_glm52_l0.h"
+#include "ds4_glm52_mock.h"
 #include "ds4_tp.h"
 
 /* Wave-2 multi-GPU types are needed in every build because the engine
@@ -50,6 +52,8 @@
  * the packer in multi-tier mode, but the headers are tiny and C-safe). */
 #include "ds4_layer_pack.h"
 #include "ds4_gpu_mgpu.h"
+
+static bool ds4_engine_is_glm52_mock(const ds4_engine *e);
 
 #define DS4_CUDA_TP_PEER_TMP_BYTES \
     ((uint64_t)DS4_N_EXPERT_USED * DS4_N_EMBD * sizeof(float) + 128u)
@@ -35946,6 +35950,7 @@ struct ds4_engine {
     bool dspark_strict;
     bool cuda_tensor_parallel;
     bool glm_tp_token_prefill;
+    bool glm52_mock_enabled;
     bool ssd_streaming;
     bool ssd_streaming_cold;
     bool ssd_streaming_full_layers_set;
@@ -35976,6 +35981,8 @@ struct ds4_engine {
      * caller that doesn't set the option observe the prior behavior). */
     int            placement_ctx_hint;
     int            placement_session_count_hint;
+    ds4_glm52_l0_config glm52_mock_l0_config;
+    ds4_glm52_mock_model glm52_mock_model;
 };
 
 static uint64_t ds4_engine_dynamic_expert_cache_bytes(
@@ -36904,6 +36911,10 @@ static void encode_chat_prompt(
 }
 
 void ds4_tokenize_text(ds4_engine *e, const char *text, ds4_tokens *out) {
+    if (ds4_engine_is_glm52_mock(e)) {
+        ds4_glm52_mock_tokenize(text, out);
+        return;
+    }
     bpe_tokenize_text(&e->vocab, text ? text : "", out);
 }
 
@@ -36981,10 +36992,18 @@ static void tokenize_rendered_chat_vocab(const ds4_vocab *vocab, const char *tex
 }
 
 void ds4_tokenize_rendered_chat(ds4_engine *e, const char *text, ds4_tokens *out) {
+    if (ds4_engine_is_glm52_mock(e)) {
+        ds4_glm52_mock_tokenize(text, out);
+        return;
+    }
     tokenize_rendered_chat_vocab(&e->vocab, text, out);
 }
 
 void ds4_chat_begin(ds4_engine *e, ds4_tokens *tokens) {
+    if (ds4_engine_is_glm52_mock(e)) {
+        ds4_tokens_push(tokens, 4096);
+        return;
+    }
     chat_push_bos_sequence(&e->vocab, tokens);
 }
 
@@ -36994,10 +37013,20 @@ void ds4_encode_chat_prompt(
         const char *prompt,
         ds4_think_mode think_mode,
         ds4_tokens *out) {
+    if (ds4_engine_is_glm52_mock(e)) {
+        if (system && system[0]) ds4_glm52_mock_tokenize(system, out);
+        ds4_glm52_mock_tokenize(prompt ? prompt : "", out);
+        (void)think_mode;
+        return;
+    }
     encode_chat_prompt(&e->vocab, system, prompt ? prompt : "", think_mode, out);
 }
 
 void ds4_chat_append_max_effort_prefix(ds4_engine *e, ds4_tokens *tokens) {
+    if (ds4_engine_is_glm52_mock(e)) {
+        ds4_glm52_mock_tokenize("Reasoning Effort: Max", tokens);
+        return;
+    }
     bpe_tokenize_text(&e->vocab, DS4_REASONING_EFFORT_MAX_PREFIX, tokens);
 }
 
@@ -37032,6 +37061,14 @@ static void bpe_tokenize_tool_response_text(ds4_vocab *vocab, const char *conten
 }
 
 void ds4_chat_append_message(ds4_engine *e, ds4_tokens *tokens, const char *role, const char *content) {
+    if (ds4_engine_is_glm52_mock(e)) {
+        if (!role) role = "user";
+        if (!content) content = "";
+        ds4_tokens_push(tokens, !strcmp(role, "assistant") ? 4098 :
+                                !strcmp(role, "system") ? 4099 : 4097);
+        ds4_glm52_mock_tokenize(content, tokens);
+        return;
+    }
     ds4_vocab *vocab = &e->vocab;
     if (!role) role = "user";
     if (!content) content = "";
@@ -37081,6 +37118,10 @@ void ds4_chat_append_message(ds4_engine *e, ds4_tokens *tokens, const char *role
 
 
 void ds4_chat_append_assistant_prefix(ds4_engine *e, ds4_tokens *tokens, ds4_think_mode think_mode) {
+    if (ds4_engine_is_glm52_mock(e)) {
+        ds4_tokens_push(tokens, ds4_think_mode_enabled(think_mode) ? 4100 : 4098);
+        return;
+    }
     token_vec_push(tokens, e->vocab.assistant_id);
     if (DS4_MODEL_FAMILY == DS4_MODEL_FAMILY_GLM_DSA &&
         !ds4_think_mode_enabled(think_mode)) {
@@ -37168,6 +37209,14 @@ static bool vocab_token_is_literal_special(ds4_str s) {
 }
 
 char *ds4_token_text(ds4_engine *e, int token, size_t *len) {
+    if (ds4_engine_is_glm52_mock(e)) {
+        char *out = ds4_glm52_mock_token_text(token, len);
+        if (out) return out;
+        if (len) *len = 0;
+        out = xmalloc(1);
+        out[0] = '\0';
+        return out;
+    }
     ds4_vocab *vocab = &e->vocab;
     if (token < 0 || token >= vocab->n_vocab) {
         if (len) *len = 0;
@@ -37210,10 +37259,14 @@ static bool vocab_token_is_generation_stop(const ds4_vocab *vocab, int token) {
 }
 
 int ds4_token_eos(ds4_engine *e) {
+    if (ds4_engine_is_glm52_mock(e)) return DS4_GLM52_MOCK_N_VOCAB - 1;
     return e->vocab.eos_id;
 }
 
 bool ds4_token_is_stop(ds4_engine *e, int token) {
+    if (ds4_engine_is_glm52_mock(e)) {
+        return token == DS4_GLM52_MOCK_N_VOCAB - 1;
+    }
     return e ? vocab_token_is_generation_stop(&e->vocab, token) : false;
 }
 
@@ -48231,6 +48284,7 @@ typedef struct ds4_dspark_spec_stats {
 struct ds4_session {
     ds4_engine *engine;
     ds4_dist_session *distributed;
+    ds4_glm52_mock_session glm52_mock;
     uint64_t tp_session_id;
 #ifndef DS4_NO_GPU
     ds4_gpu_graph graph;
@@ -56087,6 +56141,36 @@ static int ds4_engine_open_internal(ds4_engine **out,
                                     const ds4_engine_options *opt,
                                     const ds4_gpu_config *gpu_cfg);
 
+static void ds4_glm52_l0_stderr_trace(void *ud,
+                                      const char *graph_id,
+                                      const char *action_id,
+                                      ds4_glm52_l0_status status,
+                                      bool prerequisite_blocked,
+                                      const ds4_glm52_l0_state *state) {
+    (void)ud;
+    fprintf(stderr,
+            "ds4: GLM 5.2 TP4 L0 trace graph=%s action=%s status=%s review_after_block=%s rank=%d cursor=%" PRIu64 " kv=%" PRIu64 "\n",
+            graph_id,
+            action_id,
+            ds4_glm52_l0_status_name(status),
+            prerequisite_blocked ? "true" : "false",
+            state ? state->rank_plan.rank : -1,
+            state ? state->cursor.token_step_j : 0,
+            state ? state->cursor.kv_length : 0);
+}
+
+static bool ds4_engine_is_glm52_mock(const ds4_engine *e) {
+    return e && e->glm52_mock_enabled;
+}
+
+static void ds4_session_mock_report_progress(ds4_session *s,
+                                             int current,
+                                             int total) {
+    if (s && s->progress) {
+        s->progress(s->progress_ud, "prefill_chunk", current, total);
+    }
+}
+
 int ds4_engine_open(ds4_engine **out, const ds4_engine_options *opt) {
     return ds4_engine_open_internal(out, opt, NULL);
 }
@@ -56131,6 +56215,79 @@ static int ds4_engine_open_internal(ds4_engine **out,
         e->dspark_confidence_threshold = opt->dspark_confidence_threshold;
     } else {
         e->dspark_confidence_threshold = 0.7f;
+    }
+    if (opt->glm52_tp4_l0) {
+        ds4_glm52_l0_config l0_cfg;
+        ds4_glm52_l0_state l0_state;
+        ds4_glm52_l0_result l0_result;
+        char l0_err[192];
+        if (!ds4_glm52_l0_config_from_engine(opt,
+                                             &l0_cfg,
+                                             l0_err,
+                                             sizeof(l0_err)) ||
+            !ds4_glm52_l0_validate_config(&l0_cfg, l0_err, sizeof(l0_err))) {
+            fprintf(stderr, "ds4: %s\n", l0_err);
+            free(e);
+            *out = NULL;
+            return 1;
+        }
+        if (l0_cfg.mock_model) {
+            if (!l0_cfg.mock_matmul) {
+                fprintf(stderr,
+                        "ds4: GLM 5.2 TP4 mock model requires --glm52-tp4-mock-matmul for executable sessions\n");
+                free(e);
+                *out = NULL;
+                return 1;
+            }
+            if (!ds4_glm52_mock_model_init(&l0_cfg,
+                                           &e->glm52_mock_model,
+                                           l0_err,
+                                           sizeof(l0_err))) {
+                fprintf(stderr, "ds4: %s\n", l0_err);
+                free(e);
+                *out = NULL;
+                return 1;
+            }
+            g_ds4_shape = DS4_SHAPE_GLM52;
+            e->glm52_mock_l0_config = l0_cfg;
+            e->glm52_mock_enabled = true;
+            e->backend = DS4_BACKEND_CPU;
+            e->vocab.n_vocab = DS4_GLM52_MOCK_N_VOCAB;
+            e->vocab.bos_id = 4096;
+            e->vocab.eos_id = DS4_GLM52_MOCK_N_VOCAB - 1;
+            e->vocab.system_id = -1;
+            e->vocab.user_id = -1;
+            e->vocab.assistant_id = -1;
+            e->vocab.observation_id = -1;
+            e->vocab.sop_id = -1;
+            e->vocab.think_start_id = -1;
+            e->vocab.think_end_id = -1;
+            ds4_acquire_instance_lock();
+            fprintf(stderr,
+                    "ds4: GLM 5.2 TP4 mock engine opened: rank=%d q_heads=[%d,%d) vocab=[%d,%d) tensors=%d\n",
+                    e->glm52_mock_model.rank,
+                    e->glm52_mock_model.q_head_start,
+                    e->glm52_mock_model.q_head_end,
+                    e->glm52_mock_model.vocab_start,
+                    e->glm52_mock_model.vocab_end,
+                    e->glm52_mock_model.tensor_count);
+            *out = e;
+            return 0;
+        }
+        ds4_glm52_l0_status l0_status =
+            ds4_glm52_l0_review_skeleton(&l0_cfg,
+                                         &l0_state,
+                                         &l0_result,
+                                         ds4_glm52_l0_stderr_trace,
+                                         NULL);
+        fprintf(stderr,
+                "ds4: GLM 5.2 TP4 L0 %s at %s: %s\n",
+                ds4_glm52_l0_status_name(l0_status),
+                l0_result.action_id,
+                l0_result.message);
+        free(e);
+        *out = NULL;
+        return 1;
     }
     if (opt->cuda_tensor_parallel &&
         (opt->backend != DS4_BACKEND_CUDA || !gpu_cfg ||
@@ -57033,6 +57190,7 @@ void ds4_engine_summary(ds4_engine *e) {
 }
 
 int ds4_engine_vocab_size(ds4_engine *e) {
+    if (ds4_engine_is_glm52_mock(e)) return DS4_GLM52_MOCK_N_VOCAB;
     return e ? e->vocab.n_vocab : 0;
 }
 
@@ -57141,6 +57299,7 @@ int ds4_engine_embd_dim(ds4_engine *e) {
 }
 
 uint64_t ds4_engine_model_bytes(ds4_engine *e) {
+    if (ds4_engine_is_glm52_mock(e)) return 0;
     return e->model.size;
 }
 
@@ -57442,6 +57601,18 @@ static int ds4_session_tp_register(ds4_session *s) {
 
 int ds4_session_create(ds4_session **out, ds4_engine *e, int ctx_size) {
     if (!out || !e || ctx_size <= 0) return 1;
+    if (ds4_engine_is_glm52_mock(e)) {
+        ds4_session *s = xcalloc(1, sizeof(*s));
+        s->engine = e;
+        s->ctx_size = ctx_size;
+        s->prefill_cap = (uint32_t)ctx_size;
+        s->logits = xmalloc((size_t)DS4_GLM52_MOCK_N_VOCAB *
+                             sizeof(s->logits[0]));
+        s->sample_probs = xmalloc((size_t)DS4_GLM52_MOCK_N_VOCAB *
+                                  sizeof(s->sample_probs[0]));
+        *out = s;
+        return 0;
+    }
     if (e->backend == DS4_BACKEND_CPU) {
         if (DS4_MODEL_FAMILY == DS4_MODEL_FAMILY_GLM_DSA) {
             fprintf(stderr, "ds4: GLM sessions currently require a graph backend\n");
@@ -57754,7 +57925,9 @@ void ds4_session_free(ds4_session *s) {
     ds4_session_print_dspark_stats(s);
 #endif
     ds4_dist_session_free(s->distributed);
-    if (ds4_session_is_cpu(s)) {
+    if (ds4_engine_is_glm52_mock(s->engine)) {
+        /* No CPU KV cache or GPU graph is allocated for explicit mock sessions. */
+    } else if (ds4_session_is_cpu(s)) {
         kv_cache_free(&s->cpu_cache);
         cpu_decode_scratch_free(&s->cpu_scratch);
     }
@@ -58783,6 +58956,46 @@ static int ds4_session_sync_internal(ds4_session *s, const ds4_tokens *prompt, c
     if (ds4_session_cancelled(s)) {
         snprintf(err, errlen, "interrupted");
         return DS4_SESSION_SYNC_INTERRUPTED;
+    }
+    if (ds4_engine_is_glm52_mock(s->engine)) {
+        ds4_engine *e = s->engine;
+        if (s->checkpoint_valid &&
+            prompt->len >= s->checkpoint.len &&
+            ds4_tokens_starts_with(prompt, &s->checkpoint)) {
+            for (int i = s->checkpoint.len; i < prompt->len; i++) {
+                if (!ds4_glm52_mock_decode(&e->glm52_mock_model,
+                                           &s->glm52_mock,
+                                           prompt->v[i],
+                                           s->logits,
+                                           DS4_GLM52_MOCK_N_VOCAB,
+                                           err,
+                                           errlen)) {
+                    s->checkpoint_valid = false;
+                    return 1;
+                }
+                token_vec_push(&s->checkpoint, prompt->v[i]);
+                ds4_session_mock_report_progress(s, i + 1, prompt->len);
+            }
+        } else {
+            if (!ds4_glm52_mock_prefill(&e->glm52_mock_model,
+                                        prompt->v,
+                                        (size_t)prompt->len,
+                                        &s->glm52_mock,
+                                        s->logits,
+                                        DS4_GLM52_MOCK_N_VOCAB,
+                                        err,
+                                        errlen)) {
+                s->checkpoint_valid = false;
+                return 1;
+            }
+            ds4_tokens_copy(&s->checkpoint, prompt);
+            ds4_session_mock_report_progress(s, prompt->len, prompt->len);
+        }
+        s->checkpoint_valid = true;
+        s->mtp_draft_valid = false;
+        s->greedy_splitkv_segment.len = 0;
+        s->greedy_splitkv_anchor_valid = false;
+        return 0;
     }
     if (s->distributed) {
         const ds4_tokens *checkpoint = s->checkpoint_valid ? &s->checkpoint : NULL;
@@ -60406,6 +60619,28 @@ static void ds4_session_prepare_support_draft(ds4_session *s,
 static int ds4_session_eval_internal(ds4_session *s, int token, bool probe_mtp,
                                      char *err, size_t errlen) {
     if (!s) return 1;
+    if (ds4_engine_is_glm52_mock(s->engine)) {
+        ds4_engine *e = s->engine;
+        if (!s->checkpoint_valid) {
+            if (errlen) snprintf(err, errlen, "GLM 5.2 mock decode requires a valid checkpoint");
+            return 1;
+        }
+        if (!ds4_glm52_mock_decode(&e->glm52_mock_model,
+                                   &s->glm52_mock,
+                                   token,
+                                   s->logits,
+                                   DS4_GLM52_MOCK_N_VOCAB,
+                                   err,
+                                   errlen)) {
+            s->checkpoint_valid = false;
+            return 1;
+        }
+        token_vec_push(&s->checkpoint, token);
+        s->checkpoint_valid = true;
+        s->mtp_draft_valid = false;
+        (void)probe_mtp;
+        return 0;
+    }
     if (s->distributed) {
         if (!s->checkpoint_valid) {
             if (errlen) snprintf(err, errlen, "distributed decode requires a valid checkpoint");

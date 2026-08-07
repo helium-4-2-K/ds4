@@ -1,0 +1,2275 @@
+schema_version: "blueprint-graph/v1"
+graph_id: "serve"
+display_name: "DwarfStar GLM 5.2 TP=4 serving on four GX10 machines"
+graph_version: "3.0"
+lifecycle: DRAFT
+schema_ref: "blueprint-schema/blueprint/v1/blueprint.proto"
+type_schema_ref: "serve.types.proto"
+input_ports {
+  port_id: "root-model"
+  node_id: "state-model-leader"
+  type_ref: "blueprint.work.ds4_arch.model"
+  cardinality: PORT_CARDINALITY_EXACTLY_ONE
+}
+input_ports {
+  port_id: "root-req"
+  node_id: "data-request"
+  type_ref: "blueprint.work.ds4_arch.ChatRequest"
+  cardinality: PORT_CARDINALITY_EXACTLY_ONE
+}
+input_ports {
+  port_id: "root-tok"
+  node_id: "data-token"
+  type_ref: "blueprint.work.ds4_arch.Token"
+  cardinality: PORT_CARDINALITY_ZERO_OR_MORE
+}
+output_ports {
+  port_id: "root-tok"
+  node_id: "data-token"
+  type_ref: "blueprint.work.ds4_arch.Token"
+  cardinality: PORT_CARDINALITY_ZERO_OR_MORE
+}
+graph {
+  overall_semantic {
+    overview: "Serve GLM 5.2 with tensor parallel degree 4 across four GX10 machines. Every rank participates in every decoder layer, owns rank-local Q/head/expert/vocab shards, uses explicit collectives to rebuild replicated hidden state, and returns a sampled token to the coordinator."
+    support_refs {
+      node_id: "action-decode-token"
+    }
+    support_refs {
+      node_id: "action-tp-group"
+    }
+    support_refs {
+      node_id: "state-tp"
+    }
+  }
+  semantics {
+    entry_id: "rat-tp4"
+    key: "architecture_rationale"
+    value: "This target is tensor parallelism, not layer pipeline parallelism: the full layer order is identical on all four ranks, while large tensors are sharded and synchronized with authored broadcast, all-reduce, and gather actions. Current repo evidence says GLM 5.2 CUDA TP is not implemented yet, so the blueprint records the intended target and its implementation gap explicitly."
+    support_refs {
+      node_id: "action-decode-token"
+    }
+    support_refs {
+      node_id: "action-tp-group"
+    }
+    support_refs {
+      node_id: "state-model-worker"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "serve-design"
+    key: "design_subject"
+    value: "GLM 5.2 DwarfStar serving with TP=4 over four GX10 machines."
+    support_refs {
+      node_id: "action-decode-token"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "serve-gap"
+    key: "implementation_gap"
+    value: "Current code rejects --cuda-tensor-parallel for GLM 5.2; implementation must add GLM 5.2 TP kernels/collectives for this target."
+    support_refs {
+      node_id: "action-tp-group"
+    }
+    support_refs {
+      node_id: "state-model-worker"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "serve-gap-bird-reference"
+    key: "implementation_gap_reference"
+    value: "DwarfStar GLM 5.2 TP should be designed against the Bird/vLLM TP4 behavior, while preserving that DS4 code still needs native GLM 5.2 TP support."
+    support_refs {
+      node_id: "state-model-worker"
+    }
+    support_refs {
+      node_id: "state-tp"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "serve-bird-baseline"
+    key: "implementation_reference"
+    value: "Validated external serving baseline: Bird vLLM commit b7abab517 serving QuantTrio GLM-5.2 with TP4, PP1, DCP4, one rank per GX10, B12X_MLA_SPARSE attention, fp8_ds_mla KV, NCCL 2.30.4, four channels, and served name glm-5.2-full-bird-dspark-bf16-nccl2304-ch4."
+    support_refs {
+      node_id: "action-decode-token"
+    }
+    support_refs {
+      node_id: "action-tp-group"
+    }
+    support_refs {
+      node_id: "state-tp"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "serve-no-guide"
+    key: "no_implementation_guide"
+    value: "none"
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "serve-scenario"
+    key: "operating_scenario"
+    value: "Four GX10 ranks form one TP group. Rank0 coordinates API/sampling; all ranks run every layer in lockstep with rank-owned tensor shards and collectives."
+    support_refs {
+      node_id: "action-decode-token"
+    }
+    support_refs {
+      node_id: "action-tp-group"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "serve-bird-operational-topology"
+    key: "operational_baseline"
+    value: "Bird/vLLM launch uses rank0 at 192.168.0.40, ranks1-3 at 192.168.0.240/0.99/0.39, fabric rail-A 10.100.185.3/1/2/4, and local per-rank sharded checkpoints."
+    support_refs {
+      node_id: "action-serve-open"
+    }
+    support_refs {
+      node_id: "state-model-worker"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "serve-order"
+    key: "ordering"
+    value: "01 open/load TP shards; 02 form TP collective group; 03 accept request; 04 prefill via TP collectives; 05 decode token j via TP child graph; 06 stream token; 07 repeat until stop; 08 checkpoint TP-aware KV."
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "serve-glm52-qk-hosting"
+    key: "qk_distribution"
+    value: "Per-rank hosting follows the GLM 5.2 MLA split: every rank hosts all-layer Q/head/output/FFN/vocab shards for its TP rank, while the K path consists of shared MLA latent/rope cache semantics plus rank-owned per-query-head k_b reconstruction slices. Bird/vLLM TP4+B12X_MLA_SPARSE is the concrete external proof point; native DS4 must generalize current TP attention split behavior to TP4 and MLA/DCP semantics."
+    support_refs {
+      node_id: "action-decode-token"
+    }
+    support_refs {
+      node_id: "state-kv"
+    }
+    support_refs {
+      node_id: "state-model-worker"
+    }
+    support_refs {
+      node_id: "state-tp"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "serve-target"
+    key: "target_state"
+    value: "Client receives sampled tokens; rank-local TP KV shards and replicated decode cursor advance consistently."
+    support_refs {
+      node_id: "data-token"
+    }
+    support_refs {
+      node_id: "state-kv"
+    }
+    status: SUPPORTED
+  }
+  nodes {
+    id: "action-decode-token"
+    kind: "ACTION"
+    label: "05 decode token j with TP=4"
+    input_ports {
+      port_id: "token-in"
+      node_id: "data-token"
+      type_ref: "blueprint.work.ds4_arch.Token"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "token-out"
+      node_id: "data-token"
+      type_ref: "blueprint.work.ds4_arch.Token"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "dec-ov"
+      key: "overview"
+      value: "Given token j-1, broadcast replicated hidden to TP ranks, run every GLM 5.2 layer with rank-local Q/head/expert shards and explicit ATTN/FFN collectives, gather logits shards, and sample token j."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "token-in"
+      key: "input_use"
+      value: "Consumes exactly one previous token through token-in."
+      object_ref {
+        node_id: "data-token"
+      }
+      support_refs {
+        port {
+          node_id: "action-decode-token"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "token-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "token-out"
+      key: "output"
+      value: "Produces exactly one sampled token j through token-out."
+      object_ref {
+        node_id: "data-token"
+      }
+      support_refs {
+        port {
+          node_id: "action-decode-token"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "token-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "dec-ef"
+      key: "effect"
+      value: "one token sampled; TP KV shards and the replicated decode cursor advance by one position"
+      support_refs {
+        node_id: "action-decode-token"
+      }
+      support_refs {
+        node_id: "state-kv"
+      }
+      support_refs {
+        node_id: "state-kv-cursor"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "dec-exit"
+      key: "exit"
+      value: "token-sampled"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "action-decode-token-im"
+      key: "implementation_choice"
+      value: "requires_new_glm52_tp4_support"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "dec-bird-ref"
+      key: "implementation_reference"
+      value: "Use Bird/vLLM serving command as the operational decode reference: vllm serve /model with tensor-parallel-size 4, decode-context-parallel-size 4, fp8_ds_mla KV, and DSpark BF16 speculator."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "dec-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    evidence_refs: "ev-code-glm52-shape"
+    evidence_refs: "ev-readme-cuda-spark"
+    expands_to_graph_id: "decode"
+    state_set {
+      state_node_id: "state-tp"
+      access: "read"
+      meaning: "use broadcast/all-reduce/gather collectives"
+    }
+    state_set {
+      state_node_id: "state-model-worker"
+      access: "read"
+      meaning: "run TP shards for every layer"
+    }
+    state_set {
+      state_node_id: "state-kv"
+      access: "update"
+      meaning: "append position j KV shards"
+    }
+    state_set {
+      state_node_id: "state-kv-cursor"
+      access: "update"
+      meaning: "advance token-step cursor for sampled token j"
+    }
+    state_set {
+      state_node_id: "state-rank-plan"
+      access: "read"
+      meaning: "read rank ownership spans used by decode child graph"
+    }
+    preconditions {
+      condition_id: "dec-pre"
+      kind: "state"
+      text: "prompt is prefilled and TP group is ready for position j"
+    }
+    postconditions {
+      condition_id: "dec-pos"
+      kind: "state"
+      text: "token j sampled and all TP KV shards advanced"
+    }
+  }
+  nodes {
+    id: "action-kv-checkpoint"
+    kind: "ACTION"
+    label: "07 checkpoint TP KV shards"
+    semantics {
+      entry_id: "ck-ov"
+      key: "overview"
+      value: "Persist rank-local TP KV shards and replicated cursor metadata."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "action-kv-checkpoint-no-input"
+      key: "no_input"
+      value: "This action has no typed data input port; state dependencies are declared in state_set."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "action-kv-checkpoint-no-output"
+      key: "no_output"
+      value: "This action has no typed data output port; state/effects are explicit."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "ck-ef"
+      key: "effect"
+      value: "TP KV shards checkpointed durably"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "ck-exit"
+      key: "exit"
+      value: "checkpointed"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "ck-cu"
+      key: "code_unit"
+      value: "KV store live-prefix checkpoint / eviction"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "ck-im"
+      key: "implementation_choice"
+      value: "fixed_by_target_tp4_design"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "ck-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "ck-state"
+      key: "state_update"
+      value: "Updates durable checkpoint state for each TP KV shard."
+      object_ref {
+        node_id: "state-kv"
+      }
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "state-kv"
+      access: "update"
+      meaning: "persist live TP KV shards"
+    }
+  }
+  nodes {
+    id: "action-serve-accept"
+    kind: "ACTION"
+    label: "03 accept and enqueue request"
+    input_ports {
+      port_id: "accept-request-in"
+      node_id: "data-request"
+      type_ref: "blueprint.work.ds4_arch.ChatRequest"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "acc-ov"
+      key: "overview"
+      value: "Accept a chat request, bind it to a session id, and enqueue TP prefill/decode work."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "accept-request-in"
+      key: "input_use"
+      value: "Consumes the request through accept-request-in."
+      object_ref {
+        node_id: "data-request"
+      }
+      support_refs {
+        port {
+          node_id: "action-serve-accept"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "accept-request-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "action-serve-accept-no-output"
+      key: "no_output"
+      value: "This action has no typed data output port; state/effects are explicit."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "acc-ef"
+      key: "effect"
+      value: "request queued against its session"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "acc-exit"
+      key: "exit"
+      value: "queued"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "acc-cu"
+      key: "code_unit"
+      value: "server request handler / enqueue"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "acc-im"
+      key: "implementation_choice"
+      value: "fixed_by_target_tp4_design"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "acc-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "acc-state"
+      key: "state_dependency"
+      value: "Reads existing TP-aware KV state for the session."
+      object_ref {
+        node_id: "state-kv"
+      }
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "state-kv"
+      access: "read"
+      meaning: "find existing TP KV shards or create empty session"
+    }
+    preconditions {
+      condition_id: "accept-pre"
+      kind: "input"
+      text: "request is syntactically valid"
+    }
+    postconditions {
+      condition_id: "accept-pos"
+      kind: "state"
+      text: "session job is queued for TP prefill"
+    }
+  }
+  nodes {
+    id: "action-serve-open"
+    kind: "ACTION"
+    label: "01 open engines and load GLM 5.2 TP shards"
+    semantics {
+      entry_id: "open-ov"
+      key: "overview"
+      value: "Start coordinator/workers and load TP=4 weight shards for every GLM 5.2 layer on each GX10 rank."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "action-serve-open-no-input"
+      key: "no_input"
+      value: "This action has no typed data input port; state dependencies are declared in state_set."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "action-serve-open-no-output"
+      key: "no_output"
+      value: "This action has no typed data output port; state/effects are explicit."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "open-ef"
+      key: "effect"
+      value: "four GX10 TP rank engines are resident"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "open-exit"
+      key: "exit"
+      value: "engines-ready"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "open-im"
+      key: "implementation_choice"
+      value: "fixed_by_target_tp4_design"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "open-bird-ref"
+      key: "implementation_reference"
+      value: "Use Bird/vLLM runbook local-rank checkpoint checks as the concrete TP shard loading reference: 36 files per rank, 20 base shards, one MTP shard, no foreign-rank shard."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "open-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "open-input"
+      key: "state_dependency"
+      value: "Reads model TP placement and launch configuration."
+      object_ref {
+        node_id: "state-model-leader"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "open-output"
+      key: "state_update"
+      value: "Establishes rank-local resident TP weight shard state."
+      object_ref {
+        node_id: "state-model-worker"
+      }
+      status: SUPPORTED
+    }
+    expands_to_graph_id: "model-load"
+    state_set {
+      state_node_id: "state-model-leader"
+      access: "read"
+      meaning: "read TP=4 placement"
+    }
+    state_set {
+      state_node_id: "state-model-worker"
+      access: "update"
+      meaning: "mark TP shards resident"
+    }
+    preconditions {
+      condition_id: "open-pre"
+      kind: "input"
+      text: "GLM 5.2 GGUF and TP=4 launch config are available"
+    }
+    postconditions {
+      condition_id: "open-pos"
+      kind: "state"
+      text: "each GX10 has its rank-local TP shards for all layers"
+    }
+  }
+  nodes {
+    id: "action-serve-prefill"
+    kind: "ACTION"
+    label: "04 prefill prompt with TP=4"
+    input_ports {
+      port_id: "prefill-request-in"
+      node_id: "data-request"
+      type_ref: "blueprint.work.ds4_arch.ChatRequest"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "pf-ov"
+      key: "overview"
+      value: "Run prompt prefill with TP=4 collectives; each rank computes its tensor shards for every layer and updates rank-local KV."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "prefill-request-in"
+      key: "input_use"
+      value: "Consumes request/prompt through prefill-request-in."
+      object_ref {
+        node_id: "data-request"
+      }
+      support_refs {
+        port {
+          node_id: "action-serve-prefill"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "prefill-request-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "action-serve-prefill-no-output"
+      key: "no_output"
+      value: "This action has no typed data output port; state/effects are explicit."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "pf-ef"
+      key: "effect"
+      value: "prompt materialized in TP KV shards"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "pf-exit"
+      key: "exit"
+      value: "prefilled"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "pf-im"
+      key: "implementation_choice"
+      value: "requires_new_glm52_tp4_support"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "pf-bird-ref"
+      key: "implementation_reference"
+      value: "Use Bird/vLLM prefill settings as reference: max-num-batched-tokens/prefill chunk 1024 and B12X_MLA_SPARSE attention."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "pf-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "pf-state"
+      key: "state_update"
+      value: "Updates TP-aware KV shards with prompt prefix."
+      object_ref {
+        node_id: "state-kv"
+      }
+      status: SUPPORTED
+    }
+    expands_to_graph_id: "prefill"
+    state_set {
+      state_node_id: "state-tp"
+      access: "read"
+      meaning: "use TP collective fabric"
+    }
+    state_set {
+      state_node_id: "state-model-worker"
+      access: "read"
+      meaning: "run rank-local TP shards"
+    }
+    state_set {
+      state_node_id: "state-kv"
+      access: "update"
+      meaning: "append prompt KV shards"
+    }
+    state_set {
+      state_node_id: "state-kv-cursor"
+      access: "update"
+      meaning: "set prompt-length cursor after prefill"
+    }
+    preconditions {
+      condition_id: "pf-pre"
+      kind: "state"
+      text: "TP group ready and request queued"
+    }
+    postconditions {
+      condition_id: "pf-pos"
+      kind: "state"
+      text: "all rank KV shards hold the prompt prefix"
+    }
+  }
+  nodes {
+    id: "action-stream-token"
+    kind: "ACTION"
+    label: "06 stream sampled token"
+    input_ports {
+      port_id: "stream-token-in"
+      node_id: "data-token"
+      type_ref: "blueprint.work.ds4_arch.Token"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "str-ov"
+      key: "overview"
+      value: "Stream sampled token to the client and choose whether to continue."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "stream-token-in"
+      key: "input_use"
+      value: "Consumes sampled token through stream-token-in."
+      object_ref {
+        node_id: "data-token"
+      }
+      support_refs {
+        port {
+          node_id: "action-stream-token"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "stream-token-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "action-stream-token-no-output"
+      key: "no_output"
+      value: "This action has no typed data output port; state/effects are explicit."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "str-ef"
+      key: "effect"
+      value: "token delivered over API stream"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "str-exit"
+      key: "exit"
+      value: "streamed"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "str-cu"
+      key: "code_unit"
+      value: "SSE/HTTP stream response"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "str-im"
+      key: "implementation_choice"
+      value: "fixed_by_target_tp4_design"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "str-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "action-tp-group"
+    kind: "ACTION"
+    label: "02 form TP=4 collective group"
+    semantics {
+      entry_id: "tp-ov"
+      key: "overview"
+      value: "Register four ranks into one TP collective group with broadcast, all-reduce, and logits-gather/top-k paths."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "action-tp-group-no-input"
+      key: "no_input"
+      value: "This action has no typed data input port; state dependencies are declared in state_set."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "action-tp-group-no-output"
+      key: "no_output"
+      value: "This action has no typed data output port; state/effects are explicit."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "tp-ef"
+      key: "effect"
+      value: "TP=4 ranks connected and collective fabric ready"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "tp-exit"
+      key: "exit"
+      value: "tp-group-ready"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "tp-cu"
+      key: "code_unit"
+      value: "new GLM 5.2 inter-machine TP group formation"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "tp-im"
+      key: "implementation_choice"
+      value: "requires_new_glm52_tp4_support"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "tp-bird-ref"
+      key: "implementation_reference"
+      value: "Use Bird/vLLM NCCL/RoCE topology as the concrete four-node TP collective reference: TP4, PP1, DCP4, NCCL 2.30.4, four channels, both RoCE HCAs."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "tp-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "tp-input"
+      key: "state_dependency"
+      value: "Reads resident rank TP shard state."
+      object_ref {
+        node_id: "state-model-worker"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "tp-output"
+      key: "state_update"
+      value: "Produces collective group state used by prefill and decode."
+      object_ref {
+        node_id: "state-tp"
+      }
+      status: SUPPORTED
+    }
+    evidence_refs: "ev-code-glm52-shape"
+    evidence_refs: "ev-readme-cuda-spark"
+    state_set {
+      state_node_id: "state-model-worker"
+      access: "read"
+      meaning: "read rank registrations and tensor shards"
+    }
+    state_set {
+      state_node_id: "state-tp"
+      access: "update"
+      meaning: "store TP collective topology"
+    }
+    state_set {
+      state_node_id: "state-rank-plan"
+      access: "update"
+      meaning: "store TP4 rank ownership spans"
+    }
+    preconditions {
+      condition_id: "tp-pre"
+      kind: "state"
+      text: "all four workers have loaded compatible TP shards"
+    }
+    postconditions {
+      condition_id: "tp-pos"
+      kind: "state"
+      text: "TP collectives cover ranks 0..3"
+    }
+  }
+  nodes {
+    id: "data-request"
+    kind: "DATA"
+    label: "chat request / generation job"
+    data_type: "blueprint.work.ds4_arch.ChatRequest"
+    semantics {
+      entry_id: "data-request-data-role"
+      key: "data_role"
+      value: "root request accepted by coordinator"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "data-request-dist"
+      key: "distribution_scope"
+      value: "leader_only"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "data-request-identity"
+      key: "identity"
+      value: "data-request is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "data-request-ordering"
+      key: "ordering"
+      value: "ordered by token position j and workflow stage."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "data-request-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "data-request-provenance"
+      key: "provenance"
+      value: "declared by the node source list."
+      status: SUPPORTED
+    }
+    sources {
+      source_id: "src-data-request"
+      kind: "graph_input"
+      source_ref: "root-req"
+      graph_input_port_id: "root-req"
+      meaning: "request enters through root request port"
+    }
+  }
+  nodes {
+    id: "data-token"
+    kind: "DATA"
+    label: "decode token stream"
+    data_type: "blueprint.work.ds4_arch.Token"
+    semantics {
+      entry_id: "data-token-data-role"
+      key: "data_role"
+      value: "token entering or leaving TP decode"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "data-token-dist"
+      key: "distribution_scope"
+      value: "leader_only"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "data-token-identity"
+      key: "identity"
+      value: "data-token is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "data-token-ordering"
+      key: "ordering"
+      value: "ordered by token position j and workflow stage."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "data-token-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "data-token-provenance"
+      key: "provenance"
+      value: "declared by the node source list."
+      status: SUPPORTED
+    }
+    sources {
+      source_id: "src-data-token"
+      kind: "graph_input"
+      source_ref: "root-tok"
+      graph_input_port_id: "root-tok"
+      meaning: "previous token enters root token port"
+    }
+  }
+  nodes {
+    id: "state-kv"
+    kind: "STATE"
+    label: "TP-aware session KV state"
+    data_type: "blueprint.work.ds4_arch.kv"
+    semantics {
+      entry_id: "state-kv-data-role"
+      key: "data_role"
+      value: "rank-local KV/MLA cache shards with replicated cursor metadata"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-kv-dist"
+      key: "distribution_scope"
+      value: "rank_local_shard"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-kv-identity"
+      key: "identity"
+      value: "state-kv is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-kv-ordering"
+      key: "ordering"
+      value: "append-ordered by prompt/decode token position; cursor state records monotonic length and current position."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-kv-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-kv-provenance"
+      key: "provenance"
+      value: "declared by the node source list."
+      status: SUPPORTED
+    }
+    sources {
+      source_id: "src-state-kv"
+      kind: "runtime"
+      source_ref: "session KV store"
+      meaning: "KV shards are created during prefill/decode and can be checkpointed"
+    }
+  }
+  nodes {
+    id: "state-kv-cursor"
+    kind: "STATE"
+    label: "append-ordered KV cursor"
+    data_type: "blueprint.work.ds4_arch.kv_cursor"
+    semantics {
+      entry_id: "state-kv-cursor-data-role"
+      key: "data_role"
+      value: "replicated KV length and token-step cursor metadata"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-kv-cursor-dist"
+      key: "distribution_scope"
+      value: "replicated"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-kv-cursor-identity"
+      key: "identity"
+      value: "state-kv-cursor is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-kv-cursor-ordering"
+      key: "ordering"
+      value: "monotonic by prompt/decode token position; prefill sets prompt length and decode advances one position per sampled token"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-kv-cursor-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-kv-cursor-provenance"
+      key: "provenance"
+      value: "declared by the node source list."
+      status: SUPPORTED
+    }
+    sources {
+      source_id: "src-state-kv-cursor"
+      kind: "runtime"
+      source_ref: "session KV cursor"
+      meaning: "cursor is created with the session KV store and advances during prefill/decode"
+    }
+  }
+  nodes {
+    id: "state-model-leader"
+    kind: "STATE"
+    label: "GLM 5.2 TP=4 model plan"
+    data_type: "blueprint.work.ds4_arch.model"
+    semantics {
+      entry_id: "state-model-leader-data-role"
+      key: "data_role"
+      value: "authoritative TP shard placement and model metadata"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-model-leader-dist"
+      key: "distribution_scope"
+      value: "replicated"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-model-leader-identity"
+      key: "identity"
+      value: "state-model-leader is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-model-leader-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-model-leader-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-model-leader-provenance"
+      key: "provenance"
+      value: "declared by the node source list."
+      status: SUPPORTED
+    }
+    sources {
+      source_id: "src-state-model"
+      kind: "model_file"
+      source_ref: "GGUF + TP=4 launch configuration"
+      graph_input_port_id: "root-model"
+      meaning: "model metadata and TP placement are supplied by launch configuration"
+    }
+  }
+  nodes {
+    id: "state-model-worker"
+    kind: "STATE"
+    label: "GX10 resident TP weight shards"
+    data_type: "blueprint.work.ds4_arch.model"
+    semantics {
+      entry_id: "state-model-worker-data-role"
+      key: "data_role"
+      value: "per-rank resident Q/head/expert/vocab shards"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-model-worker-dist"
+      key: "distribution_scope"
+      value: "rank_local_shard"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-model-worker-identity"
+      key: "identity"
+      value: "state-model-worker is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-model-worker-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-model-worker-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-model-worker-provenance"
+      key: "provenance"
+      value: "declared by the node source list."
+      status: SUPPORTED
+    }
+    sources {
+      source_id: "src-state-worker"
+      kind: "runtime"
+      source_ref: "DwarfStar TP workers"
+      meaning: "each rank loads its TP shard of each layer"
+    }
+  }
+  nodes {
+    id: "state-rank-plan"
+    kind: "STATE"
+    label: "TP4 rank ownership plan"
+    data_type: "blueprint.work.ds4_arch.rank_plan"
+    semantics {
+      entry_id: "state-rank-plan-data-role"
+      key: "data_role"
+      value: "per-rank Q/head/DCP/expert/vocab ownership spans"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-rank-plan-dist"
+      key: "distribution_scope"
+      value: "rank_local_shard"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-rank-plan-identity"
+      key: "identity"
+      value: "state-rank-plan is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-rank-plan-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-rank-plan-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-rank-plan-provenance"
+      key: "provenance"
+      value: "declared by the node source list."
+      status: SUPPORTED
+    }
+    sources {
+      source_id: "src-state-rank-plan"
+      kind: "runtime"
+      source_ref: "DwarfStar TP launch plan"
+      meaning: "rank ownership spans are derived from the TP4 launch/model placement and stored with the TP group"
+    }
+  }
+  nodes {
+    id: "state-tp"
+    kind: "STATE"
+    label: "DwarfStar TP=4 collective group"
+    data_type: "blueprint.work.ds4_arch.distlink"
+    semantics {
+      entry_id: "state-tp-data-role"
+      key: "data_role"
+      value: "collective fabric for broadcast/all-reduce/gather"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-tp-dist"
+      key: "distribution_scope"
+      value: "replicated"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-tp-identity"
+      key: "identity"
+      value: "state-tp is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-tp-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-tp-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-tp-provenance"
+      key: "provenance"
+      value: "declared by the node source list."
+      status: SUPPORTED
+    }
+    sources {
+      source_id: "src-state-tp"
+      kind: "runtime"
+      source_ref: "DwarfStar TP group handshake"
+      meaning: "ranks register and form collective endpoints"
+    }
+  }
+  edges {
+    id: "e-accept-kv"
+    source_node_id: "action-serve-accept"
+    target_node_id: "state-kv"
+    kind: "state-access"
+    label: "read session TP KV state"
+    semantics {
+      entry_id: "e-accept-kv-r"
+      key: "relationship"
+      value: "read session TP KV state"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-accept-kv-s"
+      key: "state_read"
+      value: "read session TP KV state"
+      object_ref {
+        node_id: "state-kv"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-accept-prefill"
+    source_node_id: "action-serve-accept"
+    target_node_id: "action-serve-prefill"
+    kind: "queue-to-prefill"
+    label: "accepted request starts TP prefill"
+    semantics {
+      entry_id: "e-accept-prefill-r"
+      key: "relationship"
+      value: "accepted request starts TP prefill"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "e-ck-kv"
+    source_node_id: "action-kv-checkpoint"
+    target_node_id: "state-kv"
+    kind: "state-access"
+    label: "persist TP KV shard prefixes"
+    semantics {
+      entry_id: "e-ck-kv-r"
+      key: "relationship"
+      value: "persist TP KV shard prefixes"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-ck-kv-s"
+      key: "state_update"
+      value: "persist TP KV shard prefixes"
+      object_ref {
+        node_id: "state-kv"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-dec-kv"
+    source_node_id: "action-decode-token"
+    target_node_id: "state-kv"
+    kind: "state-access"
+    label: "decode appends TP KV shards"
+    semantics {
+      entry_id: "e-dec-kv-r"
+      key: "relationship"
+      value: "decode appends TP KV shards"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-dec-kv-s"
+      key: "state_update"
+      value: "decode appends TP KV shards"
+      object_ref {
+        node_id: "state-kv"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-dec-kv-cursor"
+    source_node_id: "action-decode-token"
+    target_node_id: "state-kv-cursor"
+    kind: "state-access"
+    label: "decode advances KV cursor for token j"
+    semantics {
+      entry_id: "e-dec-kv-cursor-r"
+      key: "relationship"
+      value: "decode advances KV cursor for token j"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-dec-kv-cursor-s"
+      key: "state_update"
+      value: "decode advances KV cursor for token j"
+      object_ref {
+        node_id: "state-kv-cursor"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-dec-model"
+    source_node_id: "action-decode-token"
+    target_node_id: "state-model-worker"
+    kind: "state-access"
+    label: "decode reads TP weight shards"
+    semantics {
+      entry_id: "e-dec-model-r"
+      key: "relationship"
+      value: "decode reads TP weight shards"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-dec-model-s"
+      key: "state_read"
+      value: "decode reads TP weight shards"
+      object_ref {
+        node_id: "state-model-worker"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-dec-rank-plan"
+    source_node_id: "action-decode-token"
+    target_node_id: "state-rank-plan"
+    kind: "state-access"
+    label: "decode reads TP4 rank ownership spans"
+    semantics {
+      entry_id: "e-dec-rank-plan-r"
+      key: "relationship"
+      value: "decode reads TP4 rank ownership spans"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-dec-rank-plan-s"
+      key: "state_read"
+      value: "decode reads TP4 rank ownership spans"
+      object_ref {
+        node_id: "state-rank-plan"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-dec-tp"
+    source_node_id: "action-decode-token"
+    target_node_id: "state-tp"
+    kind: "state-access"
+    label: "decode reads TP collective fabric"
+    semantics {
+      entry_id: "e-dec-tp-r"
+      key: "relationship"
+      value: "decode reads TP collective fabric"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-dec-tp-s"
+      key: "state_read"
+      value: "decode reads TP collective fabric"
+      object_ref {
+        node_id: "state-tp"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-decode-token"
+    source_node_id: "action-decode-token"
+    target_node_id: "data-token"
+    kind: "token-output"
+    label: "decode produces token-out"
+    semantics {
+      entry_id: "e-decode-token-r"
+      key: "relationship"
+      value: "decode produces token-out"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-open-model"
+    source_node_id: "action-serve-open"
+    target_node_id: "state-model-leader"
+    kind: "state-access"
+    label: "read TP=4 model placement"
+    semantics {
+      entry_id: "e-open-model-r"
+      key: "relationship"
+      value: "read TP=4 model placement"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-open-model-s"
+      key: "state_read"
+      value: "read TP=4 model placement"
+      object_ref {
+        node_id: "state-model-leader"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-open-tp"
+    source_node_id: "action-serve-open"
+    target_node_id: "action-tp-group"
+    kind: "startup-order"
+    label: "engines ready before TP group formation"
+    semantics {
+      entry_id: "e-open-tp-r"
+      key: "relationship"
+      value: "engines ready before TP group formation"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "e-open-worker"
+    source_node_id: "action-serve-open"
+    target_node_id: "state-model-worker"
+    kind: "state-access"
+    label: "load resident TP shards on all ranks"
+    semantics {
+      entry_id: "e-open-worker-r"
+      key: "relationship"
+      value: "load resident TP shards on all ranks"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-open-worker-s"
+      key: "state_update"
+      value: "load resident TP shards on all ranks"
+      object_ref {
+        node_id: "state-model-worker"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-pf-decode"
+    source_node_id: "action-serve-prefill"
+    target_node_id: "action-decode-token"
+    kind: "prefill-to-decode"
+    label: "prefill enables token decode"
+    semantics {
+      entry_id: "e-pf-decode-r"
+      key: "relationship"
+      value: "prefill enables token decode"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "e-pf-kv"
+    source_node_id: "action-serve-prefill"
+    target_node_id: "state-kv"
+    kind: "state-access"
+    label: "prefill appends TP KV shards"
+    semantics {
+      entry_id: "e-pf-kv-r"
+      key: "relationship"
+      value: "prefill appends TP KV shards"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-pf-kv-s"
+      key: "state_update"
+      value: "prefill appends TP KV shards"
+      object_ref {
+        node_id: "state-kv"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-pf-kv-cursor"
+    source_node_id: "action-serve-prefill"
+    target_node_id: "state-kv-cursor"
+    kind: "state-access"
+    label: "prefill sets prompt-length KV cursor"
+    semantics {
+      entry_id: "e-pf-kv-cursor-r"
+      key: "relationship"
+      value: "prefill sets prompt-length KV cursor"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-pf-kv-cursor-s"
+      key: "state_update"
+      value: "prefill sets prompt-length KV cursor"
+      object_ref {
+        node_id: "state-kv-cursor"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-pf-model"
+    source_node_id: "action-serve-prefill"
+    target_node_id: "state-model-worker"
+    kind: "state-access"
+    label: "prefill reads TP shards"
+    semantics {
+      entry_id: "e-pf-model-r"
+      key: "relationship"
+      value: "prefill reads TP shards"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-pf-model-s"
+      key: "state_read"
+      value: "prefill reads TP shards"
+      object_ref {
+        node_id: "state-model-worker"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-pf-tp"
+    source_node_id: "action-serve-prefill"
+    target_node_id: "state-tp"
+    kind: "state-access"
+    label: "prefill reads TP collectives"
+    semantics {
+      entry_id: "e-pf-tp-r"
+      key: "relationship"
+      value: "prefill reads TP collectives"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-pf-tp-s"
+      key: "state_read"
+      value: "prefill reads TP collectives"
+      object_ref {
+        node_id: "state-tp"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-req-accept"
+    source_node_id: "data-request"
+    target_node_id: "action-serve-accept"
+    kind: "request-in"
+    label: "request satisfies accept-request-in"
+    semantics {
+      entry_id: "e-req-accept-r"
+      key: "relationship"
+      value: "request satisfies accept-request-in"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-req-prefill"
+    source_node_id: "data-request"
+    target_node_id: "action-serve-prefill"
+    kind: "prefill-request"
+    label: "request satisfies prefill-request-in"
+    semantics {
+      entry_id: "e-req-prefill-r"
+      key: "relationship"
+      value: "request satisfies prefill-request-in"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-stream-ck"
+    source_node_id: "action-stream-token"
+    target_node_id: "action-kv-checkpoint"
+    kind: "checkpoint-branch"
+    label: "stream may trigger TP KV checkpoint"
+    semantics {
+      entry_id: "e-stream-ck-r"
+      key: "relationship"
+      value: "checkpoint policy may run after streaming"
+      status: SUPPORTED
+    }
+    family: "causal"
+    conditions {
+      condition_id: "checkpoint-policy"
+      kind: "guard"
+      text: "KV persistence or eviction policy requires a checkpoint"
+    }
+  }
+  edges {
+    id: "e-stream-next"
+    source_node_id: "action-stream-token"
+    target_node_id: "action-decode-token"
+    kind: "decode-loop"
+    label: "continue decoding next token"
+    semantics {
+      entry_id: "e-stream-next-r"
+      key: "relationship"
+      value: "non-stop token leads to next TP decode"
+      status: SUPPORTED
+    }
+    family: "loop"
+    conditions {
+      condition_id: "continue-generation"
+      kind: "guard"
+      text: "token is not a stop token and generation limit remains"
+    }
+  }
+  edges {
+    id: "e-token-decode"
+    source_node_id: "data-token"
+    target_node_id: "action-decode-token"
+    kind: "token-input"
+    label: "token satisfies token-in"
+    semantics {
+      entry_id: "e-token-decode-r"
+      key: "relationship"
+      value: "token satisfies token-in"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-token-stream"
+    source_node_id: "data-token"
+    target_node_id: "action-stream-token"
+    kind: "token-stream"
+    label: "token satisfies stream-token-in"
+    semantics {
+      entry_id: "e-token-stream-r"
+      key: "relationship"
+      value: "token satisfies stream-token-in"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-tp-rank-plan"
+    source_node_id: "action-tp-group"
+    target_node_id: "state-rank-plan"
+    kind: "state-access"
+    label: "TP group formation stores rank ownership spans"
+    semantics {
+      entry_id: "e-tp-rank-plan-r"
+      key: "relationship"
+      value: "TP group formation stores rank ownership spans"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-tp-rank-plan-s"
+      key: "state_update"
+      value: "TP group formation stores rank ownership spans"
+      object_ref {
+        node_id: "state-rank-plan"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-tp-state"
+    source_node_id: "action-tp-group"
+    target_node_id: "state-tp"
+    kind: "state-access"
+    label: "establish TP=4 collective fabric"
+    semantics {
+      entry_id: "e-tp-state-r"
+      key: "relationship"
+      value: "establish TP=4 collective fabric"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-tp-state-s"
+      key: "state_update"
+      value: "establish TP=4 collective fabric"
+      object_ref {
+        node_id: "state-tp"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-tp-worker"
+    source_node_id: "action-tp-group"
+    target_node_id: "state-model-worker"
+    kind: "state-access"
+    label: "read TP rank registrations"
+    semantics {
+      entry_id: "e-tp-worker-r"
+      key: "relationship"
+      value: "read TP rank registrations"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-tp-worker-s"
+      key: "state_read"
+      value: "read TP rank registrations"
+      object_ref {
+        node_id: "state-model-worker"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  operations {
+    operation_id: "op-serve"
+    name: "serve-glm52-tp4-gb10"
+    overview: "Serve GLM 5.2 with TP=4 across four GX10 machines."
+    members {
+      ref {
+        node_id: "action-decode-token"
+      }
+      role: "decode tokens with TP"
+    }
+    members {
+      ref {
+        node_id: "action-kv-checkpoint"
+      }
+      role: "persist TP KV"
+    }
+    members {
+      ref {
+        node_id: "action-serve-accept"
+      }
+      role: "accept request"
+    }
+    members {
+      ref {
+        node_id: "action-serve-open"
+      }
+      role: "load TP shards"
+    }
+    members {
+      ref {
+        node_id: "action-serve-prefill"
+      }
+      role: "prefill with TP"
+    }
+    members {
+      ref {
+        node_id: "action-stream-token"
+      }
+      role: "stream tokens"
+    }
+    members {
+      ref {
+        node_id: "action-tp-group"
+      }
+      role: "form TP group"
+    }
+    semantics {
+      entry_id: "op-serve-order"
+      key: "ordering"
+      value: "open -> form TP group -> accept -> TP prefill -> TP decode/stream loop -> optional checkpoint"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "op-serve-target"
+      key: "target_state"
+      value: "tokens streamed and TP KV shards advanced consistently"
+      status: SUPPORTED
+    }
+    end_goals {
+      goal_id: "goal-serve-tp4"
+      intent: "Serve GLM 5.2 requests using TP=4 over four GX10 machines."
+      bindings {
+        ref {
+          node_id: "data-token"
+        }
+        role: "sampled token stream"
+        semantics {
+          entry_id: "goal-token"
+          key: "output"
+          value: "client-visible sampled tokens"
+          status: SUPPORTED
+        }
+      }
+      bindings {
+        ref {
+          node_id: "state-kv"
+        }
+        role: "advanced TP KV"
+        semantics {
+          entry_id: "goal-kv"
+          key: "state_update"
+          value: "rank-local TP KV shards match generated length"
+          status: SUPPORTED
+        }
+      }
+    }
+  }
+  architecture {
+    overview: "Four GX10 machines host one GLM 5.2 tensor-parallel serving group. Rank 0 hosts the public API, sampling coordinator, and NCCL master endpoint; ranks 1-3 host headless worker processes. Every rank stores its rank-specific model shard files, TP-owned QKV/MLA/head/expert/vocab shards for every layer, and rank-owned KV/MLA cache slices."
+    rationale: "The deployment is TP4, not pipeline parallelism: no machine owns a contiguous layer range. Each rank runs every layer in lockstep over its tensor shards, then explicit broadcast/all-reduce/gather collectives convert rank-local shards or partials into replicated or coordinator-visible values."
+    components {
+      component_id: "cmp-rank0"
+      name: "rank 0 GX10 API/master 192.168.0.40"
+      kind: "tp-rank-api-master"
+      overview: "Hosts the rank 0 vLLM/Bird-compatible worker, public API on port 8216, NCCL master endpoint on fabric IP 10.100.185.3, rank0 sharded-state checkpoint files under glm52-full-tp4-mtp-rank0, rank0 QKV/MLA/head/expert/vocab shards for every GLM 5.2 layer, rank0 KV/MLA cache slices, and coordinator-visible logits/top-k sampling state."
+      member_refs {
+        node_id: "data-request"
+      }
+      member_refs {
+        node_id: "data-token"
+      }
+      member_refs {
+        node_id: "state-kv"
+      }
+      member_refs {
+        node_id: "state-model-leader"
+      }
+      member_refs {
+        node_id: "state-model-worker"
+      }
+      member_refs {
+        node_id: "state-tp"
+      }
+      semantics {
+        entry_id: "cmp-r0-decode"
+        key: "decode_role"
+        value: "runs every layer for owned tensor shards, participates in TP collectives, gathers logits/top-k, samples token j"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r0-dist"
+        key: "distribution_scope"
+        value: "rank_local_shard plus leader_only API/sampling state"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r0-fabric"
+        key: "fabric_ip"
+        value: "10.100.185.3"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r0-host"
+        key: "host_ip"
+        value: "192.168.0.40"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r0-kv"
+        key: "hosted_kv"
+        value: "rank0 fp8_ds_mla KV/MLA cache slice and replicated cursor metadata"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r0-model"
+        key: "hosted_model_shards"
+        value: "20 base rank0 safetensors parts plus one MTP rank0 safetensors part; owns rank0 tensor shards for all layers"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r0-process"
+        key: "hosted_process"
+        value: "vllm serve /model with --node-rank 0 --host 0.0.0.0 --port 8216"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r0-rank"
+        key: "tp_rank"
+        value: "0 of 4"
+        status: SUPPORTED
+      }
+    }
+    components {
+      component_id: "cmp-rank1"
+      name: "rank 1 GX10 worker 192.168.0.240"
+      kind: "tp-rank-headless-worker"
+      overview: "Hosts the rank 1 headless vLLM/Bird-compatible worker on fabric IP 10.100.185.1, rank1 sharded-state checkpoint files under glm52-full-tp4-mtp-rank1, rank1 QKV/MLA/head/expert/vocab shards for every GLM 5.2 layer, and rank1 KV/MLA cache slices."
+      member_refs {
+        node_id: "state-kv"
+      }
+      member_refs {
+        node_id: "state-model-worker"
+      }
+      member_refs {
+        node_id: "state-tp"
+      }
+      semantics {
+        entry_id: "cmp-r1-decode"
+        key: "decode_role"
+        value: "runs every layer for owned tensor shards and contributes rank-local partials to TP collectives"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r1-dist"
+        key: "distribution_scope"
+        value: "rank_local_shard"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r1-fabric"
+        key: "fabric_ip"
+        value: "10.100.185.1"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r1-host"
+        key: "host_ip"
+        value: "192.168.0.240"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r1-kv"
+        key: "hosted_kv"
+        value: "rank1 fp8_ds_mla KV/MLA cache slice and replicated cursor metadata"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r1-model"
+        key: "hosted_model_shards"
+        value: "20 base rank1 safetensors parts plus one MTP rank1 safetensors part; owns rank1 tensor shards for all layers"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r1-process"
+        key: "hosted_process"
+        value: "vllm serve /model with --node-rank 1 --headless"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r1-rank"
+        key: "tp_rank"
+        value: "1 of 4"
+        status: SUPPORTED
+      }
+    }
+    components {
+      component_id: "cmp-rank2"
+      name: "rank 2 GX10 worker 192.168.0.99"
+      kind: "tp-rank-headless-worker"
+      overview: "Hosts the rank 2 headless vLLM/Bird-compatible worker on fabric IP 10.100.185.2, rank2 sharded-state checkpoint files under glm52-full-tp4-mtp-rank2, rank2 QKV/MLA/head/expert/vocab shards for every GLM 5.2 layer, and rank2 KV/MLA cache slices."
+      member_refs {
+        node_id: "state-kv"
+      }
+      member_refs {
+        node_id: "state-model-worker"
+      }
+      member_refs {
+        node_id: "state-tp"
+      }
+      semantics {
+        entry_id: "cmp-r2-decode"
+        key: "decode_role"
+        value: "runs every layer for owned tensor shards and contributes rank-local partials to TP collectives"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r2-dist"
+        key: "distribution_scope"
+        value: "rank_local_shard"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r2-fabric"
+        key: "fabric_ip"
+        value: "10.100.185.2"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r2-host"
+        key: "host_ip"
+        value: "192.168.0.99"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r2-kv"
+        key: "hosted_kv"
+        value: "rank2 fp8_ds_mla KV/MLA cache slice and replicated cursor metadata"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r2-model"
+        key: "hosted_model_shards"
+        value: "20 base rank2 safetensors parts plus one MTP rank2 safetensors part; owns rank2 tensor shards for all layers"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r2-process"
+        key: "hosted_process"
+        value: "vllm serve /model with --node-rank 2 --headless"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r2-rank"
+        key: "tp_rank"
+        value: "2 of 4"
+        status: SUPPORTED
+      }
+    }
+    components {
+      component_id: "cmp-rank3"
+      name: "rank 3 GX10 worker 192.168.0.39"
+      kind: "tp-rank-headless-worker"
+      overview: "Hosts the rank 3 headless vLLM/Bird-compatible worker on fabric IP 10.100.185.4, rank3 sharded-state checkpoint files under glm52-full-tp4-mtp-rank3, rank3 QKV/MLA/head/expert/vocab shards for every GLM 5.2 layer, and rank3 KV/MLA cache slices."
+      member_refs {
+        node_id: "state-kv"
+      }
+      member_refs {
+        node_id: "state-model-worker"
+      }
+      member_refs {
+        node_id: "state-tp"
+      }
+      semantics {
+        entry_id: "cmp-r3-decode"
+        key: "decode_role"
+        value: "runs every layer for owned tensor shards and contributes rank-local partials to TP collectives"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r3-dist"
+        key: "distribution_scope"
+        value: "rank_local_shard"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r3-fabric"
+        key: "fabric_ip"
+        value: "10.100.185.4"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r3-host"
+        key: "host_ip"
+        value: "192.168.0.39"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r3-kv"
+        key: "hosted_kv"
+        value: "rank3 fp8_ds_mla KV/MLA cache slice and replicated cursor metadata"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r3-model"
+        key: "hosted_model_shards"
+        value: "20 base rank3 safetensors parts plus one MTP rank3 safetensors part; owns rank3 tensor shards for all layers"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r3-process"
+        key: "hosted_process"
+        value: "vllm serve /model with --node-rank 3 --headless"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "cmp-r3-rank"
+        key: "tp_rank"
+        value: "3 of 4"
+        status: SUPPORTED
+      }
+    }
+    connections {
+      connection_id: "conn-r0-r1"
+      source_component_id: "cmp-rank0"
+      target_component_id: "cmp-rank1"
+      kind: "collective-fabric-peer"
+      label: "TP collective peer r0-r1"
+      support_refs {
+        node_id: "state-tp"
+      }
+      semantics {
+        entry_id: "conn-r0-r1-coll"
+        key: "collective"
+        value: "NCCL/RoCE peer path for TP broadcast, all_reduce_sum, gather/top-k"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "conn-r0-r1-ips"
+        key: "fabric_endpoint_pair"
+        value: "10.100.185.3 <-> 10.100.185.1"
+        status: SUPPORTED
+      }
+    }
+    connections {
+      connection_id: "conn-r0-r2"
+      source_component_id: "cmp-rank0"
+      target_component_id: "cmp-rank2"
+      kind: "collective-fabric-peer"
+      label: "TP collective peer r0-r2"
+      support_refs {
+        node_id: "state-tp"
+      }
+      semantics {
+        entry_id: "conn-r0-r2-coll"
+        key: "collective"
+        value: "NCCL/RoCE peer path for TP broadcast, all_reduce_sum, gather/top-k"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "conn-r0-r2-ips"
+        key: "fabric_endpoint_pair"
+        value: "10.100.185.3 <-> 10.100.185.2"
+        status: SUPPORTED
+      }
+    }
+    connections {
+      connection_id: "conn-r0-r3"
+      source_component_id: "cmp-rank0"
+      target_component_id: "cmp-rank3"
+      kind: "collective-fabric-peer"
+      label: "TP collective peer r0-r3"
+      support_refs {
+        node_id: "state-tp"
+      }
+      semantics {
+        entry_id: "conn-r0-r3-coll"
+        key: "collective"
+        value: "NCCL/RoCE peer path for TP broadcast, all_reduce_sum, gather/top-k"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "conn-r0-r3-ips"
+        key: "fabric_endpoint_pair"
+        value: "10.100.185.3 <-> 10.100.185.4"
+        status: SUPPORTED
+      }
+    }
+    connections {
+      connection_id: "conn-worker-ring"
+      source_component_id: "cmp-rank1"
+      target_component_id: "cmp-rank3"
+      kind: "collective-fabric-worker-peers"
+      label: "worker peer traffic for NCCL collective algorithms"
+      support_refs {
+        node_id: "state-tp"
+      }
+      semantics {
+        entry_id: "conn-worker-ring-coll"
+        key: "collective"
+        value: "worker ranks also exchange NCCL/RoCE traffic; rank0 is not a data bottleneck for all-reduce"
+        status: SUPPORTED
+      }
+      semantics {
+        entry_id: "conn-worker-ring-ips"
+        key: "fabric_endpoint_set"
+        value: "10.100.185.1, 10.100.185.2, 10.100.185.4"
+        status: SUPPORTED
+      }
+    }
+    semantics {
+      entry_id: "arch-collective"
+      key: "collective"
+      value: "Four-rank collective fabric performs decode broadcast, per-layer ATTN all_reduce_sum, per-layer FFN all_reduce_sum, and logits gather/distributed top-k."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "arch-tp"
+      key: "constraint"
+      value: "No layer pipeline route exists; every rank runs every layer in lockstep with TP collectives."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "arch-hosting"
+      key: "hosting_model"
+      value: "Each rank hosts one worker process, one local TP checkpoint shard set, rank-owned model tensors for all layers, rank-owned KV/MLA cache slices, and collective endpoints; only rank0 also hosts API/sampling coordinator state."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "arch-bird-ref"
+      key: "implementation_reference"
+      value: "Bird/vLLM launch uses four nodes, --tensor-parallel-size 4, --pipeline-parallel-size 1, --decode-context-parallel-size 4, B12X_MLA_SPARSE, fp8_ds_mla, and rank-specific sharded_state checkpoint directories."
+      status: SUPPORTED
+    }
+  }
+}
+evidence_sources {
+  evidence_id: "ev-bird-convert-tp4"
+  origin: "local-runbook"
+  source_ref: "/Users/helium/src/locals/gx10-bird-bf16-assets/convert_glm52_tp4.py"
+  sha256: "d39076b9d19c8bd643eaf6be16a0a2e9a9112a556a2eb5663fe1a162833440e1"
+}
+evidence_sources {
+  evidence_id: "ev-bird-launch-rank"
+  origin: "local-runbook"
+  source_ref: "/Users/helium/src/locals/gx10-bird-bf16-assets/launch-rank.sh"
+  sha256: "516f59d706584011b162824b6efb383bab2abc3c9cfaf0539b7f44a6d0499e36"
+}
+evidence_sources {
+  evidence_id: "ev-bird-orchestrate"
+  origin: "local-runbook"
+  source_ref: "/Users/helium/src/locals/gx10-bird-bf16-assets/orchestrate-launch.sh"
+  sha256: "176ca0a3b78cd2e0a2013e03820471d1a543f150eab247c2845213ada1b5cce1"
+}
+evidence_sources {
+  evidence_id: "ev-bird-runbook"
+  origin: "local-runbook"
+  source_ref: "/Users/helium/src/locals/gx10-glm52-full-bird-bf16-runbook.md"
+  sha256: "e707a2401dd3fea0c08b935b309e95f095fc98c85242b01d4d676247f151f3ec"
+}
+evidence_sources {
+  evidence_id: "ev-code-glm52-shape"
+  origin: "repo"
+  source_ref: "/Users/helium/src/ds4-gb10x4-bcd/ds4.c"
+  sha256: "1f77f628dd28415c0ba95a9d30d1f6c68538a738c39b8af3f1786dcabbbd01f4"
+}
+evidence_sources {
+  evidence_id: "ev-code-glm52-tp-gap"
+  origin: "repo"
+  source_ref: "/Users/helium/src/ds4-gb10x4-bcd/ds4.c"
+  sha256: "1f77f628dd28415c0ba95a9d30d1f6c68538a738c39b8af3f1786dcabbbd01f4"
+}
+evidence_sources {
+  evidence_id: "ev-current-glm52-tp-gap"
+  origin: "repo"
+  source_ref: "/Users/helium/src/ds4-gb10x4-bcd/README.md"
+  sha256: "1b8905288d4be0562acac44a5542e5e77ee045ce23bffe1c7d9c34405262b540"
+}
+evidence_sources {
+  evidence_id: "ev-readme-cuda-spark"
+  origin: "repo"
+  source_ref: "/Users/helium/src/ds4-gb10x4-bcd/README.md"
+  sha256: "1b8905288d4be0562acac44a5542e5e77ee045ce23bffe1c7d9c34405262b540"
+}
+evidence_sources {
+  evidence_id: "ev-readme-generation"
+  origin: "repo"
+  source_ref: "/Users/helium/src/ds4-gb10x4-bcd/README.md"
+  sha256: "1b8905288d4be0562acac44a5542e5e77ee045ce23bffe1c7d9c34405262b540"
+}
+evidence_sources {
+  evidence_id: "ev-readme-pipeline"
+  origin: "repo"
+  source_ref: "/Users/helium/src/ds4-gb10x4-bcd/README.md"
+  sha256: "1b8905288d4be0562acac44a5542e5e77ee045ce23bffe1c7d9c34405262b540"
+}
+canonical {
+  schema_sha256: "9de5a18221a33a9379092d084dbae946af604b979dfe7caf07bdd65701b5ea9d"
+  type_schema_sha256: "30f49b45e889237b5bb310b878ab4e6706809d614eedd39946a3bc723ce1c6d4"
+  graph_sha256: "0e8dd0dd74c100207a14ff148b2179dd7bd53bdc6cd9ca62f1c0bfc7c62734c0"
+  graph_contract_sha256: "9212a3685de85a5df4e17c1471458e064e4c335988ae220f36f65731baca3c8a"
+}

@@ -1,0 +1,717 @@
+{
+  "schema": "blueprint-write-request/v11",
+  "action": "simulate_contract",
+  "request_id": "simulate-decode-primary-acyclic",
+  "root": "/Users/helium/src/ds4-gb10x4-bcd/bdev",
+  "record_dir": "/Users/helium/src/ds4-gb10x4-bcd/dev-artifacts/ds4-arch-bp/records",
+  "params": {
+    "profile": "leaf",
+    "graph_ids": [
+      "decode"
+    ],
+    "cases": [
+      {
+        "case_id": "token-j-final-layer-success",
+        "graph_id": "decode",
+        "scenario_entry_id": "cos2",
+        "initial_node_ids": [
+          "d-token-in"
+        ],
+        "active_edge_ids": [
+          "c-attn-gate-out",
+          "c-attn-partial-gate",
+          "c-attnresid-out",
+          "c-ctx-out",
+          "c-ctx-proj",
+          "c-emb-h",
+          "c-exp",
+          "c-exp-res",
+          "c-expert-out",
+          "c-ffn-head",
+          "c-ffnresid-final-out",
+          "c-h-qkv",
+          "c-head-merge",
+          "c-head-out",
+          "c-in-emb",
+          "c-merge-out",
+          "c-merge-samp",
+          "c-outproj-out",
+          "c-proj-res",
+          "c-qkv-out",
+          "c-qkv-score",
+          "c-res-route",
+          "c-route-out",
+          "c-samp-out",
+          "c-sc-ctx",
+          "c-score-out"
+        ],
+        "terminal_node_ids": [
+          "d-token-out"
+        ],
+        "assumption_entry_ids": [],
+        "outcome_entry_ids": [
+          "token-out",
+          "dec-ef",
+          "dec-exit",
+          "attnresid-hidden-out",
+          "attn-resid-effect",
+          "attnresid-exit",
+          "ctx-context-out",
+          "ctx-effect",
+          "ctx-exit",
+          "emb-hidden-out",
+          "emb-effect",
+          "emb-exit",
+          "expert-contribution-out",
+          "expert-effect",
+          "expert-exit",
+          "ffnresid-final-hidden",
+          "ffnresid-next-hidden",
+          "ffn-resid-effect",
+          "ffnresid-exit",
+          "head-logits-half-out",
+          "head-effect",
+          "head-exit",
+          "merge-logits-out",
+          "merge-effect",
+          "merge-exit",
+          "outproj-partial-out",
+          "outproj-effect",
+          "outproj-exit",
+          "attn-gate-summed-out",
+          "attn-gate-effect",
+          "attn-gate-exit",
+          "qkv-projection-out",
+          "qkv-effect",
+          "qkv-exit",
+          "route-selection-out",
+          "route-effect",
+          "route-exit",
+          "sample-token-out",
+          "sample-effect",
+          "samp-exit",
+          "score-scores-out",
+          "score-effect",
+          "score-exit"
+        ],
+        "obligation_entry_ids": [
+          "token-in",
+          "cos2",
+          "attnresid-attn-in",
+          "attn-gate-partial-in",
+          "attn-gate-collective",
+          "attn-gate-scope",
+          "d-attn-summed-scope",
+          "d-ctx-scope",
+          "d-group-scope",
+          "d-hattn-scope",
+          "d-qkv-scope",
+          "d-scores-scope",
+          "ctx-scores-in",
+          "emb-token-in",
+          "expert-route-in",
+          "ffnresid-expert-in",
+          "head-hidden-in",
+          "merge-half-in",
+          "outproj-context-in",
+          "qkv-hidden-in",
+          "route-hidden-in",
+          "sample-logits-in",
+          "score-qkv-in"
+        ],
+        "property_flows": [
+          {
+            "target_entry_id": "d-ctx-id",
+            "source_entry_ids": [
+              "d-token-in-id"
+            ],
+            "via_entry_ids": [
+              "ctx-context-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-ctx-pres",
+            "source_entry_ids": [
+              "d-token-in-pres"
+            ],
+            "via_entry_ids": [
+              "ctx-context-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-ctx-prov",
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "ctx-context-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-expert-id",
+            "source_entry_ids": [
+              "d-token-in-id"
+            ],
+            "via_entry_ids": [
+              "expert-contribution-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-expert-pres",
+            "source_entry_ids": [
+              "d-token-in-pres"
+            ],
+            "via_entry_ids": [
+              "expert-contribution-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-expert-prov",
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "expert-contribution-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-group-id",
+            "source_entry_ids": [
+              "d-token-in-id"
+            ],
+            "via_entry_ids": [
+              "outproj-partial-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-group-pres",
+            "source_entry_ids": [
+              "d-token-in-pres"
+            ],
+            "via_entry_ids": [
+              "outproj-partial-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-group-prov",
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "outproj-partial-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-group-ord",
+            "source_entry_ids": [
+              "d-token-in-ord"
+            ],
+            "via_entry_ids": [
+              "outproj-partial-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-attn-summed-id",
+            "source_entry_ids": [
+              "d-token-in-id"
+            ],
+            "via_entry_ids": [
+              "attn-gate-summed-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-attn-summed-pres",
+            "source_entry_ids": [
+              "d-token-in-pres"
+            ],
+            "via_entry_ids": [
+              "attn-gate-summed-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-attn-summed-prov",
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "attn-gate-summed-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-attn-summed-ord",
+            "source_entry_ids": [
+              "d-token-in-ord"
+            ],
+            "via_entry_ids": [
+              "attn-gate-summed-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-hattn-id",
+            "source_entry_ids": [
+              "d-token-in-id"
+            ],
+            "via_entry_ids": [
+              "attnresid-hidden-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-hattn-pres",
+            "source_entry_ids": [
+              "d-token-in-pres"
+            ],
+            "via_entry_ids": [
+              "attnresid-hidden-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-hattn-prov",
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "attnresid-hidden-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-hffn-id",
+            "source_entry_ids": [
+              "d-token-in-id"
+            ],
+            "via_entry_ids": [
+              "ffnresid-final-hidden"
+            ]
+          },
+          {
+            "target_entry_id": "d-hffn-pres",
+            "source_entry_ids": [
+              "d-token-in-pres"
+            ],
+            "via_entry_ids": [
+              "ffnresid-final-hidden"
+            ]
+          },
+          {
+            "target_entry_id": "d-hffn-prov",
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "ffnresid-final-hidden"
+            ]
+          },
+          {
+            "target_entry_id": "d-hin-id",
+            "source_entry_ids": [
+              "d-token-in-id"
+            ],
+            "via_entry_ids": [
+              "emb-hidden-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-hin-pres",
+            "source_entry_ids": [
+              "d-token-in-pres"
+            ],
+            "via_entry_ids": [
+              "emb-hidden-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-hin-prov",
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "emb-hidden-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-lhalf-id",
+            "source_entry_ids": [
+              "d-token-in-id"
+            ],
+            "via_entry_ids": [
+              "head-logits-half-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-lhalf-pres",
+            "source_entry_ids": [
+              "d-token-in-pres"
+            ],
+            "via_entry_ids": [
+              "head-logits-half-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-lhalf-prov",
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "head-logits-half-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-logits-id",
+            "source_entry_ids": [
+              "d-token-in-id"
+            ],
+            "via_entry_ids": [
+              "merge-logits-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-logits-pres",
+            "source_entry_ids": [
+              "d-token-in-pres"
+            ],
+            "via_entry_ids": [
+              "merge-logits-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-logits-prov",
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "merge-logits-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-qkv-id",
+            "source_entry_ids": [
+              "d-token-in-id"
+            ],
+            "via_entry_ids": [
+              "qkv-projection-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-qkv-pres",
+            "source_entry_ids": [
+              "d-token-in-pres"
+            ],
+            "via_entry_ids": [
+              "qkv-projection-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-qkv-prov",
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "qkv-projection-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-qkv-ord",
+            "source_entry_ids": [
+              "d-token-in-ord"
+            ],
+            "via_entry_ids": [
+              "qkv-projection-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-routed-id",
+            "source_entry_ids": [
+              "d-token-in-id"
+            ],
+            "via_entry_ids": [
+              "route-selection-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-routed-pres",
+            "source_entry_ids": [
+              "d-token-in-pres"
+            ],
+            "via_entry_ids": [
+              "route-selection-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-routed-prov",
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "route-selection-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-scores-id",
+            "source_entry_ids": [
+              "d-token-in-id"
+            ],
+            "via_entry_ids": [
+              "score-scores-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-scores-pres",
+            "source_entry_ids": [
+              "d-token-in-pres"
+            ],
+            "via_entry_ids": [
+              "score-scores-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-scores-prov",
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "score-scores-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-token-out-id",
+            "source_entry_ids": [
+              "d-token-in-id"
+            ],
+            "via_entry_ids": [
+              "sample-token-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-token-out-pres",
+            "source_entry_ids": [
+              "d-token-in-pres"
+            ],
+            "via_entry_ids": [
+              "sample-token-out"
+            ]
+          },
+          {
+            "target_entry_id": "d-token-out-prov",
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "sample-token-out"
+            ]
+          }
+        ],
+        "field_flows": [
+          {
+            "target_node_id": "d-ctx",
+            "target_field_path": "value",
+            "source_value_refs": [
+              {
+                "node_id": "d-token-in",
+                "field_path": "id"
+              }
+            ],
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "ctx-context-out"
+            ]
+          },
+          {
+            "target_node_id": "d-expert",
+            "target_field_path": "value",
+            "source_value_refs": [
+              {
+                "node_id": "d-token-in",
+                "field_path": "id"
+              }
+            ],
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "expert-contribution-out"
+            ]
+          },
+          {
+            "target_node_id": "d-group",
+            "target_field_path": "value",
+            "source_value_refs": [
+              {
+                "node_id": "d-token-in",
+                "field_path": "id"
+              }
+            ],
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "outproj-partial-out"
+            ]
+          },
+          {
+            "target_node_id": "d-attn-summed",
+            "target_field_path": "value",
+            "source_value_refs": [
+              {
+                "node_id": "d-token-in",
+                "field_path": "id"
+              }
+            ],
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "attn-gate-summed-out"
+            ]
+          },
+          {
+            "target_node_id": "d-hattn",
+            "target_field_path": "value",
+            "source_value_refs": [
+              {
+                "node_id": "d-token-in",
+                "field_path": "id"
+              }
+            ],
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "attnresid-hidden-out"
+            ]
+          },
+          {
+            "target_node_id": "d-hffn",
+            "target_field_path": "value",
+            "source_value_refs": [
+              {
+                "node_id": "d-token-in",
+                "field_path": "id"
+              }
+            ],
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "ffnresid-final-hidden"
+            ]
+          },
+          {
+            "target_node_id": "d-hin",
+            "target_field_path": "value",
+            "source_value_refs": [
+              {
+                "node_id": "d-token-in",
+                "field_path": "id"
+              }
+            ],
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "emb-hidden-out"
+            ]
+          },
+          {
+            "target_node_id": "d-lhalf",
+            "target_field_path": "value",
+            "source_value_refs": [
+              {
+                "node_id": "d-token-in",
+                "field_path": "id"
+              }
+            ],
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "head-logits-half-out"
+            ]
+          },
+          {
+            "target_node_id": "d-logits",
+            "target_field_path": "value",
+            "source_value_refs": [
+              {
+                "node_id": "d-token-in",
+                "field_path": "id"
+              }
+            ],
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "merge-logits-out"
+            ]
+          },
+          {
+            "target_node_id": "d-qkv",
+            "target_field_path": "q",
+            "source_value_refs": [
+              {
+                "node_id": "d-token-in",
+                "field_path": "id"
+              }
+            ],
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "qkv-projection-out"
+            ]
+          },
+          {
+            "target_node_id": "d-routed",
+            "target_field_path": "value",
+            "source_value_refs": [
+              {
+                "node_id": "d-token-in",
+                "field_path": "id"
+              }
+            ],
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "route-selection-out"
+            ]
+          },
+          {
+            "target_node_id": "d-scores",
+            "target_field_path": "value",
+            "source_value_refs": [
+              {
+                "node_id": "d-token-in",
+                "field_path": "id"
+              }
+            ],
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "score-scores-out"
+            ]
+          },
+          {
+            "target_node_id": "d-token-out",
+            "target_field_path": "id",
+            "source_value_refs": [
+              {
+                "node_id": "d-token-in",
+                "field_path": "id"
+              }
+            ],
+            "source_entry_ids": [
+              "d-token-in-prov"
+            ],
+            "via_entry_ids": [
+              "sample-token-out"
+            ]
+          }
+        ],
+        "absent_fields": [],
+        "bounded_cycle_entry_ids": []
+      }
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "action": "validate_contract",
+  "artifact_integrity": {
+    "blueprint_sha256": "a0d9cf6b17df5f544ab2d17930aaf58b6f2bf4a3c1ce4034d3f91f1ba202e30a",
+    "semantic_sha256": "a4808fa315b82548de56bf906a6497cffb4f39d09c03a5b2267c69bfd9ff3f6e"
+  },
+  "error_count": 0,
+  "errors": [],
+  "graph_ids": [
+    "prefill"
+  ],
+  "profile": "leaf",
+  "request_id": "validate-prefill-l0-current",
+  "schema": "blueprint-contract-validation/v4",
+  "snapshot": {
+    "artifact_integrity": {
+      "blueprint_sha256": "a0d9cf6b17df5f544ab2d17930aaf58b6f2bf4a3c1ce4034d3f91f1ba202e30a",
+      "semantic_sha256": "a4808fa315b82548de56bf906a6497cffb4f39d09c03a5b2267c69bfd9ff3f6e"
+    },
+    "covered_graphs": [
+      {
+        "graph_contract_sha256": "69d5326e8445be49cf74c5bac68c8af381e4fd8121b5154ef688158d36a5db1a",
+        "graph_id": "prefill",
+        "role": "selected",
+        "type_schema_sha256": "99f8dc1bb18f75d78fbf7f0cc73245c44b01f2981e7a67b73269d53fdda1f07e"
+      },
+      {
+        "graph_contract_sha256": "9212a3685de85a5df4e17c1471458e064e4c335988ae220f36f65731baca3c8a",
+        "graph_id": "serve",
+        "role": "ancestor",
+        "type_schema_sha256": "30f49b45e889237b5bb310b878ab4e6706809d614eedd39946a3bc723ce1c6d4"
+      }
+    ],
+    "selected_graph_ids": [
+      "prefill"
+    ]
+  },
+  "status": "PASS",
+  "warning_count": 0,
+  "warnings": []
+}

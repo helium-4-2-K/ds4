@@ -1,0 +1,149 @@
+{
+  "schema": "blueprint-write-request/v11",
+  "action": "mutate",
+  "request_id": "separate-initial-and-loop-hidden",
+  "root": "/Users/helium/src/ds4-gb10x4-bcd/bdev",
+  "record_dir": "/Users/helium/src/ds4-gb10x4-bcd/dev-artifacts/ds4-arch-bp/records",
+  "expected_blueprint_sha256": "1bbd20585861653283f9f702b1b0b27414bb4dea32c17a145632267da5037db3",
+  "validation_stage": "complete",
+  "operations": [
+    {
+      "verb": "add",
+      "entity": "data",
+      "graph_id": "decode",
+      "params": {
+        "id": "d-hnext",
+        "kind": "DATA",
+        "label": "next-layer input hidden",
+        "data_type": "blueprint.work.ds4_arch.hidden",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {"entry_id": "d-hnext-role", "key": "data_role", "value": "loop-carried layer input", "status": "supported"},
+          {"entry_id": "d-hnext-id", "key": "identity", "value": "post-FFN hidden for layer i, consumed as layer i+1 input", "status": "supported"},
+          {"entry_id": "d-hnext-ord", "key": "ordering", "value": "present only between stages 09 and 02 for a non-final layer", "status": "supported"},
+          {"entry_id": "d-hnext-pres", "key": "presence", "value": "zero or one; absent after the final layer", "status": "supported"},
+          {"entry_id": "d-hnext-prov", "key": "provenance", "value": "a-ffn-resid", "status": "supported"},
+          {"entry_id": "d-hnext-ng", "key": "no_implementation_guide", "value": "none", "status": "supported"}
+        ]
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "port",
+      "graph_id": "decode",
+      "entity_id": "qkv-hidden-in",
+      "params": {
+        "owner": {"node_id": "a-qkv"},
+        "direction": "input",
+        "port": {"port_id": "qkv-hidden-in", "node_id": "d-hin", "type_ref": "blueprint.work.ds4_arch.hidden", "cardinality": "zero_or_one"}
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "port",
+      "graph_id": "decode",
+      "params": {
+        "owner": {"node_id": "a-qkv"},
+        "direction": "input",
+        "port": {"port_id": "qkv-next-hidden-in", "node_id": "d-hnext", "type_ref": "blueprint.work.ds4_arch.hidden", "cardinality": "zero_or_one"}
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "semantic",
+      "graph_id": "decode",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "a-qkv",
+        "entry": {
+          "entry_id": "qkv-next-hidden-in",
+          "key": "input_use",
+          "value": "For layer i greater than zero, consume only d-hnext from stage 09 of layer i-1.",
+          "status": "supported",
+          "object_ref": {"node_id": "d-hnext"},
+          "support_refs": [{"port": {"owner": {"node_id": "a-qkv"}, "direction": "input", "port_id": "qkv-next-hidden-in"}}]
+        }
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "semantic",
+      "graph_id": "decode",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "a-qkv",
+        "entry": {
+          "entry_id": "qkv-hidden-source",
+          "key": "condition",
+          "value": "Exactly one hidden input is present: d-hin for layer 0, otherwise d-hnext for layer i greater than zero.",
+          "status": "supported",
+          "support_refs": [
+            {"port": {"owner": {"node_id": "a-qkv"}, "direction": "input", "port_id": "qkv-hidden-in"}},
+            {"port": {"owner": {"node_id": "a-qkv"}, "direction": "input", "port_id": "qkv-next-hidden-in"}}
+          ]
+        }
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "port",
+      "graph_id": "decode",
+      "entity_id": "ffnresid-next-hidden",
+      "params": {
+        "owner": {"node_id": "a-ffn-resid"},
+        "direction": "output",
+        "port": {"port_id": "ffnresid-next-hidden", "node_id": "d-hnext", "type_ref": "blueprint.work.ds4_arch.hidden", "cardinality": "zero_or_one"}
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "semantic",
+      "graph_id": "decode",
+      "entity_id": "ffnresid-next-hidden",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "a-ffn-resid",
+        "entry": {
+          "entry_id": "ffnresid-next-hidden",
+          "key": "output",
+          "value": "For a non-final layer, produce d-hnext as the sole loop-carried input to stage 02 of layer i+1.",
+          "status": "supported",
+          "object_ref": {"node_id": "d-hnext"},
+          "support_refs": [{"port": {"owner": {"node_id": "a-ffn-resid"}, "direction": "output", "port_id": "ffnresid-next-hidden"}}]
+        }
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "edge",
+      "graph_id": "decode",
+      "entity_id": "c-ffnresid-loop-out",
+      "params": {
+        "id": "c-ffnresid-loop-out",
+        "source_node_id": "a-ffn-resid",
+        "target_node_id": "d-hnext",
+        "family": "dataflow",
+        "kind": "loop-carried-output",
+        "label": "[09] produce next-layer hidden",
+        "semantics": [{"entry_id": "c-ffnresid-loop-out-relationship", "key": "relationship", "value": "Stage 09 explicitly produces a distinct loop-carried hidden occurrence for the next layer.", "status": "supported"}],
+        "conditions": [{"condition_id": "next-layer-hidden", "kind": "guard", "text": "layer i is not the final decoder layer"}]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode",
+      "params": {
+        "id": "c-hnext-qkv",
+        "source_node_id": "d-hnext",
+        "target_node_id": "a-qkv",
+        "family": "dataflow",
+        "kind": "loop-carried-input",
+        "label": "[09 -> 02] next-layer hidden enters QKV",
+        "semantics": [{"entry_id": "c-hnext-qkv-relationship", "key": "relationship", "value": "The distinct loop-carried hidden occurrence satisfies only qkv-next-hidden-in.", "status": "supported"}],
+        "conditions": [{"condition_id": "next-layer-qkv", "kind": "guard", "text": "layer i is greater than zero"}]
+      }
+    }
+  ]
+}

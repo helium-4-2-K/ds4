@@ -1,0 +1,771 @@
+schema_version: "blueprint-graph/v1"
+graph_id: "decode-qkv-mla"
+display_name: "GLM 5.2 TP4 MLA/QKV projection child"
+graph_version: "1.0"
+lifecycle: DRAFT
+schema_ref: "blueprint-schema/blueprint/v1/blueprint.proto"
+type_schema_ref: "decode-qkv-mla.types.proto"
+input_ports {
+  port_id: "qkv-hidden-in"
+  node_id: "d-hidden-repl"
+  type_ref: "blueprint.work.ds4_arch.hidden"
+  cardinality: PORT_CARDINALITY_EXACTLY_ONE
+}
+output_ports {
+  port_id: "mla-cache-row-out"
+  node_id: "d-mla-cache-row"
+  type_ref: "blueprint.work.ds4_arch.mla_cache_row"
+  cardinality: PORT_CARDINALITY_EXACTLY_ONE
+}
+output_ports {
+  port_id: "qkv-shard-out"
+  node_id: "d-qkv-shard"
+  type_ref: "blueprint.work.ds4_arch.qkv_shard"
+  cardinality: PORT_CARDINALITY_EXACTLY_ONE
+}
+graph {
+  overall_semantic {
+    overview: "Each rank applies its GLM 5.2 TP shard for layer i: Q heads are split 16 per rank; the shared KV latent and RoPE K row are produced for position j; rank-owned k_b/v_b slices reconstruct K/V for owned query heads."
+    support_refs {
+      node_id: "a-qkv-mla-kernel"
+    }
+  }
+  semantics {
+    entry_id: "qkv-hidden-in"
+    key: "input_use"
+    value: "Consumes replicated hidden for layer i."
+    object_ref {
+      port {
+        graph_boundary {
+        }
+        direction: PORT_DIRECTION_INPUT
+        port_id: "qkv-hidden-in"
+      }
+    }
+    support_refs {
+      node_id: "d-hidden-repl"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "mla-cache-row-out"
+    key: "output"
+    value: "Produces the MLA cache row containing kv_lora[512] and k_rope[64] for position j under DCP ownership."
+    object_ref {
+      port {
+        graph_boundary {
+        }
+        direction: PORT_DIRECTION_OUTPUT
+        port_id: "mla-cache-row-out"
+      }
+    }
+    support_refs {
+      node_id: "d-mla-cache-row"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "qkv-shard-out"
+    key: "output"
+    value: "Produces rank-owned Q heads plus local K/V reconstruction material for this rank."
+    object_ref {
+      port {
+        graph_boundary {
+        }
+        direction: PORT_DIRECTION_OUTPUT
+        port_id: "qkv-shard-out"
+      }
+    }
+    support_refs {
+      node_id: "d-qkv-shard"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "qkv-ef"
+    key: "effect"
+    value: "rank-local MLA/KV cache row appended for layer i"
+    support_refs {
+      node_id: "a-qkv-mla-kernel"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "qkv-exit"
+    key: "exit"
+    value: "qkv-and-cache-row-ready"
+    support_refs {
+      node_id: "a-qkv-mla-kernel"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "decode-qkv-mla-arch"
+    key: "architecture_rationale"
+    value: "Keep the decode parent as ordered orchestration while this child owns the detailed local kernel/collective contract for a-qkv-shard."
+    support_refs {
+      node_id: "a-qkv-mla-kernel"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "qkv-im"
+    key: "implementation_choice"
+    value: "requires_new_glm52_tp4_support"
+    support_refs {
+      node_id: "a-qkv-mla-kernel"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "qkv-bird-ref"
+    key: "implementation_reference"
+    value: "Bird/vLLM DCP4 and B12X_MLA_SPARSE behavior is the reference for GLM 5.2 QKV/MLA shard ownership."
+    support_refs {
+      node_id: "a-qkv-mla-kernel"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "qkv-nd"
+    key: "no_diagnostic"
+    value: "none"
+    support_refs {
+      node_id: "a-qkv-mla-kernel"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "decode-qkv-mla-no-guide"
+    key: "no_implementation_guide"
+    value: "This child graph is a target-system contract; implementation planning lives outside the blueprint."
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "qkv-glm52-qk-mla-split"
+    key: "qk_distribution"
+    value: "Q is sharded by query head: rank0 heads 0-15, rank1 16-31, rank2 32-47, rank3 48-63. K is not split into four KV heads; GLM 5.2 has one KV head, so each rank reconstructs non-RoPE K for its query heads from shared kv_lora[512] using rank-owned k_b slices and combines it with k_rope[64]."
+    support_refs {
+      node_id: "a-qkv-mla-kernel"
+    }
+    status: SUPPORTED
+  }
+  nodes {
+    id: "a-qkv-mla-kernel"
+    kind: "ACTION"
+    label: "realize 02 layer i MLA/QKV TP projection and cache append"
+    input_ports {
+      port_id: "k-qkv-hidden-in"
+      node_id: "d-hidden-repl"
+      type_ref: "blueprint.work.ds4_arch.hidden"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "k-mla-cache-row-out"
+      node_id: "d-mla-cache-row"
+      type_ref: "blueprint.work.ds4_arch.mla_cache_row"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "k-qkv-shard-out"
+      node_id: "d-qkv-shard"
+      type_ref: "blueprint.work.ds4_arch.qkv_shard"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "a-qkv-mla-kernel-ov"
+      key: "overview"
+      value: "Each rank applies its GLM 5.2 TP shard for layer i: Q heads are split 16 per rank; the shared KV latent and RoPE K row are produced for position j; rank-owned k_b/v_b slices reconstruct K/V for owned query heads."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "k-qkv-hidden-in"
+      key: "input_use"
+      value: "Consumes d-hidden-repl."
+      object_ref {
+        node_id: "d-hidden-repl"
+      }
+      support_refs {
+        port {
+          node_id: "a-qkv-mla-kernel"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "k-qkv-hidden-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "k-mla-cache-row-out"
+      key: "output"
+      value: "Produces d-mla-cache-row."
+      object_ref {
+        node_id: "d-mla-cache-row"
+      }
+      support_refs {
+        port {
+          node_id: "a-qkv-mla-kernel"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "k-mla-cache-row-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "k-qkv-shard-out"
+      key: "output"
+      value: "Produces d-qkv-shard."
+      object_ref {
+        node_id: "d-qkv-shard"
+      }
+      support_refs {
+        port {
+          node_id: "a-qkv-mla-kernel"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "k-qkv-shard-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-qkv-mla-kernel-ef"
+      key: "effect"
+      value: "Each rank applies its GLM 5.2 TP shard for layer i: Q heads are split 16 per rank; the shared KV latent and RoPE K row are produced for position j; rank-owned k_b/v_b slices reconstruct K/V for owned query heads."
+      support_refs {
+        node_id: "a-qkv-mla-kernel"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-qkv-mla-kernel-exit"
+      key: "exit"
+      value: "a-qkv-mla-kernel-done"
+      support_refs {
+        node_id: "a-qkv-mla-kernel"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-qkv-mla-kernel-cu"
+      key: "code_unit"
+      value: "GLM 5.2 TP4 MLA/QKV projection + compact KV append"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-qkv-mla-kernel-im"
+      key: "implementation_choice"
+      value: "fixed_by_child_contract_from_parent_action"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-qkv-mla-kernel-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "s-model"
+      access: "read"
+      meaning: "read QKV/MLA TP weights"
+    }
+    state_set {
+      state_node_id: "s-kv"
+      access: "update"
+      meaning: "append position j MLA cache row"
+    }
+    state_set {
+      state_node_id: "s-rank-plan"
+      access: "read"
+      meaning: "read rank head and DCP ownership spans"
+    }
+    state_set {
+      state_node_id: "s-kv-cursor"
+      access: "read"
+      meaning: "read current token position j for MLA/KV append"
+    }
+  }
+  nodes {
+    id: "d-hidden-repl"
+    kind: "DATA"
+    label: "input d-hidden-repl"
+    data_type: "blueprint.work.ds4_arch.hidden"
+    semantics {
+      entry_id: "d-hidden-repl-data-role"
+      key: "data_role"
+      value: "child boundary data"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-hidden-repl-identity"
+      key: "identity"
+      value: "d-hidden-repl is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-hidden-repl-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-hidden-repl-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-hidden-repl-provenance"
+      key: "provenance"
+      value: "declared by the node source list."
+      status: SUPPORTED
+    }
+    sources {
+      source_id: "src-d-hidden-repl"
+      kind: "graph_input"
+      source_ref: "qkv-hidden-in"
+      graph_input_port_id: "qkv-hidden-in"
+      meaning: "value enters through this child graph boundary"
+    }
+  }
+  nodes {
+    id: "d-mla-cache-row"
+    kind: "DATA"
+    label: "output d-mla-cache-row"
+    data_type: "blueprint.work.ds4_arch.mla_cache_row"
+    semantics {
+      entry_id: "d-mla-cache-row-data-role"
+      key: "data_role"
+      value: "child boundary data"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-mla-cache-row-identity"
+      key: "identity"
+      value: "d-mla-cache-row is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-mla-cache-row-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-mla-cache-row-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-mla-cache-row-provenance"
+      key: "provenance"
+      value: "declared by the node source list."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "d-qkv-shard"
+    kind: "DATA"
+    label: "output d-qkv-shard"
+    data_type: "blueprint.work.ds4_arch.qkv_shard"
+    semantics {
+      entry_id: "d-qkv-shard-data-role"
+      key: "data_role"
+      value: "child boundary data"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-qkv-shard-identity"
+      key: "identity"
+      value: "d-qkv-shard is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-qkv-shard-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-qkv-shard-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-qkv-shard-provenance"
+      key: "provenance"
+      value: "declared by the node source list."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "s-kv"
+    kind: "STATE"
+    label: "same state s-kv"
+    data_type: "blueprint.work.ds4_arch.kv"
+    semantics {
+      entry_id: "s-kv-data-role"
+      key: "data_role"
+      value: "child-visible decode state"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-identity"
+      key: "identity"
+      value: "s-kv is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-ordering"
+      key: "ordering"
+      value: "append-ordered by prompt/decode token position; cursor state records monotonic length and current position."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "decode"
+      state_node_id: "s-kv"
+      relation: "same logical decode state as parent graph"
+      meaning: "child action reads or updates the same state occurrence declared by the parent action"
+    }
+  }
+  nodes {
+    id: "s-kv-cursor"
+    kind: "STATE"
+    label: "same append-ordered decode KV cursor"
+    data_type: "blueprint.work.ds4_arch.kv_cursor"
+    semantics {
+      entry_id: "s-kv-cursor-data-role"
+      key: "data_role"
+      value: "QKV child-visible decode cursor"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-cursor-dist"
+      key: "distribution_scope"
+      value: "replicated"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-cursor-identity"
+      key: "identity"
+      value: "s-kv-cursor is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-cursor-ordering"
+      key: "ordering"
+      value: "monotonic by decode token position j"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-cursor-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-cursor-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "decode"
+      state_node_id: "s-kv-cursor"
+      relation: "same logical decode cursor as parent decode graph"
+      meaning: "QKV/MLA append reads the parent cursor position"
+    }
+  }
+  nodes {
+    id: "s-model"
+    kind: "STATE"
+    label: "same state s-model"
+    data_type: "blueprint.work.ds4_arch.model"
+    semantics {
+      entry_id: "s-model-data-role"
+      key: "data_role"
+      value: "child-visible decode state"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-model-identity"
+      key: "identity"
+      value: "s-model is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-model-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-model-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-model-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "decode"
+      state_node_id: "s-model"
+      relation: "same logical decode state as parent graph"
+      meaning: "child action reads or updates the same state occurrence declared by the parent action"
+    }
+  }
+  nodes {
+    id: "s-rank-plan"
+    kind: "STATE"
+    label: "same state s-rank-plan"
+    data_type: "blueprint.work.ds4_arch.rank_plan"
+    semantics {
+      entry_id: "s-rank-plan-data-role"
+      key: "data_role"
+      value: "child-visible decode state"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-rank-plan-identity"
+      key: "identity"
+      value: "s-rank-plan is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-rank-plan-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-rank-plan-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-rank-plan-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "decode"
+      state_node_id: "s-rank-plan"
+      relation: "same logical decode state as parent graph"
+      meaning: "child action reads or updates the same state occurrence declared by the parent action"
+    }
+  }
+  edges {
+    id: "e-a-qkv-mla-kernel-s-kv"
+    source_node_id: "a-qkv-mla-kernel"
+    target_node_id: "s-kv"
+    kind: "state-access"
+    label: "a-qkv-mla-kernel update s-kv"
+    semantics {
+      entry_id: "e-a-qkv-mla-kernel-s-kv-r"
+      key: "relationship"
+      value: "a-qkv-mla-kernel update s-kv"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-a-qkv-mla-kernel-s-kv-s"
+      key: "state_update"
+      value: "a-qkv-mla-kernel update s-kv"
+      object_ref {
+        node_id: "s-kv"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-a-qkv-mla-kernel-s-kv-cursor"
+    source_node_id: "a-qkv-mla-kernel"
+    target_node_id: "s-kv-cursor"
+    kind: "state-access"
+    label: "QKV/MLA kernel reads current decode cursor position j"
+    semantics {
+      entry_id: "e-a-qkv-mla-kernel-s-kv-cursor-r"
+      key: "relationship"
+      value: "QKV/MLA kernel reads current decode cursor position j"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-a-qkv-mla-kernel-s-kv-cursor-s"
+      key: "state_read"
+      value: "QKV/MLA kernel reads current decode cursor position j"
+      object_ref {
+        node_id: "s-kv-cursor"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-a-qkv-mla-kernel-s-model"
+    source_node_id: "a-qkv-mla-kernel"
+    target_node_id: "s-model"
+    kind: "state-access"
+    label: "a-qkv-mla-kernel read s-model"
+    semantics {
+      entry_id: "e-a-qkv-mla-kernel-s-model-r"
+      key: "relationship"
+      value: "a-qkv-mla-kernel read s-model"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-a-qkv-mla-kernel-s-model-s"
+      key: "state_read"
+      value: "a-qkv-mla-kernel read s-model"
+      object_ref {
+        node_id: "s-model"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-a-qkv-mla-kernel-s-rank-plan"
+    source_node_id: "a-qkv-mla-kernel"
+    target_node_id: "s-rank-plan"
+    kind: "state-access"
+    label: "a-qkv-mla-kernel read s-rank-plan"
+    semantics {
+      entry_id: "e-a-qkv-mla-kernel-s-rank-plan-r"
+      key: "relationship"
+      value: "a-qkv-mla-kernel read s-rank-plan"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-a-qkv-mla-kernel-s-rank-plan-s"
+      key: "state_read"
+      value: "a-qkv-mla-kernel read s-rank-plan"
+      object_ref {
+        node_id: "s-rank-plan"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-a-qkv-mla-kernel-to-d-mla-cache-row"
+    source_node_id: "a-qkv-mla-kernel"
+    target_node_id: "d-mla-cache-row"
+    kind: "output"
+    label: "a-qkv-mla-kernel produces d-mla-cache-row"
+    semantics {
+      entry_id: "e-a-qkv-mla-kernel-to-d-mla-cache-row-r"
+      key: "relationship"
+      value: "a-qkv-mla-kernel produces d-mla-cache-row"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-a-qkv-mla-kernel-to-d-qkv-shard"
+    source_node_id: "a-qkv-mla-kernel"
+    target_node_id: "d-qkv-shard"
+    kind: "output"
+    label: "a-qkv-mla-kernel produces d-qkv-shard"
+    semantics {
+      entry_id: "e-a-qkv-mla-kernel-to-d-qkv-shard-r"
+      key: "relationship"
+      value: "a-qkv-mla-kernel produces d-qkv-shard"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-d-hidden-repl-to-a-qkv-mla-kernel"
+    source_node_id: "d-hidden-repl"
+    target_node_id: "a-qkv-mla-kernel"
+    kind: "input"
+    label: "d-hidden-repl feeds a-qkv-mla-kernel"
+    semantics {
+      entry_id: "e-d-hidden-repl-to-a-qkv-mla-kernel-r"
+      key: "relationship"
+      value: "d-hidden-repl feeds a-qkv-mla-kernel"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  operations {
+    operation_id: "op-decode-qkv-mla"
+    name: "GLM 5.2 TP4 MLA/QKV projection child"
+    overview: "Each rank applies its GLM 5.2 TP shard for layer i: Q heads are split 16 per rank; the shared KV latent and RoPE K row are produced for position j; rank-owned k_b/v_b slices reconstruct K/V for owned query heads."
+    members {
+      ref {
+        node_id: "a-qkv-mla-kernel"
+      }
+      role: "realizing action"
+    }
+    members {
+      ref {
+        node_id: "d-hidden-repl"
+      }
+      role: "boundary data"
+    }
+    members {
+      ref {
+        node_id: "d-mla-cache-row"
+      }
+      role: "boundary data"
+    }
+    members {
+      ref {
+        node_id: "d-qkv-shard"
+      }
+      role: "boundary data"
+    }
+    members {
+      ref {
+        node_id: "s-kv"
+      }
+      role: "visible state"
+    }
+    members {
+      ref {
+        node_id: "s-model"
+      }
+      role: "visible state"
+    }
+    members {
+      ref {
+        node_id: "s-rank-plan"
+      }
+      role: "visible state"
+    }
+    semantics {
+      entry_id: "op-decode-qkv-mla-target"
+      key: "target_state"
+      value: "a-qkv-mla-kernel completes the child contract for a-qkv-shard"
+      support_refs {
+        node_id: "a-qkv-mla-kernel"
+      }
+      status: SUPPORTED
+    }
+  }
+}
+canonical {
+  schema_sha256: "9de5a18221a33a9379092d084dbae946af604b979dfe7caf07bdd65701b5ea9d"
+  type_schema_sha256: "f8a1f21cb5ed9fa4fc3eebe243664bcf93042f7aa27ffc12ac9ad04e359ffd8f"
+  graph_sha256: "ee628ce4bd2533ddc03dafed66d1a96c752507c34914a4c4114605536241bd04"
+  graph_contract_sha256: "a3e04f977f9d23da20d864df82ca561edbcfbd3e0e21ee8e7b3b41ca9f744e52"
+}

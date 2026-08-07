@@ -1,0 +1,12 @@
+{
+  "error": "blueprint lint rejected 1 issue(s)",
+  "errors": [
+    {
+      "code": "BLUEPRINT_LINT",
+      "message": "serve/action-decode-token: child changes parent semantic dec-ef",
+      "path": "<blueprint>"
+    }
+  ],
+  "schema": "blueprint-write-error/v3",
+  "status": "FAIL"
+}

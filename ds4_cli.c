@@ -1952,6 +1952,41 @@ static cli_config parse_options(int argc, char **argv) {
             c.gpu_devices_arg = need_arg(&i, argc, argv, arg);
         } else if (!strcmp(arg, "--cuda-tensor-parallel")) {
             c.engine.cuda_tensor_parallel = true;
+        } else if (!strcmp(arg, "--glm52-tp4-l0")) {
+            c.engine.glm52_tp4_l0 = true;
+        } else if (!strcmp(arg, "--glm52-tp4-mock-model")) {
+            c.engine.glm52_tp4_l0 = true;
+            c.engine.glm52_tp4_mock_model = true;
+        } else if (!strcmp(arg, "--glm52-tp4-mock-matmul")) {
+            c.engine.glm52_tp4_l0 = true;
+            c.engine.glm52_tp4_mock_model = true;
+            c.engine.glm52_tp4_mock_matmul = true;
+        } else if (!strcmp(arg, "--glm52-tp4-rank")) {
+            c.engine.glm52_tp4_l0 = true;
+            c.engine.glm52_tp4_rank_set = true;
+            c.engine.glm52_tp4_rank =
+                parse_nonnegative_int(need_arg(&i, argc, argv, arg), arg);
+        } else if (!strcmp(arg, "--glm52-tp4-tp-size")) {
+            c.engine.glm52_tp4_l0 = true;
+            c.engine.glm52_tp4_tp_size =
+                parse_int(need_arg(&i, argc, argv, arg), arg);
+        } else if (!strcmp(arg, "--glm52-tp4-dcp-size")) {
+            c.engine.glm52_tp4_l0 = true;
+            c.engine.glm52_tp4_dcp_size =
+                parse_int(need_arg(&i, argc, argv, arg), arg);
+        } else if (!strcmp(arg, "--glm52-tp4-pp-size")) {
+            c.engine.glm52_tp4_l0 = true;
+            c.engine.glm52_tp4_pp_size =
+                parse_int(need_arg(&i, argc, argv, arg), arg);
+        } else if (!strcmp(arg, "--glm52-tp4-rank-plan")) {
+            c.engine.glm52_tp4_l0 = true;
+            c.engine.glm52_tp4_rank_plan = need_arg(&i, argc, argv, arg);
+        } else if (!strcmp(arg, "--glm52-tp4-layout")) {
+            c.engine.glm52_tp4_l0 = true;
+            c.engine.glm52_tp4_layout_path = need_arg(&i, argc, argv, arg);
+        } else if (!strcmp(arg, "--glm52-tp4-fabric")) {
+            c.engine.glm52_tp4_l0 = true;
+            c.engine.glm52_tp4_fabric_addr = need_arg(&i, argc, argv, arg);
         } else if (!strcmp(arg, "--dump-tokens")) {
             c.gen.dump_tokens = true;
         } else if (!strcmp(arg, "--dump-logits")) {

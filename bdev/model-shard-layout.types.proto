@@ -1,0 +1,94 @@
+syntax = "proto3";
+
+package blueprint.work.ds4_arch;
+
+import "blueprint/v1/blueprint.proto";
+import "model-load.types.proto";
+import "serve.types.proto";
+
+message tensor_shard_entry {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.tensor_shard_entry"
+    represents: "One DS4-native tensor slice entry with ownership, file identity, and mapping coordinates."
+    semantics {
+      entry_id: "t-tensor-shard-entry"
+      key: "meaning"
+      value: "One DS4-native tensor slice entry with ownership, file identity, and mapping coordinates."
+      status: SUPPORTED
+    }
+  };
+  string tensor_name = 1 [(blueprint.v1.field_contract) = { meaning: "canonical DS4 tensor name" }];
+  string tensor_role = 2 [(blueprint.v1.field_contract) = { meaning: "role such as replicated, q_head, mla_kv, expert, vocab, or output" }];
+  string distribution_scope = 3 [(blueprint.v1.field_contract) = { meaning: "rank_local_shard or replicated" }];
+  int32 rank = 4 [(blueprint.v1.field_contract) = { meaning: "owning rank for rank-local entries or -1 for replicated" }];
+  string file_path = 5 [(blueprint.v1.field_contract) = { meaning: "rank-local DS4 shard file path" }];
+  uint64 byte_offset = 6 [(blueprint.v1.field_contract) = { meaning: "byte offset in the shard file" }];
+  uint64 byte_length = 7 [(blueprint.v1.field_contract) = { meaning: "mapped byte length" }];
+  string sha256 = 8 [(blueprint.v1.field_contract) = { meaning: "hash for the tensor slice bytes or containing shard segment" }];
+  bool replicated = 9 [(blueprint.v1.field_contract) = { meaning: "true when every rank must map identical bytes" }];
+  int32 q_head_start = 10 [(blueprint.v1.field_contract) = { meaning: "first owned Q head or -1" }];
+  int32 q_head_end = 11 [(blueprint.v1.field_contract) = { meaning: "exclusive end owned Q head or -1" }];
+  int32 expert_start = 12 [(blueprint.v1.field_contract) = { meaning: "first owned routed expert or -1" }];
+  int32 expert_end = 13 [(blueprint.v1.field_contract) = { meaning: "exclusive end routed expert or -1" }];
+  int32 vocab_start = 14 [(blueprint.v1.field_contract) = { meaning: "first owned vocab/output row or -1" }];
+  int32 vocab_end = 15 [(blueprint.v1.field_contract) = { meaning: "exclusive end vocab/output row or -1" }];
+}
+
+message ds4_shard_layout {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.ds4_shard_layout"
+    represents: "The DS4-native GLM 5.2 TP4 shard layout manifest consumed by runtime loading."
+    semantics {
+      entry_id: "t-ds4-shard-layout"
+      key: "meaning"
+      value: "The DS4-native GLM 5.2 TP4 shard layout manifest consumed by runtime loading."
+      status: SUPPORTED
+    }
+  };
+  string format_version = 1 [(blueprint.v1.field_contract) = { meaning: "DS4 shard layout format version" }];
+  string model_config_sha256 = 2 [(blueprint.v1.field_contract) = { meaning: "hash binding layout to GLM 5.2 config and tensor metadata" }];
+  int32 tp_size = 3 [(blueprint.v1.field_contract) = { meaning: "fixed tensor parallel degree 4" }];
+  int32 dcp_size = 4 [(blueprint.v1.field_contract) = { meaning: "fixed DCP degree 4" }];
+  int32 rank_count = 5 [(blueprint.v1.field_contract) = { meaning: "fixed rank count 4" }];
+  int32 required_base_shards = 6 [(blueprint.v1.field_contract) = { meaning: "20 base files per rank for the Bird-derived layout" }];
+  int32 required_mtp_shards = 7 [(blueprint.v1.field_contract) = { meaning: "one MTP/speculator file per rank when present in the converted checkpoint" }];
+  repeated blueprint.work.ds4_arch.tensor_shard_entry entries = 8 [(blueprint.v1.field_contract) = { meaning: "all tensor entries for replicated and rank-local slices" }];
+}
+
+message tensor_ownership_plan {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.tensor_ownership_plan"
+    represents: "Validated tensor ownership coverage for one rank and the global TP4 layout."
+    semantics {
+      entry_id: "t-tensor-ownership-plan"
+      key: "meaning"
+      value: "Validated tensor ownership coverage for one rank and the global TP4 layout."
+      status: SUPPORTED
+    }
+  };
+  int32 rank = 1 [(blueprint.v1.field_contract) = { meaning: "rank id 0..3" }];
+  int32 q_head_start = 2 [(blueprint.v1.field_contract) = { meaning: "first owned Q head" }];
+  int32 q_head_end = 3 [(blueprint.v1.field_contract) = { meaning: "exclusive end owned Q head" }];
+  bool coverage_complete = 4 [(blueprint.v1.field_contract) = { meaning: "true only when all required replicated and sharded tensor spans are covered exactly once" }];
+  bool overlaps_present = 5 [(blueprint.v1.field_contract) = { meaning: "must be false before mmap" }];
+  bool missing_spans_present = 6 [(blueprint.v1.field_contract) = { meaning: "must be false before mmap" }];
+  repeated blueprint.work.ds4_arch.tensor_shard_entry entries = 7 [(blueprint.v1.field_contract) = { meaning: "validated current-rank and replicated entries" }];
+}
+
+message mapped_tensor_slices {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.mapped_tensor_slices"
+    represents: "Runtime mmap result for current-rank DS4-native tensor slices."
+    semantics {
+      entry_id: "t-mapped-tensor-slices"
+      key: "meaning"
+      value: "Runtime mmap result for current-rank DS4-native tensor slices."
+      status: SUPPORTED
+    }
+  };
+  int32 rank = 1 [(blueprint.v1.field_contract) = { meaning: "rank id 0..3" }];
+  int32 tensor_count = 2 [(blueprint.v1.field_contract) = { meaning: "number of mapped tensor slices" }];
+  uint64 mapped_bytes = 3 [(blueprint.v1.field_contract) = { meaning: "total mapped bytes" }];
+  string source_layout_sha256 = 4 [(blueprint.v1.field_contract) = { meaning: "hash of accepted ds4_shard_layout" }];
+  bool no_foreign_rank_shard = 5 [(blueprint.v1.field_contract) = { meaning: "true only when no foreign-rank slice was mapped" }];
+}

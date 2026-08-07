@@ -1,0 +1,41 @@
+{
+  "action": "validate_contract",
+  "artifact_integrity": {
+    "blueprint_sha256": "a0d9cf6b17df5f544ab2d17930aaf58b6f2bf4a3c1ce4034d3f91f1ba202e30a",
+    "semantic_sha256": "a4808fa315b82548de56bf906a6497cffb4f39d09c03a5b2267c69bfd9ff3f6e"
+  },
+  "error_count": 0,
+  "errors": [],
+  "graph_ids": [
+    "decode"
+  ],
+  "profile": "composite",
+  "request_id": "validate-decode-composite-after-model-shard-layout",
+  "schema": "blueprint-contract-validation/v4",
+  "snapshot": {
+    "artifact_integrity": {
+      "blueprint_sha256": "a0d9cf6b17df5f544ab2d17930aaf58b6f2bf4a3c1ce4034d3f91f1ba202e30a",
+      "semantic_sha256": "a4808fa315b82548de56bf906a6497cffb4f39d09c03a5b2267c69bfd9ff3f6e"
+    },
+    "covered_graphs": [
+      {
+        "graph_contract_sha256": "e98ec8de0297f19e37d776a48f3cc032a7d0b91972a643ff72ca3ad8c42fe3cb",
+        "graph_id": "decode",
+        "role": "selected",
+        "type_schema_sha256": "11aed4b3949cb382442d88c9da0f49383f7a3e1d79ee196a83cb7696855e03be"
+      },
+      {
+        "graph_contract_sha256": "9212a3685de85a5df4e17c1471458e064e4c335988ae220f36f65731baca3c8a",
+        "graph_id": "serve",
+        "role": "ancestor",
+        "type_schema_sha256": "30f49b45e889237b5bb310b878ab4e6706809d614eedd39946a3bc723ce1c6d4"
+      }
+    ],
+    "selected_graph_ids": [
+      "decode"
+    ]
+  },
+  "status": "PASS",
+  "warning_count": 0,
+  "warnings": []
+}

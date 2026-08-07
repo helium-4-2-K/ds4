@@ -1,0 +1,909 @@
+schema_version: "blueprint-graph/v1"
+graph_id: "model-load"
+display_name: "Load GLM 5.2 TP=4 shards on four GX10 ranks"
+graph_version: "1.0"
+lifecycle: DRAFT
+schema_ref: "blueprint-schema/blueprint/v1/blueprint.proto"
+type_schema_ref: "model-load.types.proto"
+graph {
+  overall_semantic {
+    overview: "Start coordinator/workers and load TP=4 weight shards for every GLM 5.2 layer on each GX10 rank."
+    support_refs {
+      node_id: "a-ready-rank-engines"
+    }
+  }
+  semantics {
+    entry_id: "action-serve-open-no-input"
+    key: "no_input"
+    value: "This action has no typed data input port; state dependencies are declared in state_set."
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "action-serve-open-no-output"
+    key: "no_output"
+    value: "This action has no typed data output port; state/effects are explicit."
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "open-ef"
+    key: "effect"
+    value: "four GX10 TP rank engines are resident"
+    support_refs {
+      node_id: "a-ready-rank-engines"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "model-load-state-read-no-effect"
+    key: "no_effect"
+    value: "Read-only model plan validation consumes state-model-leader without mutating it."
+    support_refs {
+      node_id: "state-model-leader"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "open-exit"
+    key: "exit"
+    value: "engines-ready"
+    support_refs {
+      node_id: "a-ready-rank-engines"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "model-load-arch"
+    key: "architecture_rationale"
+    value: "Keep model startup below serve/open so the root graph stays a service lifecycle view while shard validation and rank residency remain inspectable."
+    support_refs {
+      node_id: "a-map-rank-shards"
+    }
+    support_refs {
+      node_id: "a-ready-rank-engines"
+    }
+    support_refs {
+      node_id: "a-validate-launch-plan"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "open-im"
+    key: "implementation_choice"
+    value: "fixed_by_target_tp4_design"
+    support_refs {
+      node_id: "a-ready-rank-engines"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "open-bird-ref"
+    key: "implementation_reference"
+    value: "Use Bird/vLLM runbook local-rank checkpoint checks as the concrete TP shard loading reference: 36 files per rank, 20 base shards, one MTP shard, no foreign-rank shard."
+    support_refs {
+      node_id: "a-ready-rank-engines"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "open-nd"
+    key: "no_diagnostic"
+    value: "none"
+    support_refs {
+      node_id: "a-ready-rank-engines"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "model-load-no-guide"
+    key: "no_implementation_guide"
+    value: "The model-load graph is a target-system contract only; implementation planning lives outside the blueprint."
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "open-input"
+    key: "state_dependency"
+    value: "Reads model TP placement and launch configuration."
+    object_ref {
+      node_id: "state-model-leader"
+    }
+    support_refs {
+      node_id: "a-ready-rank-engines"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "open-output"
+    key: "state_update"
+    value: "Establishes rank-local resident TP weight shard state."
+    object_ref {
+      node_id: "state-model-worker"
+    }
+    support_refs {
+      node_id: "a-ready-rank-engines"
+    }
+    status: SUPPORTED
+  }
+  nodes {
+    id: "a-map-rank-shards"
+    kind: "ACTION"
+    label: "03 map local TP shards"
+    input_ports {
+      port_id: "shard-manifest-in"
+      node_id: "d-shard-manifest"
+      type_ref: "blueprint.work.ds4_arch.shard_manifest"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "loaded-shard-out"
+      node_id: "d-loaded-rank-shard"
+      type_ref: "blueprint.work.ds4_arch.loaded_rank_shard"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "a-map-rank-shards-ov"
+      key: "overview"
+      value: "Each rank memory maps only its Q/head, expert, vocab, and layer shard files and records its owned spans."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "shard-manifest-in"
+      key: "input_use"
+      value: "Consumes d-shard-manifest."
+      object_ref {
+        node_id: "d-shard-manifest"
+      }
+      support_refs {
+        port {
+          node_id: "a-map-rank-shards"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "shard-manifest-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "loaded-shard-out"
+      key: "output"
+      value: "Produces d-loaded-rank-shard."
+      object_ref {
+        node_id: "d-loaded-rank-shard"
+      }
+      support_refs {
+        port {
+          node_id: "a-map-rank-shards"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "loaded-shard-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-map-rank-shards-ef"
+      key: "effect"
+      value: "Each rank memory maps only its Q/head, expert, vocab, and layer shard files and records its owned spans."
+      support_refs {
+        node_id: "a-map-rank-shards"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-map-rank-shards-exit"
+      key: "exit"
+      value: "a-map-rank-shards-done"
+      support_refs {
+        node_id: "a-map-rank-shards"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-map-rank-shards-im"
+      key: "implementation_choice"
+      value: "requires_new_ds4_dwarfstar_glm52_tp4_support"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-map-rank-shards-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    expands_to_graph_id: "model-shard-layout"
+  }
+  nodes {
+    id: "a-ready-rank-engines"
+    kind: "ACTION"
+    label: "04 mark rank engines resident"
+    input_ports {
+      port_id: "loaded-shard-in"
+      node_id: "d-loaded-rank-shard"
+      type_ref: "blueprint.work.ds4_arch.loaded_rank_shard"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "a-ready-rank-engines-ov"
+      key: "overview"
+      value: "Publish resident TP rank engines after all four ranks have their local GLM 5.2 shards loaded and collective links initialized."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "loaded-shard-in"
+      key: "input_use"
+      value: "Consumes d-loaded-rank-shard."
+      object_ref {
+        node_id: "d-loaded-rank-shard"
+      }
+      support_refs {
+        port {
+          node_id: "a-ready-rank-engines"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "loaded-shard-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-ready-rank-engines-no-output"
+      key: "no_output"
+      value: "This action has no typed data output port; state/effects are explicit."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-ready-rank-engines-ef"
+      key: "effect"
+      value: "Publish resident TP rank engines after all four ranks have their local GLM 5.2 shards loaded and collective links initialized."
+      support_refs {
+        node_id: "a-ready-rank-engines"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-ready-rank-engines-exit"
+      key: "exit"
+      value: "a-ready-rank-engines-done"
+      support_refs {
+        node_id: "a-ready-rank-engines"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-ready-rank-engines-cu"
+      key: "code_unit"
+      value: "DwarfStar TP worker readiness barrier"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-ready-rank-engines-im"
+      key: "implementation_choice"
+      value: "requires_new_ds4_dwarfstar_glm52_tp4_support"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-ready-rank-engines-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "state-model-worker"
+      access: "update"
+      meaning: "mark four rank-local engines as resident and ready"
+    }
+  }
+  nodes {
+    id: "a-validate-launch-plan"
+    kind: "ACTION"
+    label: "01 validate dwarfStart launch plan"
+    output_ports {
+      port_id: "launch-plan-out"
+      node_id: "d-launch-plan"
+      type_ref: "blueprint.work.ds4_arch.launch_plan"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "a-validate-launch-plan-ov"
+      key: "overview"
+      value: "Validate TP=4, four GX10 hosts, model revision, DwarfStar env, and Bird/vLLM-compatible serving settings before workers load weights."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-validate-launch-plan-no-input"
+      key: "no_input"
+      value: "This action has no typed data input port; state dependencies are declared in state_set."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "launch-plan-out"
+      key: "output"
+      value: "Produces d-launch-plan."
+      object_ref {
+        node_id: "d-launch-plan"
+      }
+      support_refs {
+        port {
+          node_id: "a-validate-launch-plan"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "launch-plan-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-validate-launch-plan-ef"
+      key: "effect"
+      value: "Validate TP=4, four GX10 hosts, model revision, DwarfStar env, and Bird/vLLM-compatible serving settings before workers load weights."
+      support_refs {
+        node_id: "a-validate-launch-plan"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-validate-launch-plan-exit"
+      key: "exit"
+      value: "a-validate-launch-plan-done"
+      support_refs {
+        node_id: "a-validate-launch-plan"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-validate-launch-plan-cu"
+      key: "code_unit"
+      value: "dwarfStart launch-plan parser and invariant checks"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-validate-launch-plan-im"
+      key: "implementation_choice"
+      value: "requires_new_ds4_dwarfstar_glm52_tp4_support"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-validate-launch-plan-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "a-validate-shard-manifest"
+    kind: "ACTION"
+    label: "02 validate GLM shard manifest"
+    input_ports {
+      port_id: "launch-plan-in"
+      node_id: "d-launch-plan"
+      type_ref: "blueprint.work.ds4_arch.launch_plan"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "shard-manifest-out"
+      node_id: "d-shard-manifest"
+      type_ref: "blueprint.work.ds4_arch.shard_manifest"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "a-validate-shard-manifest-ov"
+      key: "overview"
+      value: "Check each rank has exactly its local GLM 5.2 shard set and no foreign-rank shard files before memory mapping."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "launch-plan-in"
+      key: "input_use"
+      value: "Consumes d-launch-plan."
+      object_ref {
+        node_id: "d-launch-plan"
+      }
+      support_refs {
+        port {
+          node_id: "a-validate-shard-manifest"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "launch-plan-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "shard-manifest-out"
+      key: "output"
+      value: "Produces d-shard-manifest."
+      object_ref {
+        node_id: "d-shard-manifest"
+      }
+      support_refs {
+        port {
+          node_id: "a-validate-shard-manifest"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "shard-manifest-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-validate-shard-manifest-ef"
+      key: "effect"
+      value: "Check each rank has exactly its local GLM 5.2 shard set and no foreign-rank shard files before memory mapping."
+      support_refs {
+        node_id: "a-validate-shard-manifest"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-validate-shard-manifest-exit"
+      key: "exit"
+      value: "a-validate-shard-manifest-done"
+      support_refs {
+        node_id: "a-validate-shard-manifest"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-validate-shard-manifest-cu"
+      key: "code_unit"
+      value: "GLM 5.2 TP4 shard manifest scanner"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-validate-shard-manifest-im"
+      key: "implementation_choice"
+      value: "requires_new_ds4_dwarfstar_glm52_tp4_support"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-validate-shard-manifest-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "state-model-leader"
+      access: "read"
+      meaning: "read model metadata, TP degree, and checkpoint root"
+    }
+  }
+  nodes {
+    id: "d-launch-plan"
+    kind: "DATA"
+    label: "DwarfStar launch plan"
+    data_type: "blueprint.work.ds4_arch.launch_plan"
+    semantics {
+      entry_id: "d-launch-plan-data-role"
+      key: "data_role"
+      value: "validated launch/runtime inputs"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-launch-plan-identity"
+      key: "identity"
+      value: "d-launch-plan is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-launch-plan-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-launch-plan-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-launch-plan-provenance"
+      key: "provenance"
+      value: "declared by the node source list."
+      status: SUPPORTED
+    }
+    sources {
+      source_id: "src-launch-plan"
+      kind: "runtime_config"
+      source_ref: "dwarfStart launch command and env"
+      meaning: "operator supplies model path, TP rank count, and rank host map"
+    }
+  }
+  nodes {
+    id: "d-loaded-rank-shard"
+    kind: "DATA"
+    label: "Resident rank shard map"
+    data_type: "blueprint.work.ds4_arch.loaded_rank_shard"
+    semantics {
+      entry_id: "d-loaded-rank-shard-data-role"
+      key: "data_role"
+      value: "mapped model shard residency for each rank"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-loaded-rank-shard-identity"
+      key: "identity"
+      value: "d-loaded-rank-shard is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-loaded-rank-shard-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-loaded-rank-shard-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-loaded-rank-shard-provenance"
+      key: "provenance"
+      value: "declared by the node source list."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "d-shard-manifest"
+    kind: "DATA"
+    label: "Rank checkpoint shard manifest"
+    data_type: "blueprint.work.ds4_arch.shard_manifest"
+    semantics {
+      entry_id: "d-shard-manifest-data-role"
+      key: "data_role"
+      value: "per-rank expected checkpoint files"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-shard-manifest-identity"
+      key: "identity"
+      value: "d-shard-manifest is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-shard-manifest-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-shard-manifest-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-shard-manifest-provenance"
+      key: "provenance"
+      value: "declared by the node source list."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "state-model-leader"
+    kind: "STATE"
+    label: "GLM 5.2 TP=4 model plan"
+    data_type: "blueprint.work.ds4_arch.model"
+    semantics {
+      entry_id: "state-model-leader-data-role"
+      key: "data_role"
+      value: "authoritative TP launch/model metadata"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-model-leader-identity"
+      key: "identity"
+      value: "state-model-leader is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-model-leader-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-model-leader-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-model-leader-provenance"
+      key: "provenance"
+      value: "declared by the node source list."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "serve"
+      state_node_id: "state-model-leader"
+      relation: "same logical model plan as parent serve graph"
+      meaning: "child validates the same launch-level model plan"
+    }
+  }
+  nodes {
+    id: "state-model-worker"
+    kind: "STATE"
+    label: "GX10 resident TP weight shards"
+    data_type: "blueprint.work.ds4_arch.model"
+    semantics {
+      entry_id: "state-model-worker-data-role"
+      key: "data_role"
+      value: "per-rank resident model shard state"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-model-worker-identity"
+      key: "identity"
+      value: "state-model-worker is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-model-worker-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-model-worker-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-model-worker-provenance"
+      key: "provenance"
+      value: "declared by the node source list."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "serve"
+      state_node_id: "state-model-worker"
+      relation: "same logical resident worker state as parent serve graph"
+      meaning: "child establishes the state consumed by serving/decode"
+    }
+  }
+  edges {
+    id: "e-loaded-to-ready"
+    source_node_id: "d-loaded-rank-shard"
+    target_node_id: "a-ready-rank-engines"
+    kind: "input"
+    label: "resident shard map feeds rank readiness barrier"
+    semantics {
+      entry_id: "e-loaded-to-ready-r"
+      key: "relationship"
+      value: "resident shard map feeds rank readiness barrier"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-manifest-out"
+    source_node_id: "a-validate-shard-manifest"
+    target_node_id: "d-shard-manifest"
+    kind: "output"
+    label: "manifest validation produces rank shard manifest"
+    semantics {
+      entry_id: "e-manifest-out-r"
+      key: "relationship"
+      value: "manifest validation produces rank shard manifest"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-manifest-to-map"
+    source_node_id: "d-shard-manifest"
+    target_node_id: "a-map-rank-shards"
+    kind: "input"
+    label: "validated shard manifest feeds rank-local mapping"
+    semantics {
+      entry_id: "e-manifest-to-map-r"
+      key: "relationship"
+      value: "validated shard manifest feeds rank-local mapping"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-map-before-ready"
+    source_node_id: "a-map-rank-shards"
+    target_node_id: "a-ready-rank-engines"
+    kind: "ordering"
+    label: "rank mapping completes before readiness barrier"
+    semantics {
+      entry_id: "e-map-before-ready-r"
+      key: "relationship"
+      value: "rank mapping completes before readiness barrier"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "e-map-to-loaded"
+    source_node_id: "a-map-rank-shards"
+    target_node_id: "d-loaded-rank-shard"
+    kind: "output"
+    label: "rank shard mapper produces resident shard map"
+    semantics {
+      entry_id: "e-map-to-loaded-r"
+      key: "relationship"
+      value: "rank shard mapper produces resident shard map"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-model-plan-read"
+    source_node_id: "a-validate-shard-manifest"
+    target_node_id: "state-model-leader"
+    kind: "state-access"
+    label: "model plan is read to validate checkpoint manifest"
+    semantics {
+      entry_id: "e-model-plan-read-r"
+      key: "relationship"
+      value: "model plan is read to validate checkpoint manifest"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-model-plan-read-s"
+      key: "state_read"
+      value: "model plan is read to validate checkpoint manifest"
+      object_ref {
+        node_id: "state-model-leader"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-plan-to-manifest"
+    source_node_id: "d-launch-plan"
+    target_node_id: "a-validate-shard-manifest"
+    kind: "input"
+    label: "launch plan feeds shard manifest validation"
+    semantics {
+      entry_id: "e-plan-to-manifest-r"
+      key: "relationship"
+      value: "launch plan feeds shard manifest validation"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-validate-before-map"
+    source_node_id: "a-validate-shard-manifest"
+    target_node_id: "a-map-rank-shards"
+    kind: "ordering"
+    label: "manifest validation completes before mapping"
+    semantics {
+      entry_id: "e-validate-before-map-r"
+      key: "relationship"
+      value: "manifest validation completes before mapping"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "e-validate-to-plan"
+    source_node_id: "a-validate-launch-plan"
+    target_node_id: "d-launch-plan"
+    kind: "output"
+    label: "launch validation produces normalized launch plan"
+    semantics {
+      entry_id: "e-validate-to-plan-r"
+      key: "relationship"
+      value: "launch validation produces normalized launch plan"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-worker-ready-update"
+    source_node_id: "a-ready-rank-engines"
+    target_node_id: "state-model-worker"
+    kind: "state-access"
+    label: "rank readiness updates resident worker state"
+    semantics {
+      entry_id: "e-worker-ready-update-r"
+      key: "relationship"
+      value: "rank readiness updates resident worker state"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-worker-ready-update-s"
+      key: "state_update"
+      value: "rank readiness updates resident worker state"
+      object_ref {
+        node_id: "state-model-worker"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  operations {
+    operation_id: "op-model-load"
+    name: "Load GLM 5.2 TP4 rank shards"
+    overview: "Validate DwarfStar launch settings, confirm per-rank checkpoint files, map local shards, and publish resident rank engines."
+    members {
+      ref {
+        node_id: "a-map-rank-shards"
+      }
+      role: "member"
+    }
+    members {
+      ref {
+        node_id: "a-ready-rank-engines"
+      }
+      role: "member"
+    }
+    members {
+      ref {
+        node_id: "a-validate-launch-plan"
+      }
+      role: "member"
+    }
+    members {
+      ref {
+        node_id: "a-validate-shard-manifest"
+      }
+      role: "member"
+    }
+    members {
+      ref {
+        node_id: "d-launch-plan"
+      }
+      role: "member"
+    }
+    members {
+      ref {
+        node_id: "d-loaded-rank-shard"
+      }
+      role: "member"
+    }
+    members {
+      ref {
+        node_id: "d-shard-manifest"
+      }
+      role: "member"
+    }
+    members {
+      ref {
+        node_id: "state-model-leader"
+      }
+      role: "member"
+    }
+    members {
+      ref {
+        node_id: "state-model-worker"
+      }
+      role: "member"
+    }
+    semantics {
+      entry_id: "op-model-load-goal"
+      key: "target_state"
+      value: "four TP4 GLM 5.2 rank engines are resident before decode starts"
+      support_refs {
+        node_id: "state-model-worker"
+      }
+      status: SUPPORTED
+    }
+    end_goals {
+      goal_id: "goal-model-resident"
+      intent: "All four GX10 ranks have only their local GLM 5.2 TP shards mapped and are ready for decode collectives."
+      bindings {
+        ref {
+          node_id: "state-model-worker"
+        }
+        role: "resident worker engines"
+        semantics {
+          entry_id: "goal-model-resident-state"
+          key: "target_state"
+          value: "resident TP rank engines ready"
+          status: SUPPORTED
+        }
+      }
+    }
+  }
+}
+canonical {
+  schema_sha256: "9de5a18221a33a9379092d084dbae946af604b979dfe7caf07bdd65701b5ea9d"
+  type_schema_sha256: "35456e2c1ce4c6aa91b310933364f65541901eeb21051e874a5bb306beb57837"
+  graph_sha256: "ec4db29f11ef90a7a5c31b8b77291162eb5699a4e58c2afb56faef21539f95f6"
+  graph_contract_sha256: "0d3a26146444d194a72ed4f843fabbd3f6275eeefa45873465f5b9e2ac63c215"
+}

@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package blueprint.work.ds4_arch;
+
+import "blueprint/v1/blueprint.proto";
+import "serve.types.proto";
+
+message launch_plan {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.launch_plan"
+    represents: "DwarfStar launch plan for GLM 5.2 TP4 on four GX10 ranks"
+    semantics {
+      entry_id: "t-launch-plan"
+      key: "meaning"
+      value: "DwarfStar launch plan for GLM 5.2 TP4 on four GX10 ranks"
+      status: SUPPORTED
+    }
+  };
+  int32 tp_size = 1 [(blueprint.v1.field_contract) = { meaning: "tensor parallel degree, fixed to 4" }];
+  int32 rank_count = 2 [(blueprint.v1.field_contract) = { meaning: "four ranks" }];
+  string model_name = 3 [(blueprint.v1.field_contract) = { meaning: "served GLM 5.2 model identifier" }];
+  string checkpoint_root = 4 [(blueprint.v1.field_contract) = { meaning: "checkpoint directory visible to every rank" }];
+  string dwarfstart_command = 5 [(blueprint.v1.field_contract) = { meaning: "DwarfStar launch command and environment" }];
+}
+
+message shard_manifest {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.shard_manifest"
+    represents: "Per-rank checkpoint shard manifest for GLM 5.2 TP4"
+    semantics {
+      entry_id: "t-shard-manifest"
+      key: "meaning"
+      value: "Per-rank checkpoint shard manifest for GLM 5.2 TP4"
+      status: SUPPORTED
+    }
+  };
+  int32 rank = 1 [(blueprint.v1.field_contract) = { meaning: "rank id 0..3" }];
+  repeated string base_shard_files = 2 [(blueprint.v1.field_contract) = { meaning: "base model shard file paths" }];
+  repeated string mtp_shard_files = 3 [(blueprint.v1.field_contract) = { meaning: "MTP/speculator shard file paths" }];
+  bool has_foreign_rank_shard = 4 [(blueprint.v1.field_contract) = { meaning: "true indicates a placement bug" }];
+  string reference_runtime = 5 [(blueprint.v1.field_contract) = { meaning: "Bird/vLLM validated runtime reference" }];
+}
+
+message loaded_rank_shard {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.loaded_rank_shard"
+    represents: "Resident mapped weights for one TP4 rank after DwarfStar model load"
+    semantics {
+      entry_id: "t-loaded-rank-shard"
+      key: "meaning"
+      value: "Resident mapped weights for one TP4 rank after DwarfStar model load"
+      status: SUPPORTED
+    }
+  };
+  int32 rank = 1 [(blueprint.v1.field_contract) = { meaning: "rank id 0..3" }];
+  int32 layer_count = 2 [(blueprint.v1.field_contract) = { meaning: "number of GLM decoder layers loaded" }];
+  uint64 mapped_bytes = 3 [(blueprint.v1.field_contract) = { meaning: "resident mapped weight bytes" }];
+  int32 q_head_start = 4 [(blueprint.v1.field_contract) = { meaning: "first owned query head" }];
+  int32 q_head_end = 5 [(blueprint.v1.field_contract) = { meaning: "exclusive end of owned query heads" }];
+  int32 expert_start = 6 [(blueprint.v1.field_contract) = { meaning: "first owned routed expert" }];
+  int32 expert_end = 7 [(blueprint.v1.field_contract) = { meaning: "exclusive end of owned routed experts" }];
+  int32 vocab_start = 8 [(blueprint.v1.field_contract) = { meaning: "first owned vocab row" }];
+  int32 vocab_end = 9 [(blueprint.v1.field_contract) = { meaning: "exclusive end of owned vocab rows" }];
+}

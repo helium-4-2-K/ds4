@@ -1,0 +1,1759 @@
+schema_version: "blueprint-graph/v1"
+graph_id: "prefill"
+display_name: "Prefill prompt with GLM 5.2 TP=4"
+graph_version: "1.0"
+lifecycle: DRAFT
+schema_ref: "blueprint-schema/blueprint/v1/blueprint.proto"
+type_schema_ref: "prefill.types.proto"
+input_ports {
+  port_id: "prefill-request-in"
+  node_id: "data-request"
+  type_ref: "blueprint.work.ds4_arch.ChatRequest"
+  cardinality: PORT_CARDINALITY_EXACTLY_ONE
+}
+graph {
+  overall_semantic {
+    overview: "Run prompt prefill with TP=4 collectives; each rank computes its tensor shards for every layer and updates rank-local KV."
+    support_refs {
+      node_id: "a-commit-prefill-kv"
+    }
+    support_refs {
+      node_id: "a-prefill-layer-tp"
+    }
+    support_refs {
+      node_id: "a-prefill-ready"
+    }
+  }
+  semantics {
+    entry_id: "prefill-request-in"
+    key: "input_use"
+    value: "Consumes request/prompt through prefill-request-in."
+    object_ref {
+      port {
+        graph_boundary {
+        }
+        direction: PORT_DIRECTION_INPUT
+        port_id: "prefill-request-in"
+      }
+    }
+    support_refs {
+      node_id: "data-request"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "action-serve-prefill-no-output"
+    key: "no_output"
+    value: "This action has no typed data output port; state/effects are explicit."
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "pf-ef"
+    key: "effect"
+    value: "prompt materialized in TP KV shards"
+    support_refs {
+      node_id: "a-prefill-ready"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "pf-exit"
+    key: "exit"
+    value: "prefilled"
+    support_refs {
+      node_id: "a-prefill-ready"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "prefill-arch"
+    key: "architecture_rationale"
+    value: "Keep serve as lifecycle orchestration while prefill owns prompt tokenization, chunking, per-layer TP execution, collectives, and KV materialization before decode begins."
+    support_refs {
+      node_id: "a-commit-prefill-kv"
+    }
+    support_refs {
+      node_id: "a-prefill-allreduce"
+    }
+    support_refs {
+      node_id: "a-prefill-layer-tp"
+    }
+    support_refs {
+      node_id: "a-tokenize-prompt"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "prefill-dcp-cache-policy"
+    key: "cache_ownership"
+    value: "Prompt cache rows are materialized as TP-aware MLA/KV state; ownership and metadata must match the decode DCP/cache plan used for token j."
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "pf-im"
+    key: "implementation_choice"
+    value: "requires_new_glm52_tp4_support"
+    support_refs {
+      node_id: "a-prefill-layer-tp"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "pf-bird-ref"
+    key: "implementation_reference"
+    value: "Use Bird/vLLM prefill settings as reference: max-num-batched-tokens/prefill chunk 1024 and B12X_MLA_SPARSE attention."
+    support_refs {
+      node_id: "a-prefill-layer-tp"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "pf-nd"
+    key: "no_diagnostic"
+    value: "none"
+    support_refs {
+      node_id: "a-prefill-layer-tp"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "prefill-no-guide"
+    key: "no_implementation_guide"
+    value: "The prefill graph is a target-system contract only; implementation planning lives outside the blueprint."
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "pf-state"
+    key: "state_update"
+    value: "Updates TP-aware KV shards with prompt prefix."
+    object_ref {
+      node_id: "state-kv"
+    }
+    support_refs {
+      node_id: "a-commit-prefill-kv"
+    }
+    status: SUPPORTED
+  }
+  nodes {
+    id: "a-commit-prefill-kv"
+    kind: "ACTION"
+    label: "05 commit prompt MLA/KV cache"
+    input_ports {
+      port_id: "commit-chunk-in"
+      node_id: "d-prefill-chunk"
+      type_ref: "blueprint.work.ds4_arch.prefill_chunk"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    input_ports {
+      port_id: "hidden-in"
+      node_id: "d-prefill-hidden"
+      type_ref: "blueprint.work.ds4_arch.tensor_partial"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "kv-commit-out"
+      node_id: "d-prefill-kv-commit"
+      type_ref: "blueprint.work.ds4_arch.prefill_kv_commit"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "a-commit-prefill-kv-ov"
+      key: "overview"
+      value: "Append prompt positions into TP-aware MLA/KV cache state with DCP-compatible row ownership and replicated cursor metadata for decode."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "commit-chunk-in"
+      key: "input_use"
+      value: "Consumes d-prefill-chunk."
+      object_ref {
+        node_id: "d-prefill-chunk"
+      }
+      support_refs {
+        port {
+          node_id: "a-commit-prefill-kv"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "commit-chunk-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "hidden-in"
+      key: "input_use"
+      value: "Consumes d-prefill-hidden."
+      object_ref {
+        node_id: "d-prefill-hidden"
+      }
+      support_refs {
+        port {
+          node_id: "a-commit-prefill-kv"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "hidden-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "kv-commit-out"
+      key: "output"
+      value: "Produces d-prefill-kv-commit."
+      object_ref {
+        node_id: "d-prefill-kv-commit"
+      }
+      support_refs {
+        port {
+          node_id: "a-commit-prefill-kv"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "kv-commit-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-commit-prefill-kv-ef"
+      key: "effect"
+      value: "Append prompt positions into TP-aware MLA/KV cache state with DCP-compatible row ownership and replicated cursor metadata for decode."
+      support_refs {
+        node_id: "a-commit-prefill-kv"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-commit-prefill-kv-exit"
+      key: "exit"
+      value: "a-commit-prefill-kv-done"
+      support_refs {
+        node_id: "a-commit-prefill-kv"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-commit-prefill-kv-cu"
+      key: "code_unit"
+      value: "prefill KV/MLA cache commit"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-commit-prefill-kv-im"
+      key: "implementation_choice"
+      value: "requires_new_glm52_tp4_support"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-commit-prefill-kv-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "state-kv"
+      access: "update"
+      meaning: "append prompt MLA/KV rows and set prefilled cursor"
+    }
+    state_set {
+      state_node_id: "state-kv-cursor"
+      access: "update"
+      meaning: "set cursor length to committed prompt length"
+    }
+  }
+  nodes {
+    id: "a-plan-prefill-chunks"
+    kind: "ACTION"
+    label: "02 plan prefill chunks"
+    input_ports {
+      port_id: "tokens-in"
+      node_id: "d-prompt-tokens"
+      type_ref: "blueprint.work.ds4_arch.prompt_tokens"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "chunk-out"
+      node_id: "d-prefill-chunk"
+      type_ref: "blueprint.work.ds4_arch.prefill_chunk"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "a-plan-prefill-chunks-ov"
+      key: "overview"
+      value: "Split prompt tokens into bounded chunks compatible with the GLM 5.2 TP prefill budget and replicate chunk metadata to all ranks."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "tokens-in"
+      key: "input_use"
+      value: "Consumes d-prompt-tokens."
+      object_ref {
+        node_id: "d-prompt-tokens"
+      }
+      support_refs {
+        port {
+          node_id: "a-plan-prefill-chunks"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "tokens-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "chunk-out"
+      key: "output"
+      value: "Produces d-prefill-chunk."
+      object_ref {
+        node_id: "d-prefill-chunk"
+      }
+      support_refs {
+        port {
+          node_id: "a-plan-prefill-chunks"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "chunk-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-plan-prefill-chunks-ef"
+      key: "effect"
+      value: "Split prompt tokens into bounded chunks compatible with the GLM 5.2 TP prefill budget and replicate chunk metadata to all ranks."
+      support_refs {
+        node_id: "a-plan-prefill-chunks"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-plan-prefill-chunks-exit"
+      key: "exit"
+      value: "a-plan-prefill-chunks-done"
+      support_refs {
+        node_id: "a-plan-prefill-chunks"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-plan-prefill-chunks-cu"
+      key: "code_unit"
+      value: "prefill chunk planner"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-plan-prefill-chunks-im"
+      key: "implementation_choice"
+      value: "requires_new_glm52_tp4_support"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "prefill-chunk-bird-ref"
+      key: "implementation_reference"
+      value: "Bird/vLLM reference uses max-num-batched-tokens/prefill chunk 1024 for this target."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-plan-prefill-chunks-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "a-prefill-allreduce"
+    kind: "ACTION"
+    label: "04 reduce prefill layer partials"
+    input_ports {
+      port_id: "partial-in"
+      node_id: "d-prefill-partial"
+      type_ref: "blueprint.work.ds4_arch.tensor_partial"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "hidden-out"
+      node_id: "d-prefill-hidden"
+      type_ref: "blueprint.work.ds4_arch.tensor_partial"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "a-prefill-allreduce-ov"
+      key: "overview"
+      value: "All-reduce rank-local prefill partials into replicated hidden state for the next layer or final prompt position."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "partial-in"
+      key: "input_use"
+      value: "Consumes d-prefill-partial."
+      object_ref {
+        node_id: "d-prefill-partial"
+      }
+      support_refs {
+        port {
+          node_id: "a-prefill-allreduce"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "partial-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "hidden-out"
+      key: "output"
+      value: "Produces d-prefill-hidden."
+      object_ref {
+        node_id: "d-prefill-hidden"
+      }
+      support_refs {
+        port {
+          node_id: "a-prefill-allreduce"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "hidden-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-prefill-allreduce-ef"
+      key: "effect"
+      value: "All-reduce rank-local prefill partials into replicated hidden state for the next layer or final prompt position."
+      support_refs {
+        node_id: "a-prefill-allreduce"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-prefill-allreduce-exit"
+      key: "exit"
+      value: "a-prefill-allreduce-done"
+      support_refs {
+        node_id: "a-prefill-allreduce"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-prefill-allreduce-cu"
+      key: "code_unit"
+      value: "TP all_reduce_sum for prefill hidden partials"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "prefill-allreduce-collective"
+      key: "collective"
+      value: "all_reduce_sum"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-prefill-allreduce-im"
+      key: "implementation_choice"
+      value: "requires_new_glm52_tp4_support"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-prefill-allreduce-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "state-tp"
+      access: "read"
+      meaning: "run TP all-reduce for prefill partials"
+    }
+  }
+  nodes {
+    id: "a-prefill-layer-tp"
+    kind: "ACTION"
+    label: "03 run TP layer prefill shards"
+    input_ports {
+      port_id: "layer-chunk-in"
+      node_id: "d-prefill-chunk"
+      type_ref: "blueprint.work.ds4_arch.prefill_chunk"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "partial-out"
+      node_id: "d-prefill-partial"
+      type_ref: "blueprint.work.ds4_arch.tensor_partial"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "a-prefill-layer-tp-ov"
+      key: "overview"
+      value: "For each prompt chunk and decoder layer, every rank runs its local GLM 5.2 TP weight shards and emits rank-local partial hidden/output contributions."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "layer-chunk-in"
+      key: "input_use"
+      value: "Consumes d-prefill-chunk."
+      object_ref {
+        node_id: "d-prefill-chunk"
+      }
+      support_refs {
+        port {
+          node_id: "a-prefill-layer-tp"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "layer-chunk-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "partial-out"
+      key: "output"
+      value: "Produces d-prefill-partial."
+      object_ref {
+        node_id: "d-prefill-partial"
+      }
+      support_refs {
+        port {
+          node_id: "a-prefill-layer-tp"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "partial-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-prefill-layer-tp-ef"
+      key: "effect"
+      value: "For each prompt chunk and decoder layer, every rank runs its local GLM 5.2 TP weight shards and emits rank-local partial hidden/output contributions."
+      support_refs {
+        node_id: "a-prefill-layer-tp"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-prefill-layer-tp-exit"
+      key: "exit"
+      value: "a-prefill-layer-tp-done"
+      support_refs {
+        node_id: "a-prefill-layer-tp"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-prefill-layer-tp-cu"
+      key: "code_unit"
+      value: "GLM 5.2 TP4 prefill layer kernels"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-prefill-layer-tp-im"
+      key: "implementation_choice"
+      value: "requires_new_glm52_tp4_support"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-prefill-layer-tp-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "state-model-worker"
+      access: "read"
+      meaning: "read resident rank-local TP weights"
+    }
+    state_set {
+      state_node_id: "state-tp"
+      access: "read"
+      meaning: "use TP collective group and rank plan"
+    }
+  }
+  nodes {
+    id: "a-prefill-ready"
+    kind: "ACTION"
+    label: "06 mark decode handoff ready"
+    input_ports {
+      port_id: "kv-commit-in"
+      node_id: "d-prefill-kv-commit"
+      type_ref: "blueprint.work.ds4_arch.prefill_kv_commit"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "handoff-out"
+      node_id: "d-prefill-handoff"
+      type_ref: "blueprint.work.ds4_arch.prefill_kv_commit"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "a-prefill-ready-ov"
+      key: "overview"
+      value: "Publish that prompt prefill is complete and decode may start at the next position using the committed KV cursor."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "kv-commit-in"
+      key: "input_use"
+      value: "Consumes d-prefill-kv-commit."
+      object_ref {
+        node_id: "d-prefill-kv-commit"
+      }
+      support_refs {
+        port {
+          node_id: "a-prefill-ready"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "kv-commit-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "handoff-out"
+      key: "output"
+      value: "Produces d-prefill-handoff."
+      object_ref {
+        node_id: "d-prefill-handoff"
+      }
+      support_refs {
+        port {
+          node_id: "a-prefill-ready"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "handoff-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-prefill-ready-ef"
+      key: "effect"
+      value: "Publish that prompt prefill is complete and decode may start at the next position using the committed KV cursor."
+      support_refs {
+        node_id: "a-prefill-ready"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-prefill-ready-exit"
+      key: "exit"
+      value: "a-prefill-ready-done"
+      support_refs {
+        node_id: "a-prefill-ready"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-prefill-ready-cu"
+      key: "code_unit"
+      value: "prefill-to-decode handoff marker"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-prefill-ready-im"
+      key: "implementation_choice"
+      value: "requires_new_glm52_tp4_support"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-prefill-ready-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "state-kv"
+      access: "read"
+      meaning: "read committed prompt KV cursor for handoff"
+    }
+    state_set {
+      state_node_id: "state-kv-cursor"
+      access: "read"
+      meaning: "read committed prompt cursor for decode handoff"
+    }
+  }
+  nodes {
+    id: "a-tokenize-prompt"
+    kind: "ACTION"
+    label: "01 tokenize prompt"
+    input_ports {
+      port_id: "request-in"
+      node_id: "data-request"
+      type_ref: "blueprint.work.ds4_arch.ChatRequest"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "tokens-out"
+      node_id: "d-prompt-tokens"
+      type_ref: "blueprint.work.ds4_arch.prompt_tokens"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "a-tokenize-prompt-ov"
+      key: "overview"
+      value: "Tokenize the request prompt and preserve session id and prompt length for prefill scheduling."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "request-in"
+      key: "input_use"
+      value: "Consumes data-request."
+      object_ref {
+        node_id: "data-request"
+      }
+      support_refs {
+        port {
+          node_id: "a-tokenize-prompt"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "request-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "tokens-out"
+      key: "output"
+      value: "Produces d-prompt-tokens."
+      object_ref {
+        node_id: "d-prompt-tokens"
+      }
+      support_refs {
+        port {
+          node_id: "a-tokenize-prompt"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "tokens-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-tokenize-prompt-ef"
+      key: "effect"
+      value: "Tokenize the request prompt and preserve session id and prompt length for prefill scheduling."
+      support_refs {
+        node_id: "a-tokenize-prompt"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-tokenize-prompt-exit"
+      key: "exit"
+      value: "a-tokenize-prompt-done"
+      support_refs {
+        node_id: "a-tokenize-prompt"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-tokenize-prompt-cu"
+      key: "code_unit"
+      value: "request tokenizer / chat template application"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-tokenize-prompt-im"
+      key: "implementation_choice"
+      value: "requires_new_glm52_tp4_support"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-tokenize-prompt-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "d-prefill-chunk"
+    kind: "DATA"
+    label: "bounded prefill chunk"
+    data_type: "blueprint.work.ds4_arch.prefill_chunk"
+    semantics {
+      entry_id: "d-prefill-chunk-data-role"
+      key: "data_role"
+      value: "replicated chunk metadata for TP ranks"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prefill-chunk-dist"
+      key: "distribution_scope"
+      value: "replicated"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prefill-chunk-identity"
+      key: "identity"
+      value: "d-prefill-chunk is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prefill-chunk-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prefill-chunk-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prefill-chunk-provenance"
+      key: "provenance"
+      value: "declared by the node source list or producer edge."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "d-prefill-handoff"
+    kind: "DATA"
+    label: "prefill decode handoff marker"
+    data_type: "blueprint.work.ds4_arch.prefill_kv_commit"
+    semantics {
+      entry_id: "d-prefill-handoff-data-role"
+      key: "data_role"
+      value: "decode handoff marker after prefill readiness"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prefill-handoff-dist"
+      key: "distribution_scope"
+      value: "replicated"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prefill-handoff-identity"
+      key: "identity"
+      value: "d-prefill-handoff is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prefill-handoff-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prefill-handoff-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prefill-handoff-provenance"
+      key: "provenance"
+      value: "declared by the node source list or producer edge."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "d-prefill-hidden"
+    kind: "DATA"
+    label: "replicated prefill hidden after TP collective"
+    data_type: "blueprint.work.ds4_arch.tensor_partial"
+    semantics {
+      entry_id: "d-prefill-hidden-data-role"
+      key: "data_role"
+      value: "replicated tensor after all-reduce; field shape matches tensor_partial while distribution scope changes"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prefill-hidden-dist"
+      key: "distribution_scope"
+      value: "replicated"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prefill-hidden-identity"
+      key: "identity"
+      value: "d-prefill-hidden is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prefill-hidden-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prefill-hidden-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prefill-hidden-provenance"
+      key: "provenance"
+      value: "declared by the node source list or producer edge."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "d-prefill-kv-commit"
+    kind: "DATA"
+    label: "prefill KV commit summary"
+    data_type: "blueprint.work.ds4_arch.prefill_kv_commit"
+    semantics {
+      entry_id: "d-prefill-kv-commit-data-role"
+      key: "data_role"
+      value: "summary of prompt cache rows visible to decode"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prefill-kv-commit-dist"
+      key: "distribution_scope"
+      value: "replicated"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prefill-kv-commit-identity"
+      key: "identity"
+      value: "d-prefill-kv-commit is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prefill-kv-commit-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prefill-kv-commit-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prefill-kv-commit-provenance"
+      key: "provenance"
+      value: "declared by the node source list or producer edge."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "d-prefill-partial"
+    kind: "DATA"
+    label: "rank-local prefill tensor partial"
+    data_type: "blueprint.work.ds4_arch.tensor_partial"
+    semantics {
+      entry_id: "d-prefill-partial-data-role"
+      key: "data_role"
+      value: "rank-local per-layer tensor partial before reduction"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prefill-partial-dist"
+      key: "distribution_scope"
+      value: "rank_local_partial"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prefill-partial-identity"
+      key: "identity"
+      value: "d-prefill-partial is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prefill-partial-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prefill-partial-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prefill-partial-provenance"
+      key: "provenance"
+      value: "declared by the node source list or producer edge."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "d-prompt-tokens"
+    kind: "DATA"
+    label: "tokenized prompt"
+    data_type: "blueprint.work.ds4_arch.prompt_tokens"
+    semantics {
+      entry_id: "d-prompt-tokens-data-role"
+      key: "data_role"
+      value: "leader-visible prompt tokens"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prompt-tokens-dist"
+      key: "distribution_scope"
+      value: "leader_only"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prompt-tokens-identity"
+      key: "identity"
+      value: "d-prompt-tokens is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prompt-tokens-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prompt-tokens-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-prompt-tokens-provenance"
+      key: "provenance"
+      value: "declared by the node source list or producer edge."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "data-request"
+    kind: "DATA"
+    label: "chat request entering prefill"
+    data_type: "blueprint.work.ds4_arch.ChatRequest"
+    semantics {
+      entry_id: "data-request-data-role"
+      key: "data_role"
+      value: "prefill graph input"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "data-request-dist"
+      key: "distribution_scope"
+      value: "leader_only"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "data-request-identity"
+      key: "identity"
+      value: "data-request is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "data-request-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "data-request-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "data-request-provenance"
+      key: "provenance"
+      value: "declared by the node source list or producer edge."
+      status: SUPPORTED
+    }
+    sources {
+      source_id: "src-prefill-request"
+      kind: "graph_input"
+      source_ref: "prefill-request-in"
+      graph_input_port_id: "prefill-request-in"
+      meaning: "request enters through parent-preserved prefill boundary"
+    }
+  }
+  nodes {
+    id: "state-kv"
+    kind: "STATE"
+    label: "TP-aware prompt KV/MLA cache"
+    data_type: "blueprint.work.ds4_arch.kv"
+    semantics {
+      entry_id: "state-kv-data-role"
+      key: "data_role"
+      value: "prefill-updated prompt cache state"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-kv-identity"
+      key: "identity"
+      value: "state-kv is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-kv-ordering"
+      key: "ordering"
+      value: "append-ordered by prompt/decode token position; cursor state records monotonic length and current position."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-kv-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-kv-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "serve"
+      state_node_id: "state-kv"
+      relation: "same logical state as parent serve prefill action"
+      meaning: "child refines the same prefill-visible state dependency"
+    }
+  }
+  nodes {
+    id: "state-kv-cursor"
+    kind: "STATE"
+    label: "same append-ordered KV cursor"
+    data_type: "blueprint.work.ds4_arch.kv_cursor"
+    semantics {
+      entry_id: "state-kv-cursor-data-role"
+      key: "data_role"
+      value: "prefill-visible cursor advanced by prompt commit"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-kv-cursor-dist"
+      key: "distribution_scope"
+      value: "replicated"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-kv-cursor-identity"
+      key: "identity"
+      value: "state-kv-cursor is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-kv-cursor-ordering"
+      key: "ordering"
+      value: "monotonic by prompt position during prefill"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-kv-cursor-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-kv-cursor-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "serve"
+      state_node_id: "state-kv-cursor"
+      relation: "same logical KV cursor as serve root"
+      meaning: "prefill updates the root session cursor"
+    }
+  }
+  nodes {
+    id: "state-model-worker"
+    kind: "STATE"
+    label: "resident GLM 5.2 TP shards"
+    data_type: "blueprint.work.ds4_arch.model"
+    semantics {
+      entry_id: "state-model-worker-data-role"
+      key: "data_role"
+      value: "prefill-visible rank-local model weights"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-model-worker-identity"
+      key: "identity"
+      value: "state-model-worker is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-model-worker-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-model-worker-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-model-worker-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "serve"
+      state_node_id: "state-model-worker"
+      relation: "same logical state as parent serve prefill action"
+      meaning: "child refines the same prefill-visible state dependency"
+    }
+  }
+  nodes {
+    id: "state-tp"
+    kind: "STATE"
+    label: "TP collective fabric"
+    data_type: "blueprint.work.ds4_arch.distlink"
+    semantics {
+      entry_id: "state-tp-data-role"
+      key: "data_role"
+      value: "prefill-visible TP collective state"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-tp-identity"
+      key: "identity"
+      value: "state-tp is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-tp-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-tp-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "state-tp-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "serve"
+      state_node_id: "state-tp"
+      relation: "same logical state as parent serve prefill action"
+      meaning: "child refines the same prefill-visible state dependency"
+    }
+  }
+  edges {
+    id: "e-chunk-to-commit"
+    source_node_id: "d-prefill-chunk"
+    target_node_id: "a-commit-prefill-kv"
+    kind: "input"
+    label: "chunk positions feed KV commit"
+    semantics {
+      entry_id: "e-chunk-to-commit-r"
+      key: "relationship"
+      value: "chunk positions feed KV commit"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-chunk-to-layer"
+    source_node_id: "d-prefill-chunk"
+    target_node_id: "a-prefill-layer-tp"
+    kind: "input"
+    label: "prefill chunk feeds TP layer kernels"
+    semantics {
+      entry_id: "e-chunk-to-layer-r"
+      key: "relationship"
+      value: "prefill chunk feeds TP layer kernels"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-chunks-out"
+    source_node_id: "a-plan-prefill-chunks"
+    target_node_id: "d-prefill-chunk"
+    kind: "output"
+    label: "chunk planner produces bounded chunk metadata"
+    semantics {
+      entry_id: "e-chunks-out-r"
+      key: "relationship"
+      value: "chunk planner produces bounded chunk metadata"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-commit-before-ready"
+    source_node_id: "a-commit-prefill-kv"
+    target_node_id: "a-prefill-ready"
+    kind: "ordering"
+    label: "KV commit completes before decode handoff"
+    semantics {
+      entry_id: "e-commit-before-ready-r"
+      key: "relationship"
+      value: "KV commit completes before decode handoff"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "e-commit-cursor-update"
+    source_node_id: "a-commit-prefill-kv"
+    target_node_id: "state-kv-cursor"
+    kind: "state-access"
+    label: "prefill commit sets prompt-length cursor"
+    semantics {
+      entry_id: "e-commit-cursor-update-r"
+      key: "relationship"
+      value: "prefill commit sets prompt-length cursor"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-commit-cursor-update-s"
+      key: "state_update"
+      value: "prefill commit sets prompt-length cursor"
+      object_ref {
+        node_id: "state-kv-cursor"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-commit-kv-update"
+    source_node_id: "a-commit-prefill-kv"
+    target_node_id: "state-kv"
+    kind: "state-access"
+    label: "prefill commits prompt MLA/KV rows and cursor"
+    semantics {
+      entry_id: "e-commit-kv-update-r"
+      key: "relationship"
+      value: "prefill commits prompt MLA/KV rows and cursor"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-commit-kv-update-s"
+      key: "state_update"
+      value: "prefill commits prompt MLA/KV rows and cursor"
+      object_ref {
+        node_id: "state-kv"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-commit-to-summary"
+    source_node_id: "a-commit-prefill-kv"
+    target_node_id: "d-prefill-kv-commit"
+    kind: "output"
+    label: "KV commit produces decode handoff summary"
+    semantics {
+      entry_id: "e-commit-to-summary-r"
+      key: "relationship"
+      value: "KV commit produces decode handoff summary"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-hidden-to-commit"
+    source_node_id: "d-prefill-hidden"
+    target_node_id: "a-commit-prefill-kv"
+    kind: "input"
+    label: "replicated hidden feeds KV commit"
+    semantics {
+      entry_id: "e-hidden-to-commit-r"
+      key: "relationship"
+      value: "replicated hidden feeds KV commit"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-layer-before-reduce"
+    source_node_id: "a-prefill-layer-tp"
+    target_node_id: "a-prefill-allreduce"
+    kind: "ordering"
+    label: "local layer partials complete before all-reduce"
+    semantics {
+      entry_id: "e-layer-before-reduce-r"
+      key: "relationship"
+      value: "local layer partials complete before all-reduce"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "e-layer-model-read"
+    source_node_id: "a-prefill-layer-tp"
+    target_node_id: "state-model-worker"
+    kind: "state-access"
+    label: "prefill layer reads resident TP weight shards"
+    semantics {
+      entry_id: "e-layer-model-read-r"
+      key: "relationship"
+      value: "prefill layer reads resident TP weight shards"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-layer-model-read-s"
+      key: "state_read"
+      value: "prefill layer reads resident TP weight shards"
+      object_ref {
+        node_id: "state-model-worker"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-layer-to-partial"
+    source_node_id: "a-prefill-layer-tp"
+    target_node_id: "d-prefill-partial"
+    kind: "output"
+    label: "TP layer kernels produce rank-local partials"
+    semantics {
+      entry_id: "e-layer-to-partial-r"
+      key: "relationship"
+      value: "TP layer kernels produce rank-local partials"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-layer-tp-read"
+    source_node_id: "a-prefill-layer-tp"
+    target_node_id: "state-tp"
+    kind: "state-access"
+    label: "prefill layer reads TP rank/fabric state"
+    semantics {
+      entry_id: "e-layer-tp-read-r"
+      key: "relationship"
+      value: "prefill layer reads TP rank/fabric state"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-layer-tp-read-s"
+      key: "state_read"
+      value: "prefill layer reads TP rank/fabric state"
+      object_ref {
+        node_id: "state-tp"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-partial-to-reduce"
+    source_node_id: "d-prefill-partial"
+    target_node_id: "a-prefill-allreduce"
+    kind: "input"
+    label: "rank-local partials feed prefill all-reduce"
+    semantics {
+      entry_id: "e-partial-to-reduce-r"
+      key: "relationship"
+      value: "rank-local partials feed prefill all-reduce"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-ready-cursor-read"
+    source_node_id: "a-prefill-ready"
+    target_node_id: "state-kv-cursor"
+    kind: "state-access"
+    label: "prefill handoff reads committed cursor"
+    semantics {
+      entry_id: "e-ready-cursor-read-r"
+      key: "relationship"
+      value: "prefill handoff reads committed cursor"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-ready-cursor-read-s"
+      key: "state_read"
+      value: "prefill handoff reads committed cursor"
+      object_ref {
+        node_id: "state-kv-cursor"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-ready-kv-read"
+    source_node_id: "a-prefill-ready"
+    target_node_id: "state-kv"
+    kind: "state-access"
+    label: "handoff reads committed prompt KV cursor"
+    semantics {
+      entry_id: "e-ready-kv-read-r"
+      key: "relationship"
+      value: "handoff reads committed prompt KV cursor"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-ready-kv-read-s"
+      key: "state_read"
+      value: "handoff reads committed prompt KV cursor"
+      object_ref {
+        node_id: "state-kv"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-ready-to-handoff"
+    source_node_id: "a-prefill-ready"
+    target_node_id: "d-prefill-handoff"
+    kind: "output"
+    label: "readiness action produces decode handoff marker"
+    semantics {
+      entry_id: "e-ready-to-handoff-r"
+      key: "relationship"
+      value: "readiness action produces decode handoff marker"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-reduce-before-commit"
+    source_node_id: "a-prefill-allreduce"
+    target_node_id: "a-commit-prefill-kv"
+    kind: "ordering"
+    label: "reduced hidden is available before KV commit"
+    semantics {
+      entry_id: "e-reduce-before-commit-r"
+      key: "relationship"
+      value: "reduced hidden is available before KV commit"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
+    id: "e-reduce-to-hidden"
+    source_node_id: "a-prefill-allreduce"
+    target_node_id: "d-prefill-hidden"
+    kind: "output"
+    label: "all-reduce produces replicated hidden"
+    semantics {
+      entry_id: "e-reduce-to-hidden-r"
+      key: "relationship"
+      value: "all-reduce produces replicated hidden"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-reduce-tp-read"
+    source_node_id: "a-prefill-allreduce"
+    target_node_id: "state-tp"
+    kind: "state-access"
+    label: "prefill all-reduce reads TP collective fabric"
+    semantics {
+      entry_id: "e-reduce-tp-read-r"
+      key: "relationship"
+      value: "prefill all-reduce reads TP collective fabric"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-reduce-tp-read-s"
+      key: "state_read"
+      value: "prefill all-reduce reads TP collective fabric"
+      object_ref {
+        node_id: "state-tp"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-request-to-tokenize"
+    source_node_id: "data-request"
+    target_node_id: "a-tokenize-prompt"
+    kind: "input"
+    label: "request satisfies tokenize input"
+    semantics {
+      entry_id: "e-request-to-tokenize-r"
+      key: "relationship"
+      value: "request satisfies tokenize input"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-summary-to-ready"
+    source_node_id: "d-prefill-kv-commit"
+    target_node_id: "a-prefill-ready"
+    kind: "input"
+    label: "KV summary feeds handoff readiness"
+    semantics {
+      entry_id: "e-summary-to-ready-r"
+      key: "relationship"
+      value: "KV summary feeds handoff readiness"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-tokenize-to-tokens"
+    source_node_id: "a-tokenize-prompt"
+    target_node_id: "d-prompt-tokens"
+    kind: "output"
+    label: "tokenizer produces prompt tokens"
+    semantics {
+      entry_id: "e-tokenize-to-tokens-r"
+      key: "relationship"
+      value: "tokenizer produces prompt tokens"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-tokens-to-chunks"
+    source_node_id: "d-prompt-tokens"
+    target_node_id: "a-plan-prefill-chunks"
+    kind: "input"
+    label: "prompt tokens feed chunk planning"
+    semantics {
+      entry_id: "e-tokens-to-chunks-r"
+      key: "relationship"
+      value: "prompt tokens feed chunk planning"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  operations {
+    operation_id: "op-prefill"
+    name: "Run GLM 5.2 TP4 prompt prefill"
+    overview: "Tokenize and chunk the prompt, run per-layer TP prefill with explicit all-reduce, commit prompt MLA/KV cache state, and make decode handoff ready."
+    members {
+      ref {
+        node_id: "a-commit-prefill-kv"
+      }
+      role: "member"
+    }
+    members {
+      ref {
+        node_id: "a-plan-prefill-chunks"
+      }
+      role: "member"
+    }
+    members {
+      ref {
+        node_id: "a-prefill-allreduce"
+      }
+      role: "member"
+    }
+    members {
+      ref {
+        node_id: "a-prefill-layer-tp"
+      }
+      role: "member"
+    }
+    members {
+      ref {
+        node_id: "a-prefill-ready"
+      }
+      role: "member"
+    }
+    members {
+      ref {
+        node_id: "a-tokenize-prompt"
+      }
+      role: "member"
+    }
+    members {
+      ref {
+        node_id: "d-prefill-chunk"
+      }
+      role: "member"
+    }
+    members {
+      ref {
+        node_id: "d-prefill-handoff"
+      }
+      role: "member"
+    }
+    members {
+      ref {
+        node_id: "d-prefill-hidden"
+      }
+      role: "member"
+    }
+    members {
+      ref {
+        node_id: "d-prefill-kv-commit"
+      }
+      role: "member"
+    }
+    members {
+      ref {
+        node_id: "d-prefill-partial"
+      }
+      role: "member"
+    }
+    members {
+      ref {
+        node_id: "d-prompt-tokens"
+      }
+      role: "member"
+    }
+    members {
+      ref {
+        node_id: "data-request"
+      }
+      role: "member"
+    }
+    members {
+      ref {
+        node_id: "state-kv"
+      }
+      role: "member"
+    }
+    members {
+      ref {
+        node_id: "state-model-worker"
+      }
+      role: "member"
+    }
+    members {
+      ref {
+        node_id: "state-tp"
+      }
+      role: "member"
+    }
+    semantics {
+      entry_id: "op-prefill-goal"
+      key: "target_state"
+      value: "prompt materialized in TP KV shards and decode may start at position j"
+      support_refs {
+        node_id: "a-prefill-ready"
+      }
+      support_refs {
+        node_id: "state-kv"
+      }
+      status: SUPPORTED
+    }
+    end_goals {
+      goal_id: "goal-prefill-ready"
+      intent: "The prompt prefix is committed into TP-aware MLA/KV cache with a decode-ready cursor."
+      bindings {
+        ref {
+          node_id: "state-kv"
+        }
+        role: "updated prompt KV cache"
+        semantics {
+          entry_id: "goal-prefill-kv-state"
+          key: "target_state"
+          value: "prompt prefix rows and cursor are committed"
+          status: SUPPORTED
+        }
+      }
+      bindings {
+        ref {
+          node_id: "a-prefill-ready"
+        }
+        role: "decode handoff"
+        semantics {
+          entry_id: "goal-prefill-handoff"
+          key: "exit"
+          value: "prefill complete before decode token j"
+          status: SUPPORTED
+        }
+      }
+    }
+  }
+}
+canonical {
+  schema_sha256: "9de5a18221a33a9379092d084dbae946af604b979dfe7caf07bdd65701b5ea9d"
+  type_schema_sha256: "99f8dc1bb18f75d78fbf7f0cc73245c44b01f2981e7a67b73269d53fdda1f07e"
+  graph_sha256: "dd0c6c53f8de58eee3d2640a50405c9f70db27186463b513bba1a2adf11c761c"
+  graph_contract_sha256: "69d5326e8445be49cf74c5bac68c8af381e4fd8121b5154ef688158d36a5db1a"
+}

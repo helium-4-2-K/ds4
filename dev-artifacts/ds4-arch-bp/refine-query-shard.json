@@ -1,0 +1,178 @@
+{
+  "schema": "blueprint-write-request/v11",
+  "action": "mutate",
+  "request_id": "separate-query-shard-from-replicated-kv-state",
+  "root": "/Users/helium/src/ds4-gb10x4-bcd/bdev",
+  "record_dir": "/Users/helium/src/ds4-gb10x4-bcd/dev-artifacts/ds4-arch-bp/records",
+  "expected_blueprint_sha256": "48fbb47b8cfe9f9068ca6b7208b80a22a9a6284e4e6f38a548c0bb2ca112ed93",
+  "validation_stage": "complete",
+  "operations": [
+    {
+      "verb": "add",
+      "entity": "message_type",
+      "graph_id": "decode",
+      "params": {
+        "name": "query_head_shard",
+        "contract": {
+          "type_id": "blueprint.work.ds4_arch.query_head_shard",
+          "represents": "the position-treated query vectors for one rank's contiguous half of attention heads",
+          "semantics": [
+            {"entry_id": "ct-query-head-shard", "key": "meaning", "value": "Rank-local query vectors Q_r with shape [n_head/2, head_dim].", "status": "supported"}
+          ],
+          "operations": []
+        },
+        "fields": [
+          {"name": "q", "number": 1, "type_ref": "float", "label": "repeated", "contract": {"meaning": "owned query vectors [n_head/2, head_dim]", "semantics": []}}
+        ],
+        "oneofs": [],
+        "reserved_numbers": [],
+        "reserved_names": []
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "data",
+      "graph_id": "decode",
+      "entity_id": "d-qkv",
+      "params": {
+        "id": "d-qkv",
+        "kind": "DATA",
+        "label": "rank-local position-treated query-head shard",
+        "data_type": "blueprint.work.ds4_arch.query_head_shard",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {"entry_id": "d-qkv-role", "key": "data_role", "value": "query shard for rank-owned heads", "status": "supported"},
+          {"entry_id": "d-qkv-id", "key": "identity", "value": "Q_r[j] for layer i and rank r", "status": "supported"},
+          {"entry_id": "d-qkv-ng", "key": "no_implementation_guide", "value": "none", "status": "supported"},
+          {"entry_id": "d-qkv-ord", "key": "ordering", "value": "produced after replicated Q-latent/KV work and rank-sliced q_b rows", "status": "supported"},
+          {"entry_id": "d-qkv-pres", "key": "presence", "value": "exactly one shard per rank", "status": "supported"},
+          {"entry_id": "d-qkv-prov", "key": "provenance", "value": "a-qkv rank-owned q_b row slice", "status": "supported"},
+          {"entry_id": "d-qkv-scope", "key": "distribution_scope", "value": "rank_local_shard", "status": "supported"}
+        ],
+        "evidence_refs": ["ev_qk_matmul"]
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "port",
+      "graph_id": "decode",
+      "entity_id": "qkv-projection-out",
+      "params": {
+        "owner": {"node_id": "a-qkv"},
+        "direction": "output",
+        "port": {"port_id": "qkv-projection-out", "node_id": "d-qkv", "type_ref": "blueprint.work.ds4_arch.query_head_shard", "cardinality": "exactly_one"}
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "semantic",
+      "graph_id": "decode",
+      "entity_id": "qkv-ov",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "a-qkv",
+        "entry": {"entry_id": "qkv-ov", "key": "overview", "value": "Both Macs replicate the hidden-to-Q-latent and hidden-to-KV work, append the position-treated KV row to local mirrored cache state, then apply rank-specific q_b rows so each rank emits only its owned half of query heads.", "status": "supported"}
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "semantic",
+      "graph_id": "decode",
+      "entity_id": "qkv-projection-out",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "a-qkv",
+        "entry": {
+          "entry_id": "qkv-projection-out",
+          "key": "output",
+          "value": "Produce only Q_r[j], the position-treated query vectors for this rank's owned heads; K/V are represented by the separate s-kv state update.",
+          "status": "supported",
+          "object_ref": {"node_id": "d-qkv"},
+          "support_refs": [{"port": {"owner": {"node_id": "a-qkv"}, "direction": "output", "port_id": "qkv-projection-out"}}]
+        }
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "port",
+      "graph_id": "decode",
+      "entity_id": "score-qkv-in",
+      "params": {
+        "owner": {"node_id": "a-score"},
+        "direction": "input",
+        "port": {"port_id": "score-qkv-in", "node_id": "d-qkv", "type_ref": "blueprint.work.ds4_arch.query_head_shard", "cardinality": "exactly_one"}
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "semantic",
+      "graph_id": "decode",
+      "entity_id": "score-ov",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "a-score",
+        "entry": {"entry_id": "score-ov", "key": "overview", "value": "For each rank-owned query head independently, dot Q_r[h] with every visible row of the locally mirrored KV prefix to produce rank-local per-head score rows.", "status": "supported"}
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "semantic",
+      "graph_id": "decode",
+      "entity_id": "score-qkv-in",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "a-score",
+        "entry": {
+          "entry_id": "score-qkv-in",
+          "key": "input_use",
+          "value": "Consume this rank's query-head shard; read K/V only through the explicit mirrored s-kv state dependency.",
+          "status": "supported",
+          "object_ref": {"node_id": "d-qkv"},
+          "support_refs": [{"port": {"owner": {"node_id": "a-score"}, "direction": "input", "port_id": "score-qkv-in"}}]
+        }
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "semantic",
+      "graph_id": "decode",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "d-scores",
+        "entry": {"entry_id": "d-scores-scope", "key": "distribution_scope", "value": "rank_local_shard", "status": "supported"}
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "edge",
+      "graph_id": "decode",
+      "entity_id": "c-qkv-out",
+      "params": {
+        "id": "c-qkv-out",
+        "source_node_id": "a-qkv",
+        "target_node_id": "d-qkv",
+        "family": "dataflow",
+        "kind": "query-shard-output",
+        "label": "[02 -> 03] rank-local query-head shard Q_r",
+        "semantics": [{"entry_id": "c-qkv-out-relationship", "key": "relationship", "value": "Stage 02 produces the query shard as DATA while K/V remain an explicit mirrored state update.", "status": "supported"}]
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "edge",
+      "graph_id": "decode",
+      "entity_id": "c-qkv-score",
+      "params": {
+        "id": "c-qkv-score",
+        "source_node_id": "d-qkv",
+        "target_node_id": "a-score",
+        "family": "dataflow",
+        "kind": "query-shard-input",
+        "label": "Q_r to independent per-head scores",
+        "semantics": [{"entry_id": "c-qkv-score-r", "key": "relationship", "value": "The score action consumes only this rank's query heads and reads the replicated KV prefix as state.", "status": "supported"}]
+      }
+    }
+  ],
+  "contract_validation": {"profile": "leaf", "graph_ids": ["decode"]}
+}

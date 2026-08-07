@@ -1,0 +1,80 @@
+schema_version: "blueprint-manifest/v1"
+blueprint_id: "ds4-arch"
+blueprint_version: "1"
+lifecycle: DRAFT
+root_graph_id: "serve"
+schema_ref: "blueprint-schema/blueprint/v1/blueprint.proto"
+graphs {
+  graph_id: "decode"
+  graph_ref: "decode.graph.textproto"
+  type_schema_ref: "decode.types.proto"
+  graph_contract_sha256: "e98ec8de0297f19e37d776a48f3cc032a7d0b91972a643ff72ca3ad8c42fe3cb"
+  type_schema_sha256: "11aed4b3949cb382442d88c9da0f49383f7a3e1d79ee196a83cb7696855e03be"
+}
+graphs {
+  graph_id: "decode-dcp-topk"
+  graph_ref: "decode-dcp-topk.graph.textproto"
+  type_schema_ref: "decode-dcp-topk.types.proto"
+  graph_contract_sha256: "74863d5d56161f47e4cb755d7bc51fe8e48ccab017eaf2264e0e84e804ac8bc8"
+  type_schema_sha256: "f477d38322af6cab16352f2b1d2db21e9ad400f2b0afb3fae965f8e32efbbf63"
+}
+graphs {
+  graph_id: "decode-expert-route"
+  graph_ref: "decode-expert-route.graph.textproto"
+  type_schema_ref: "decode-expert-route.types.proto"
+  graph_contract_sha256: "dceb0eea23489b200ec73819147b62ba311a246353a02fd00d023dd06d85e550"
+  type_schema_sha256: "677de272efd37402cfe5506bae588520379cedba5a52cdcbeb1980da994494af"
+}
+graphs {
+  graph_id: "decode-ffn-local"
+  graph_ref: "decode-ffn-local.graph.textproto"
+  type_schema_ref: "decode-ffn-local.types.proto"
+  graph_contract_sha256: "608d0bdebfcea667d567098944e1698a2a2c4d18b45314c8fb0679212770a2ac"
+  type_schema_sha256: "1042665ce70609530a4d9731c15b933fcb7199d88ef76ba4c4023814a02a30fe"
+}
+graphs {
+  graph_id: "decode-qkv-mla"
+  graph_ref: "decode-qkv-mla.graph.textproto"
+  type_schema_ref: "decode-qkv-mla.types.proto"
+  graph_contract_sha256: "a3e04f977f9d23da20d864df82ca561edbcfbd3e0e21ee8e7b3b41ca9f744e52"
+  type_schema_sha256: "f8a1f21cb5ed9fa4fc3eebe243664bcf93042f7aa27ffc12ac9ad04e359ffd8f"
+}
+graphs {
+  graph_id: "decode-sparse-attention"
+  graph_ref: "decode-sparse-attention.graph.textproto"
+  type_schema_ref: "decode-sparse-attention.types.proto"
+  graph_contract_sha256: "f8f0e873eeecdcc6c1f96ee7422804bb3765da6a2067345b1f2980cfa403f6cf"
+  type_schema_sha256: "e0737d45c04db185ecaece51c263819e9309b007202df8c47c992d163154da03"
+}
+graphs {
+  graph_id: "model-load"
+  graph_ref: "model-load.graph.textproto"
+  type_schema_ref: "model-load.types.proto"
+  graph_contract_sha256: "0d3a26146444d194a72ed4f843fabbd3f6275eeefa45873465f5b9e2ac63c215"
+  type_schema_sha256: "35456e2c1ce4c6aa91b310933364f65541901eeb21051e874a5bb306beb57837"
+}
+graphs {
+  graph_id: "model-shard-layout"
+  graph_ref: "model-shard-layout.graph.textproto"
+  type_schema_ref: "model-shard-layout.types.proto"
+  graph_contract_sha256: "eb05725c27670f0c0d9c3b90044c040e3ee5e6130eca1e09e8d1b26a202b911e"
+  type_schema_sha256: "e0a05109bed2a28fa288ac7504105a5416d7f5fecc8d663d019382e7ca377abc"
+}
+graphs {
+  graph_id: "prefill"
+  graph_ref: "prefill.graph.textproto"
+  type_schema_ref: "prefill.types.proto"
+  graph_contract_sha256: "69d5326e8445be49cf74c5bac68c8af381e4fd8121b5154ef688158d36a5db1a"
+  type_schema_sha256: "99f8dc1bb18f75d78fbf7f0cc73245c44b01f2981e7a67b73269d53fdda1f07e"
+}
+graphs {
+  graph_id: "serve"
+  graph_ref: "serve.graph.textproto"
+  type_schema_ref: "serve.types.proto"
+  graph_contract_sha256: "9212a3685de85a5df4e17c1471458e064e4c335988ae220f36f65731baca3c8a"
+  type_schema_sha256: "30f49b45e889237b5bb310b878ab4e6706809d614eedd39946a3bc723ce1c6d4"
+}
+canonical {
+  schema_sha256: "9de5a18221a33a9379092d084dbae946af604b979dfe7caf07bdd65701b5ea9d"
+  blueprint_sha256: "a0d9cf6b17df5f544ab2d17930aaf58b6f2bf4a3c1ce4034d3f91f1ba202e30a"
+}

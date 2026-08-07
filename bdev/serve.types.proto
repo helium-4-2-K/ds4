@@ -1,0 +1,132 @@
+syntax = "proto3";
+
+package blueprint.work.ds4_arch;
+
+import "blueprint/v1/blueprint.proto";
+
+message ChatRequest {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.ChatRequest"
+    represents: "a chat or completion request served by the coordinator"
+    semantics {
+      entry_id: "t-chatrequest"
+      key: "meaning"
+      value: "a chat or completion request served by the coordinator"
+      status: SUPPORTED
+    }
+  };
+  repeated string messages = 1 [(blueprint.v1.field_contract) = { meaning: "chat messages" }];
+  string session_id = 2 [(blueprint.v1.field_contract) = { meaning: "client session id" }];
+  float temperature = 3 [(blueprint.v1.field_contract) = { meaning: "sampling temperature" }];
+  int32 max_tokens = 4 [(blueprint.v1.field_contract) = { meaning: "maximum tokens to generate" }];
+}
+
+message Token {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.Token"
+    represents: "one token entering or leaving autoregressive decode"
+    semantics {
+      entry_id: "t-token"
+      key: "meaning"
+      value: "one token entering or leaving autoregressive decode"
+      status: SUPPORTED
+    }
+  };
+  int32 id = 1 [(blueprint.v1.field_contract) = { meaning: "token id" }];
+  int32 position = 2 [(blueprint.v1.field_contract) = { meaning: "sequence position, when known" }];
+}
+
+message model {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.model"
+    represents: "GLM 5.2 TP=4 shard placement across four GX10 machines, informed by the validated Bird/vLLM BF16 build"
+    semantics {
+      entry_id: "t-model"
+      key: "meaning"
+      value: "GLM 5.2 TP=4 shard placement across four GX10 machines, informed by the validated Bird/vLLM BF16 build"
+      status: SUPPORTED
+    }
+  };
+  string model_name = 1 [(blueprint.v1.field_contract) = { meaning: "GLM 5.2 model or served model name" }];
+  int32 tp_degree = 2 [(blueprint.v1.field_contract) = { meaning: "tensor parallel degree, fixed to 4" }];
+  int32 rank_count = 3 [(blueprint.v1.field_contract) = { meaning: "four GX10 ranks" }];
+  int32 n_layer = 4 [(blueprint.v1.field_contract) = { meaning: "79 decoder layers in the base model; all ranks participate in every served layer" }];
+  int32 n_embd = 5 [(blueprint.v1.field_contract) = { meaning: "hidden width 6144" }];
+  int32 n_head = 6 [(blueprint.v1.field_contract) = { meaning: "64 query heads, 16 query heads per TP rank when head-sharded" }];
+  int32 n_head_kv = 7 [(blueprint.v1.field_contract) = { meaning: "KV/MLA sharing plan; rank-local or replicated according to the TP kernel" }];
+  int32 n_expert = 8 [(blueprint.v1.field_contract) = { meaning: "256 routed experts" }];
+  int32 n_expert_used = 9 [(blueprint.v1.field_contract) = { meaning: "top-8 experts per token" }];
+  string qkv_shard_axis = 10 [(blueprint.v1.field_contract) = { meaning: "query/output channel, MLA latent, or head-group shard axis" }];
+  string expert_shard_axis = 11 [(blueprint.v1.field_contract) = { meaning: "routed expert or intermediate shard axis" }];
+  string vocab_shard_axis = 12 [(blueprint.v1.field_contract) = { meaning: "vocabulary rows split four ways" }];
+  string reference_runtime = 13 [(blueprint.v1.field_contract) = { meaning: "validated external runtime reference, e.g. Bird vLLM" }];
+  string bird_vllm_commit = 14 [(blueprint.v1.field_contract) = { meaning: "Bird vLLM commit b7abab517799e7fcf4889b790af9b475d093ab27" }];
+  string served_model_name = 15 [(blueprint.v1.field_contract) = { meaning: "glm-5.2-full-bird-dspark-bf16-nccl2304-ch4" }];
+  string checkpoint_revision = 16 [(blueprint.v1.field_contract) = { meaning: "QuantTrio/GLM-5.2-Int4-Int8Mix revision 1d3bcfe5ec549ecd000fd80b37f191183842e983" }];
+  string speculator = 17 [(blueprint.v1.field_contract) = { meaning: "DSpark ft32k BF16 runtime speculator used by Bird/vLLM baseline" }];
+}
+
+message kv {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.kv"
+    represents: "TP-aware per-session KV/MLA cache for GLM 5.2 across four ranks"
+    semantics {
+      entry_id: "t-kv"
+      key: "meaning"
+      value: "TP-aware per-session KV/MLA cache for GLM 5.2 across four ranks"
+      status: SUPPORTED
+    }
+  };
+  string session_id = 1 [(blueprint.v1.field_contract) = { meaning: "session id" }];
+  int32 length = 2 [(blueprint.v1.field_contract) = { meaning: "cached-token count" }];
+  int32 tp_rank = 3 [(blueprint.v1.field_contract) = { meaning: "rank-local cache owner" }];
+  int32 head_or_latent_start = 4 [(blueprint.v1.field_contract) = { meaning: "first owned attention/MLA cache slice" }];
+  int32 head_or_latent_end = 5 [(blueprint.v1.field_contract) = { meaning: "last owned attention/MLA cache slice" }];
+  bool replicated_metadata = 6 [(blueprint.v1.field_contract) = { meaning: "shape/cursor metadata is replicated across ranks" }];
+}
+
+
+message distlink {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.distlink"
+    represents: "TP=4 collective fabric over four GX10 machines, with Bird/vLLM NCCL/RoCE settings as baseline"
+    semantics {
+      entry_id: "t-distlink"
+      key: "meaning"
+      value: "TP=4 collective fabric over four GX10 machines, with Bird/vLLM NCCL/RoCE settings as baseline"
+      status: SUPPORTED
+    }
+  };
+  int32 tp_degree = 1 [(blueprint.v1.field_contract) = { meaning: "four ranks" }];
+  int32 pp_degree = 2 [(blueprint.v1.field_contract) = { meaning: "pipeline parallel degree, Bird/vLLM baseline uses PP1" }];
+  int32 dcp_degree = 3 [(blueprint.v1.field_contract) = { meaning: "decode context parallel degree, Bird/vLLM baseline uses DCP4" }];
+  string transport = 4 [(blueprint.v1.field_contract) = { meaning: "inter-machine transport for collectives" }];
+  int32 all_reduce_count_per_layer = 5 [(blueprint.v1.field_contract) = { meaning: "attention and FFN reductions per layer" }];
+  int32 broadcast_count_per_token = 6 [(blueprint.v1.field_contract) = { meaning: "token/hidden broadcast at decode start" }];
+  int32 gather_count_per_token = 7 [(blueprint.v1.field_contract) = { meaning: "logits gather or distributed top-k at decode end" }];
+  string collective_backend = 8 [(blueprint.v1.field_contract) = { meaning: "DwarfStar target collective backend or Bird/vLLM NCCL reference" }];
+  string attention_backend = 9 [(blueprint.v1.field_contract) = { meaning: "B12X_MLA_SPARSE in Bird/vLLM baseline" }];
+  string kv_cache_dtype = 10 [(blueprint.v1.field_contract) = { meaning: "fp8_ds_mla in Bird/vLLM baseline" }];
+  string nccl_version = 11 [(blueprint.v1.field_contract) = { meaning: "2.30.4 in Bird/vLLM baseline" }];
+  int32 nccl_channels = 12 [(blueprint.v1.field_contract) = { meaning: "four NCCL channels in Bird/vLLM baseline" }];
+  repeated string roce_hcas = 13 [(blueprint.v1.field_contract) = { meaning: "RoCE HCA names used by NCCL" }];
+}
+
+message kv_cursor {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.kv_cursor"
+    represents: "Append-ordered prompt/decode cursor for TP-aware KV/MLA cache"
+    semantics {
+      entry_id: "t-kv-cursor"
+      key: "meaning"
+      value: "Append-ordered prompt/decode cursor for TP-aware KV/MLA cache"
+      status: SUPPORTED
+    }
+  };
+  string session_id = 1 [(blueprint.v1.field_contract) = { meaning: "session whose KV cursor is being advanced" }];
+  int32 length = 2 [(blueprint.v1.field_contract) = { meaning: "committed cache length" }];
+  int32 position = 3 [(blueprint.v1.field_contract) = { meaning: "current token or prompt position" }];
+  string phase = 4 [(blueprint.v1.field_contract) = { meaning: "prefill or decode phase that last advanced the cursor" }];
+  int32 tp_degree = 5 [(blueprint.v1.field_contract) = { meaning: "tensor parallel degree" }];
+  int32 dcp_degree = 6 [(blueprint.v1.field_contract) = { meaning: "decode context parallel degree" }];
+}

@@ -1,0 +1,373 @@
+syntax = "proto3";
+
+package blueprint.v1;
+
+import "google/protobuf/descriptor.proto";
+
+// This file fixes the authoring structure. Project behavior remains open in
+// kind strings and keyed plain-English semantic entries.
+
+enum Lifecycle {
+  LIFECYCLE_UNSPECIFIED = 0;
+  DRAFT = 1;
+  FROZEN = 2;
+}
+
+enum SemanticStatus {
+  SEMANTIC_STATUS_UNSPECIFIED = 0;
+  SUPPORTED = 1;
+  UNRESOLVED = 2;
+}
+
+enum PortCardinality {
+  PORT_CARDINALITY_UNSPECIFIED = 0;
+  PORT_CARDINALITY_EXACTLY_ONE = 1;
+  PORT_CARDINALITY_ZERO_OR_ONE = 2;
+  PORT_CARDINALITY_ZERO_OR_MORE = 3;
+  PORT_CARDINALITY_ONE_OR_MORE = 4;
+}
+
+enum PortDirection {
+  PORT_DIRECTION_UNSPECIFIED = 0;
+  PORT_DIRECTION_INPUT = 1;
+  PORT_DIRECTION_OUTPUT = 2;
+}
+
+message TypeSemanticEntry {
+  string entry_id = 1;
+  string key = 2;
+  string value = 3;
+  SemanticStatus status = 4;
+}
+
+message TypeOperationPort {
+  string port_id = 1;
+  string name = 2;
+  string type_ref = 3;
+  PortCardinality cardinality = 4;
+  string meaning = 5;
+}
+
+message TypeOperation {
+  string operation_id = 1;
+  string name = 2;
+  string kind = 3;
+  string overview = 4;
+  repeated TypeOperationPort inputs = 5;
+  repeated TypeOperationPort outputs = 6;
+  repeated TypeSemanticEntry semantics = 7;
+}
+
+message TypeContract {
+  string type_id = 1;
+  string represents = 2;
+  repeated TypeSemanticEntry semantics = 3;
+  repeated TypeOperation operations = 4;
+}
+
+message FieldContract {
+  string meaning = 1;
+  repeated TypeSemanticEntry semantics = 2;
+}
+
+extend google.protobuf.MessageOptions {
+  TypeContract type_contract = 51001;
+}
+
+extend google.protobuf.EnumOptions {
+  TypeContract enum_type_contract = 51002;
+}
+
+extend google.protobuf.FieldOptions {
+  FieldContract field_contract = 51003;
+}
+
+extend google.protobuf.EnumValueOptions {
+  FieldContract enum_value_contract = 51004;
+}
+
+message GraphBoundary {}
+
+message PortRef {
+  oneof owner {
+    GraphBoundary graph_boundary = 1;
+    string node_id = 2;
+  }
+  PortDirection direction = 3;
+  string port_id = 4;
+}
+
+// A GraphRef is local to one BlueprintGraph. A PortRef fixes the owner,
+// direction, and stable port ID rather than relying on a name-only lookup.
+message GraphRef {
+  oneof ref {
+    string node_id = 1;
+    string edge_id = 2;
+    PortRef port = 3;
+  }
+}
+
+message SemanticEntry {
+  string entry_id = 1;
+  string key = 2;
+  string value = 3;
+  GraphRef object_ref = 4;
+  repeated GraphRef support_refs = 5;
+  SemanticStatus status = 6;
+}
+
+message OverallSemantic {
+  string overview = 1;
+  repeated GraphRef support_refs = 2;
+}
+
+message BlueprintPort {
+  string port_id = 1;
+  string node_id = 2;
+  string type_ref = 3;
+  PortCardinality cardinality = 4;
+}
+
+// Names one upstream origin for a DATA occurrence that enters this graph
+// rather than being produced by an action in the graph. The kind vocabulary is
+// deliberately open. graph_input_port_id binds boundary input when the state
+// or value enters through a graph port; stored, receiver, framework, or other
+// API-implicit state may instead name its origin only through source_ref.
+message DataSource {
+  string source_id = 1;
+  string kind = 2;
+  string source_ref = 3;
+  string graph_input_port_id = 4;
+  string meaning = 5;
+}
+
+// One member of an ACTION's visible state set. The state_node_id references a
+// typed STATE node, or a typed DATA node used as state by an older contract.
+// access is deliberately small for now: "read" or "update".
+message ActionVisibleState {
+  string state_node_id = 1;
+  string access = 2;
+  string meaning = 3;
+  repeated SemanticEntry semantics = 4;
+}
+
+// STATE only: declares that this STATE occurrence is the same logical state
+// as an earlier occurrence. Use this for later occurrences instead of
+// re-declaring the state origin as a new source.
+message SameStateLink {
+  string graph_id = 1;       // empty means this graph
+  string state_node_id = 2;
+  string relation = 3;       // normally "same_state_as"; open for project precision
+  string meaning = 4;
+  repeated SemanticEntry semantics = 5;
+}
+
+message BlueprintNode {
+  string id = 1;
+  string kind = 2;
+  string label = 3;
+  string data_type = 4;
+  repeated BlueprintPort input_ports = 5;
+  repeated BlueprintPort output_ports = 6;
+  repeated SemanticEntry semantics = 7;
+  repeated string evidence_refs = 8;
+  string expands_to_graph_id = 9;
+  repeated DataSource sources = 10;
+  repeated ActionVisibleState state_set = 11;
+  repeated SameStateLink same_state_as = 12;
+  // ACTION only: prose conditions. Mechanical validation treats these as
+  // opaque plain-English declarations (form only, non-empty entries, unique
+  // ids); semantic judgment is deferred to the LLM semantic reviewer. Each may
+  // be empty.
+  repeated ProseCondition preconditions = 13;
+  repeated ProseCondition postconditions = 14;
+}
+
+// A prose-only plain-English condition. `text` is the statement (e.g. a
+// precondition "the counter input is a positive integer", or a postcondition
+// "the counter stores the incremented value in count.db"). `kind` disambiguates
+// the condition thinker's intent when useful (e.g. "input", "state", "output",
+// "effect"); it is open vocabulary and not mechanically evaluated.
+message ProseCondition {
+  string condition_id = 1;
+  string kind = 2;
+  string text = 3;
+}
+
+message BlueprintEdge {
+  string id = 1;
+  string source_node_id = 2;
+  string target_node_id = 3;
+  string kind = 4;
+  string label = 5;
+  string condition_node_id = 6;
+  repeated SemanticEntry semantics = 7;
+  repeated string evidence_refs = 8;
+  // The structural relationship family. Use this to separate value/data
+  // movement, control selection, causality/ordering, effects, state access,
+  // joins, loops, and architecture relationships. The project-specific kind
+  // and label remain open and carry finer intent.
+  string family = 9;
+  // Control-branch conditions on the edge (typically family "control").
+  // Prose-only plain-English guards; may be empty. Semantic evaluation is
+  // deferred to the LLM semantic reviewer; mechanical validation is form-only.
+  repeated ProseCondition conditions = 10;
+}
+
+// Names how one existing graph element participates in a larger semantic
+// composition. The role vocabulary is deliberately open.
+message GraphMember {
+  GraphRef ref = 1;
+  string role = 2;
+}
+
+// An operation is the graph-level unit that achieves one user or system
+// intent. It composes the existing actions, data, control, state changes,
+// effects, exits, and relationships; it is not an ACTION node kind.
+message BlueprintOperation {
+  string operation_id = 1;
+  string name = 2;
+  string overview = 3;
+  repeated GraphMember members = 4;
+  repeated string data_flow_ids = 5;
+  repeated SemanticEntry semantics = 6;
+  repeated BlueprintEndGoal end_goals = 7;
+}
+
+// The declared end state / intent that a sub-operation or graph as a whole
+// must satisfy when it completes. `intent` is the plain-English statement
+// of the goal (e.g. "the counter reaches 12", "the order is persisted"). Each
+// associated data/effect carries its own semantic so a reviewer can reason
+// per-bounded-step about progress (J2) and at the collection about sufficiency
+// (J3): given pre-state and these inputs, the action's effects on these data
+// and effects must, together, satisfy this end goal.
+message BlueprintEndGoal {
+  string goal_id = 1;
+  string intent = 2;                 // plain-English semantic description of the end goal
+  repeated EndGoalBinding bindings = 3;  // associated data/state/effects + their semantics
+  repeated SemanticEntry semantics = 4;
+}
+
+// One datum / effect / state bound to an end goal. Refs a graph element
+// (usually a DATA or STATE node, or an EFFECT/EXIT edge). `semantics` is the
+// plain-English statement of the expected end condition, e.g.
+// "when this operation ends, the data shall be stored in this DB with this
+// state" — the `semantic` key vocabulary is open.
+message EndGoalBinding {
+  GraphRef ref = 1;
+  string role = 2;          // e.g. "final_state", "persisted_output", "produced_effect"
+  repeated SemanticEntry semantics = 3;  // the expected end condition, in plain English
+}
+
+// A data flow is a connected high-level subgraph. Members are not ordered so
+// branching, joining, feedback, and cycles remain representable.
+message BlueprintDataFlow {
+  string data_flow_id = 1;
+  string name = 2;
+  string overview = 3;
+  repeated GraphRef source_refs = 4;
+  repeated GraphMember members = 5;
+  repeated GraphRef sink_refs = 6;
+  repeated SemanticEntry semantics = 7;
+}
+
+message ArchitectureComponent {
+  string component_id = 1;
+  string name = 2;
+  string kind = 3;
+  string overview = 4;
+  repeated GraphRef member_refs = 5;
+  repeated SemanticEntry semantics = 6;
+}
+
+message ArchitectureConnection {
+  string connection_id = 1;
+  string source_component_id = 2;
+  string target_component_id = 3;
+  string kind = 4;
+  string label = 5;
+  repeated GraphRef support_refs = 6;
+  repeated SemanticEntry semantics = 7;
+}
+
+// Architecture is optional. Use it when machine, process, storage, network,
+// external-system, or another high-level boundary materially explains L0.
+// Component and connection kinds remain open project vocabulary.
+message BlueprintArchitecture {
+  string overview = 1;
+  string rationale = 2;
+  repeated ArchitectureComponent components = 3;
+  repeated ArchitectureConnection connections = 4;
+  repeated SemanticEntry semantics = 5;
+}
+
+message BlueprintGraph {
+  OverallSemantic overall_semantic = 1;
+  repeated SemanticEntry semantics = 2;
+  repeated BlueprintNode nodes = 3;
+  repeated BlueprintEdge edges = 4;
+  repeated BlueprintOperation operations = 5;
+  repeated BlueprintDataFlow data_flows = 6;
+  BlueprintArchitecture architecture = 7;
+}
+
+message SourceSpan {
+  uint32 start_line = 1;
+  uint32 start_column = 2;
+  uint32 end_line = 3;
+  uint32 end_column = 4;
+}
+
+message EvidenceSource {
+  string evidence_id = 1;
+  string origin = 2;
+  string source_ref = 3;
+  SourceSpan span = 4;
+  string sha256 = 5;
+}
+
+message ContractCanonical {
+  string schema_sha256 = 1;
+  string type_schema_sha256 = 2;
+  string graph_sha256 = 3;
+  string graph_contract_sha256 = 4;
+}
+
+message BlueprintGraphContract {
+  string schema_version = 1;
+  string graph_id = 2;
+  string display_name = 3;
+  string graph_version = 4;
+  Lifecycle lifecycle = 5;
+  string schema_ref = 6;
+  string type_schema_ref = 7;
+  repeated BlueprintPort input_ports = 8;
+  repeated BlueprintPort output_ports = 9;
+  BlueprintGraph graph = 10;
+  repeated EvidenceSource evidence_sources = 11;
+  ContractCanonical canonical = 12;
+}
+
+message BlueprintGraphRegistryEntry {
+  string graph_id = 1;
+  string graph_ref = 2;
+  string type_schema_ref = 3;
+  string graph_contract_sha256 = 4;
+  string type_schema_sha256 = 5;
+}
+
+message ManifestCanonical {
+  string schema_sha256 = 1;
+  string blueprint_sha256 = 2;
+}
+
+message BlueprintManifest {
+  string schema_version = 1;
+  string blueprint_id = 2;
+  string blueprint_version = 3;
+  Lifecycle lifecycle = 4;
+  string root_graph_id = 5;
+  string schema_ref = 6;
+  repeated BlueprintGraphRegistryEntry graphs = 7;
+  ManifestCanonical canonical = 8;
+}

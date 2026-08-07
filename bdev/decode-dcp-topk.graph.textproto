@@ -1,0 +1,702 @@
+schema_version: "blueprint-graph/v1"
+graph_id: "decode-dcp-topk"
+display_name: "DCP4 sparse top-k selection child"
+graph_version: "1.0"
+lifecycle: DRAFT
+schema_ref: "blueprint-schema/blueprint/v1/blueprint.proto"
+type_schema_ref: "decode-dcp-topk.types.proto"
+input_ports {
+  port_id: "dcp-cache-row-in"
+  node_id: "d-mla-cache-row"
+  type_ref: "blueprint.work.ds4_arch.mla_cache_row"
+  cardinality: PORT_CARDINALITY_EXACTLY_ONE
+}
+input_ports {
+  port_id: "dcp-qkv-in"
+  node_id: "d-qkv-shard"
+  type_ref: "blueprint.work.ds4_arch.qkv_shard"
+  cardinality: PORT_CARDINALITY_EXACTLY_ONE
+}
+output_ports {
+  port_id: "dcp-selection-out"
+  node_id: "d-dcp-selection"
+  type_ref: "blueprint.work.ds4_arch.sparse_selection"
+  cardinality: PORT_CARDINALITY_EXACTLY_ONE
+}
+graph {
+  overall_semantic {
+    overview: "Ranks merge sparse-index scores across DCP context shards so each rank obtains the selected cache rows needed for its owned query heads."
+    support_refs {
+      node_id: "a-dcp-topk-merge"
+    }
+  }
+  semantics {
+    entry_id: "dcp-cache-row-in"
+    key: "input_use"
+    value: "Consumes the just-appended MLA cache row for position j."
+    object_ref {
+      port {
+        graph_boundary {
+        }
+        direction: PORT_DIRECTION_INPUT
+        port_id: "dcp-cache-row-in"
+      }
+    }
+    support_refs {
+      node_id: "d-mla-cache-row"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "dcp-qkv-in"
+    key: "input_use"
+    value: "Consumes rank-owned query/K reconstruction material for scoring."
+    object_ref {
+      port {
+        graph_boundary {
+        }
+        direction: PORT_DIRECTION_INPUT
+        port_id: "dcp-qkv-in"
+      }
+    }
+    support_refs {
+      node_id: "d-qkv-shard"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "dcp-selection-out"
+    key: "output"
+    value: "Produces the sparse cache-row selection and DCP row ownership needed by local attention."
+    object_ref {
+      port {
+        graph_boundary {
+        }
+        direction: PORT_DIRECTION_OUTPUT
+        port_id: "dcp-selection-out"
+      }
+    }
+    support_refs {
+      node_id: "d-dcp-selection"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "dcp-ef"
+    key: "effect"
+    value: "global sparse top-k selection is consistent across the TP/DCP group"
+    support_refs {
+      node_id: "a-dcp-topk-merge"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "dcp-exit"
+    key: "exit"
+    value: "sparse-selection-ready"
+    support_refs {
+      node_id: "a-dcp-topk-merge"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "decode-dcp-topk-arch"
+    key: "architecture_rationale"
+    value: "Keep the decode parent as ordered orchestration while this child owns the detailed local kernel/collective contract for a-dcp-topk."
+    support_refs {
+      node_id: "a-dcp-topk-merge"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "dcp-collective"
+    key: "collective"
+    value: "dcp_global_topk_merge"
+    support_refs {
+      node_id: "a-dcp-topk-merge"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "dcp-im"
+    key: "implementation_choice"
+    value: "requires_new_glm52_tp4_support"
+    support_refs {
+      node_id: "a-dcp-topk-merge"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "dcp-bird-ref"
+    key: "implementation_reference"
+    value: "Bird/vLLM uses decode-context-parallel-size 4 and VLLM_DCP_GLOBAL_TOPK=1 for this GLM 5.2 serving target."
+    support_refs {
+      node_id: "a-dcp-topk-merge"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "dcp-nd"
+    key: "no_diagnostic"
+    value: "none"
+    support_refs {
+      node_id: "a-dcp-topk-merge"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "decode-dcp-topk-no-guide"
+    key: "no_implementation_guide"
+    value: "This child graph is a target-system contract; implementation planning lives outside the blueprint."
+    status: SUPPORTED
+  }
+  nodes {
+    id: "a-dcp-topk-merge"
+    kind: "ACTION"
+    label: "realize 03 DCP4 global sparse top-k selection"
+    input_ports {
+      port_id: "k-dcp-cache-row-in"
+      node_id: "d-mla-cache-row"
+      type_ref: "blueprint.work.ds4_arch.mla_cache_row"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    input_ports {
+      port_id: "k-dcp-qkv-in"
+      node_id: "d-qkv-shard"
+      type_ref: "blueprint.work.ds4_arch.qkv_shard"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "k-dcp-selection-out"
+      node_id: "d-dcp-selection"
+      type_ref: "blueprint.work.ds4_arch.sparse_selection"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "a-dcp-topk-merge-ov"
+      key: "overview"
+      value: "Ranks merge sparse-index scores across DCP context shards so each rank obtains the selected cache rows needed for its owned query heads."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "k-dcp-cache-row-in"
+      key: "input_use"
+      value: "Consumes d-mla-cache-row."
+      object_ref {
+        node_id: "d-mla-cache-row"
+      }
+      support_refs {
+        port {
+          node_id: "a-dcp-topk-merge"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "k-dcp-cache-row-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "k-dcp-qkv-in"
+      key: "input_use"
+      value: "Consumes d-qkv-shard."
+      object_ref {
+        node_id: "d-qkv-shard"
+      }
+      support_refs {
+        port {
+          node_id: "a-dcp-topk-merge"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "k-dcp-qkv-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "k-dcp-selection-out"
+      key: "output"
+      value: "Produces d-dcp-selection."
+      object_ref {
+        node_id: "d-dcp-selection"
+      }
+      support_refs {
+        port {
+          node_id: "a-dcp-topk-merge"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "k-dcp-selection-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-dcp-topk-merge-ef"
+      key: "effect"
+      value: "Ranks merge sparse-index scores across DCP context shards so each rank obtains the selected cache rows needed for its owned query heads."
+      support_refs {
+        node_id: "a-dcp-topk-merge"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-dcp-topk-merge-exit"
+      key: "exit"
+      value: "a-dcp-topk-merge-done"
+      support_refs {
+        node_id: "a-dcp-topk-merge"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-dcp-topk-merge-cu"
+      key: "code_unit"
+      value: "DCP4 sparse indexer score/top-k merge"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-dcp-topk-merge-im"
+      key: "implementation_choice"
+      value: "fixed_by_child_contract_from_parent_action"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-dcp-topk-merge-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "s-kv"
+      access: "read"
+      meaning: "read prefix MLA/indexer cache shards by DCP owner"
+    }
+    state_set {
+      state_node_id: "s-tp"
+      access: "read"
+      meaning: "run DCP global top-k merge"
+    }
+    state_set {
+      state_node_id: "s-rank-plan"
+      access: "read"
+      meaning: "read DCP shard ownership spans"
+    }
+  }
+  nodes {
+    id: "d-dcp-selection"
+    kind: "DATA"
+    label: "output d-dcp-selection"
+    data_type: "blueprint.work.ds4_arch.sparse_selection"
+    semantics {
+      entry_id: "d-dcp-selection-data-role"
+      key: "data_role"
+      value: "child boundary data"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-dcp-selection-identity"
+      key: "identity"
+      value: "d-dcp-selection is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-dcp-selection-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-dcp-selection-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-dcp-selection-provenance"
+      key: "provenance"
+      value: "declared by the node source list."
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "d-mla-cache-row"
+    kind: "DATA"
+    label: "input d-mla-cache-row"
+    data_type: "blueprint.work.ds4_arch.mla_cache_row"
+    semantics {
+      entry_id: "d-mla-cache-row-data-role"
+      key: "data_role"
+      value: "child boundary data"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-mla-cache-row-identity"
+      key: "identity"
+      value: "d-mla-cache-row is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-mla-cache-row-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-mla-cache-row-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-mla-cache-row-provenance"
+      key: "provenance"
+      value: "declared by the node source list."
+      status: SUPPORTED
+    }
+    sources {
+      source_id: "src-d-mla-cache-row"
+      kind: "graph_input"
+      source_ref: "dcp-cache-row-in"
+      graph_input_port_id: "dcp-cache-row-in"
+      meaning: "value enters through this child graph boundary"
+    }
+  }
+  nodes {
+    id: "d-qkv-shard"
+    kind: "DATA"
+    label: "input d-qkv-shard"
+    data_type: "blueprint.work.ds4_arch.qkv_shard"
+    semantics {
+      entry_id: "d-qkv-shard-data-role"
+      key: "data_role"
+      value: "child boundary data"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-qkv-shard-identity"
+      key: "identity"
+      value: "d-qkv-shard is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-qkv-shard-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-qkv-shard-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-qkv-shard-provenance"
+      key: "provenance"
+      value: "declared by the node source list."
+      status: SUPPORTED
+    }
+    sources {
+      source_id: "src-d-qkv-shard"
+      kind: "graph_input"
+      source_ref: "dcp-qkv-in"
+      graph_input_port_id: "dcp-qkv-in"
+      meaning: "value enters through this child graph boundary"
+    }
+  }
+  nodes {
+    id: "s-kv"
+    kind: "STATE"
+    label: "same state s-kv"
+    data_type: "blueprint.work.ds4_arch.kv"
+    semantics {
+      entry_id: "s-kv-data-role"
+      key: "data_role"
+      value: "child-visible decode state"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-identity"
+      key: "identity"
+      value: "s-kv is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-ordering"
+      key: "ordering"
+      value: "append-ordered by prompt/decode token position; cursor state records monotonic length and current position."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-kv-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "decode"
+      state_node_id: "s-kv"
+      relation: "same logical decode state as parent graph"
+      meaning: "child action reads or updates the same state occurrence declared by the parent action"
+    }
+  }
+  nodes {
+    id: "s-rank-plan"
+    kind: "STATE"
+    label: "same state s-rank-plan"
+    data_type: "blueprint.work.ds4_arch.rank_plan"
+    semantics {
+      entry_id: "s-rank-plan-data-role"
+      key: "data_role"
+      value: "child-visible decode state"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-rank-plan-identity"
+      key: "identity"
+      value: "s-rank-plan is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-rank-plan-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-rank-plan-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-rank-plan-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "decode"
+      state_node_id: "s-rank-plan"
+      relation: "same logical decode state as parent graph"
+      meaning: "child action reads or updates the same state occurrence declared by the parent action"
+    }
+  }
+  nodes {
+    id: "s-tp"
+    kind: "STATE"
+    label: "same state s-tp"
+    data_type: "blueprint.work.ds4_arch.distlink"
+    semantics {
+      entry_id: "s-tp-data-role"
+      key: "data_role"
+      value: "child-visible decode state"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-tp-identity"
+      key: "identity"
+      value: "s-tp is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-tp-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-tp-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "s-tp-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "decode"
+      state_node_id: "s-tp"
+      relation: "same logical decode state as parent graph"
+      meaning: "child action reads or updates the same state occurrence declared by the parent action"
+    }
+  }
+  edges {
+    id: "e-a-dcp-topk-merge-s-kv"
+    source_node_id: "a-dcp-topk-merge"
+    target_node_id: "s-kv"
+    kind: "state-access"
+    label: "a-dcp-topk-merge read s-kv"
+    semantics {
+      entry_id: "e-a-dcp-topk-merge-s-kv-r"
+      key: "relationship"
+      value: "a-dcp-topk-merge read s-kv"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-a-dcp-topk-merge-s-kv-s"
+      key: "state_read"
+      value: "a-dcp-topk-merge read s-kv"
+      object_ref {
+        node_id: "s-kv"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-a-dcp-topk-merge-s-rank-plan"
+    source_node_id: "a-dcp-topk-merge"
+    target_node_id: "s-rank-plan"
+    kind: "state-access"
+    label: "a-dcp-topk-merge read s-rank-plan"
+    semantics {
+      entry_id: "e-a-dcp-topk-merge-s-rank-plan-r"
+      key: "relationship"
+      value: "a-dcp-topk-merge read s-rank-plan"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-a-dcp-topk-merge-s-rank-plan-s"
+      key: "state_read"
+      value: "a-dcp-topk-merge read s-rank-plan"
+      object_ref {
+        node_id: "s-rank-plan"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-a-dcp-topk-merge-s-tp"
+    source_node_id: "a-dcp-topk-merge"
+    target_node_id: "s-tp"
+    kind: "state-access"
+    label: "a-dcp-topk-merge read s-tp"
+    semantics {
+      entry_id: "e-a-dcp-topk-merge-s-tp-r"
+      key: "relationship"
+      value: "a-dcp-topk-merge read s-tp"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-a-dcp-topk-merge-s-tp-s"
+      key: "state_read"
+      value: "a-dcp-topk-merge read s-tp"
+      object_ref {
+        node_id: "s-tp"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-a-dcp-topk-merge-to-d-dcp-selection"
+    source_node_id: "a-dcp-topk-merge"
+    target_node_id: "d-dcp-selection"
+    kind: "output"
+    label: "a-dcp-topk-merge produces d-dcp-selection"
+    semantics {
+      entry_id: "e-a-dcp-topk-merge-to-d-dcp-selection-r"
+      key: "relationship"
+      value: "a-dcp-topk-merge produces d-dcp-selection"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-d-mla-cache-row-to-a-dcp-topk-merge"
+    source_node_id: "d-mla-cache-row"
+    target_node_id: "a-dcp-topk-merge"
+    kind: "input"
+    label: "d-mla-cache-row feeds a-dcp-topk-merge"
+    semantics {
+      entry_id: "e-d-mla-cache-row-to-a-dcp-topk-merge-r"
+      key: "relationship"
+      value: "d-mla-cache-row feeds a-dcp-topk-merge"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-d-qkv-shard-to-a-dcp-topk-merge"
+    source_node_id: "d-qkv-shard"
+    target_node_id: "a-dcp-topk-merge"
+    kind: "input"
+    label: "d-qkv-shard feeds a-dcp-topk-merge"
+    semantics {
+      entry_id: "e-d-qkv-shard-to-a-dcp-topk-merge-r"
+      key: "relationship"
+      value: "d-qkv-shard feeds a-dcp-topk-merge"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  operations {
+    operation_id: "op-decode-dcp-topk"
+    name: "DCP4 sparse top-k selection child"
+    overview: "Ranks merge sparse-index scores across DCP context shards so each rank obtains the selected cache rows needed for its owned query heads."
+    members {
+      ref {
+        node_id: "a-dcp-topk-merge"
+      }
+      role: "realizing action"
+    }
+    members {
+      ref {
+        node_id: "d-dcp-selection"
+      }
+      role: "boundary data"
+    }
+    members {
+      ref {
+        node_id: "d-mla-cache-row"
+      }
+      role: "boundary data"
+    }
+    members {
+      ref {
+        node_id: "d-qkv-shard"
+      }
+      role: "boundary data"
+    }
+    members {
+      ref {
+        node_id: "s-kv"
+      }
+      role: "visible state"
+    }
+    members {
+      ref {
+        node_id: "s-rank-plan"
+      }
+      role: "visible state"
+    }
+    members {
+      ref {
+        node_id: "s-tp"
+      }
+      role: "visible state"
+    }
+    semantics {
+      entry_id: "op-decode-dcp-topk-target"
+      key: "target_state"
+      value: "a-dcp-topk-merge completes the child contract for a-dcp-topk"
+      support_refs {
+        node_id: "a-dcp-topk-merge"
+      }
+      status: SUPPORTED
+    }
+  }
+}
+canonical {
+  schema_sha256: "9de5a18221a33a9379092d084dbae946af604b979dfe7caf07bdd65701b5ea9d"
+  type_schema_sha256: "f477d38322af6cab16352f2b1d2db21e9ad400f2b0afb3fae965f8e32efbbf63"
+  graph_sha256: "1da71c35502a2dde890388fcb9d08f6315ab20b88c690d7307ee4f34bd7368b8"
+  graph_contract_sha256: "74863d5d56161f47e4cb755d7bc51fe8e48ccab017eaf2264e0e84e804ac8bc8"
+}

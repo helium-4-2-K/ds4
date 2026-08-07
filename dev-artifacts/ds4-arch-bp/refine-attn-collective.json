@@ -1,0 +1,421 @@
+{
+  "schema": "blueprint-write-request/v11",
+  "action": "mutate",
+  "request_id": "split-rank-local-attention-from-collective",
+  "root": "/Users/helium/src/ds4-gb10x4-bcd/bdev",
+  "record_dir": "/Users/helium/src/ds4-gb10x4-bcd/dev-artifacts/ds4-arch-bp/records",
+  "expected_blueprint_sha256": "d59f27133dcf28f5e9c583ed03521106f36fe48fc750c1adaaa8fd4bdd35ac13",
+  "validation_stage": "complete",
+  "operations": [
+    {
+      "verb": "add",
+      "entity": "message_type",
+      "graph_id": "decode",
+      "params": {
+        "name": "attention_block_vector",
+        "contract": {
+          "type_id": "blueprint.work.ds4_arch.attention_block_vector",
+          "represents": "one full-hidden-width attention block vector, whose distribution scope is declared by each DATA occurrence",
+          "semantics": [
+            {
+              "entry_id": "ct-attention-block-vector",
+              "key": "meaning",
+              "value": "A full-width vector that is either one rank's additive partial or the replicated sum, depending on the DATA occurrence.",
+              "status": "supported"
+            }
+          ],
+          "operations": []
+        },
+        "fields": [
+          {
+            "name": "value",
+            "number": 1,
+            "type_ref": "float",
+            "label": "repeated",
+            "contract": {
+              "meaning": "attention block vector [n_embd]",
+              "semantics": []
+            }
+          }
+        ],
+        "oneofs": [],
+        "reserved_numbers": [],
+        "reserved_names": []
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "semantic",
+      "graph_id": "decode",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "d-ctx",
+        "entry": {
+          "entry_id": "d-ctx-scope",
+          "key": "distribution_scope",
+          "value": "rank_local_shard",
+          "status": "supported"
+        }
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "data",
+      "graph_id": "decode",
+      "entity_id": "d-group",
+      "params": {
+        "id": "d-group",
+        "kind": "DATA",
+        "label": "rank-local full-width attention partial",
+        "data_type": "blueprint.work.ds4_arch.attention_block_vector",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {"entry_id": "d-group-role", "key": "data_role", "value": "rank-local additive attention partial", "status": "supported"},
+          {"entry_id": "d-group-id", "key": "identity", "value": "P_r for this rank and layer", "status": "supported"},
+          {"entry_id": "d-group-ng", "key": "no_implementation_guide", "value": "none", "status": "supported"},
+          {"entry_id": "d-group-ord", "key": "ordering", "value": "produced by stage 05a before the ATTN collective", "status": "supported"},
+          {"entry_id": "d-group-pres", "key": "presence", "value": "exactly one per rank", "status": "supported"},
+          {"entry_id": "d-group-prov", "key": "provenance", "value": "a-outproj over this rank's owned head groups", "status": "supported"},
+          {"entry_id": "d-group-scope", "key": "distribution_scope", "value": "rank_local_partial", "status": "supported"}
+        ],
+        "evidence_refs": ["ev-attn_outproj"]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "data",
+      "graph_id": "decode",
+      "params": {
+        "id": "d-attn-summed",
+        "kind": "DATA",
+        "label": "replicated summed attention output",
+        "data_type": "blueprint.work.ds4_arch.attention_block_vector",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {"entry_id": "d-attn-summed-role", "key": "data_role", "value": "post-collective attention block output", "status": "supported"},
+          {"entry_id": "d-attn-summed-id", "key": "identity", "value": "P_0 + P_1 for this layer", "status": "supported"},
+          {"entry_id": "d-attn-summed-ng", "key": "no_implementation_guide", "value": "none", "status": "supported"},
+          {"entry_id": "d-attn-summed-ord", "key": "ordering", "value": "available only after both rank partials reach the ATTN gate", "status": "supported"},
+          {"entry_id": "d-attn-summed-pres", "key": "presence", "value": "exactly one identical occurrence on each rank", "status": "supported"},
+          {"entry_id": "d-attn-summed-prov", "key": "provenance", "value": "a-attn-gate fixed-order sum", "status": "supported"},
+          {"entry_id": "d-attn-summed-scope", "key": "distribution_scope", "value": "replicated", "status": "supported"}
+        ],
+        "evidence_refs": ["ev-atten"]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "semantic",
+      "graph_id": "decode",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "d-hattn",
+        "entry": {
+          "entry_id": "d-hattn-scope",
+          "key": "distribution_scope",
+          "value": "replicated",
+          "status": "supported"
+        }
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "action",
+      "graph_id": "decode",
+      "entity_id": "a-outproj",
+      "params": {
+        "id": "a-outproj",
+        "kind": "ACTION",
+        "label": "[05a] Rank-local grouped attention output projection",
+        "input_ports": [
+          {"port_id": "outproj-context-in", "node_id": "d-ctx", "type_ref": "blueprint.work.ds4_arch.context", "cardinality": "exactly_one"}
+        ],
+        "output_ports": [
+          {"port_id": "outproj-partial-out", "node_id": "d-group", "type_ref": "blueprint.work.ds4_arch.attention_block_vector", "cardinality": "exactly_one"}
+        ],
+        "state_set": [
+          {"state_node_id": "s-model", "access": "read", "meaning": "the A/B projection slices for this rank's owned head groups"}
+        ],
+        "semantics": [
+          {"entry_id": "outproj-ov", "key": "overview", "value": "Each Mac projects only its owned head-group contexts through the grouped A projection and matching B k-slice, producing a full-hidden-width additive partial P_r without communicating.", "status": "supported"},
+          {"entry_id": "outproj-context-in", "key": "input_use", "value": "Consume only this rank's attended head contexts.", "status": "supported", "object_ref": {"node_id": "d-ctx"}, "support_refs": [{"port": {"owner": {"node_id": "a-outproj"}, "direction": "input", "port_id": "outproj-context-in"}}]},
+          {"entry_id": "outproj-partial-out", "key": "output", "value": "Produce this rank's full-width additive attention partial P_r.", "status": "supported", "object_ref": {"node_id": "d-group"}, "support_refs": [{"port": {"owner": {"node_id": "a-outproj"}, "direction": "output", "port_id": "outproj-partial-out"}}]},
+          {"entry_id": "outproj-effect", "key": "no_effect", "value": "No cross-rank effect; synchronization is a separate action.", "status": "supported"},
+          {"entry_id": "outproj-exit", "key": "exit", "value": "rank partial ready", "status": "supported"},
+          {"entry_id": "outproj-cu", "key": "code_unit", "value": "group-sliced output matmul (ds4.c:23030-23046)", "status": "supported"},
+          {"entry_id": "outproj-im", "key": "implementation_choice", "value": "free", "status": "supported"},
+          {"entry_id": "outproj-nd", "key": "no_diagnostic", "value": "none", "status": "supported"},
+          {"entry_id": "outproj-order", "key": "ordering", "value": "Stage 05a; runs after rank-local head contexts and before the ATTN collective.", "status": "supported"},
+          {"entry_id": "outproj-scope", "key": "execution_scope", "value": "rank_local", "status": "supported"}
+        ],
+        "evidence_refs": ["ev-attn_outproj"],
+        "preconditions": [{"condition_id": "a-outproj-pre", "kind": "input", "text": "owned head contexts and this rank's grouped output slices are ready"}],
+        "postconditions": [{"condition_id": "a-outproj-pos", "kind": "data", "text": "d-group is this rank's full-width partial and is not yet globally visible"}]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "action",
+      "graph_id": "decode",
+      "params": {
+        "id": "a-attn-gate",
+        "kind": "ACTION",
+        "label": "[05b] ATTN all-reduce sum on both ranks",
+        "input_ports": [
+          {"port_id": "attn-gate-partial-in", "node_id": "d-group", "type_ref": "blueprint.work.ds4_arch.attention_block_vector", "cardinality": "exactly_one"}
+        ],
+        "output_ports": [
+          {"port_id": "attn-gate-summed-out", "node_id": "d-attn-summed", "type_ref": "blueprint.work.ds4_arch.attention_block_vector", "cardinality": "exactly_one"}
+        ],
+        "state_set": [
+          {"state_node_id": "s-tp", "access": "update", "meaning": "exchange rank partials and publish the fixed-order sum on both ranks"}
+        ],
+        "semantics": [
+          {"entry_id": "attn-gate-ov", "key": "overview", "value": "Exchange P_0 and P_1, sum them in the same rank order on both Macs, and publish the identical full attention block output for residual processing.", "status": "supported"},
+          {"entry_id": "attn-gate-partial-in", "key": "input_use", "value": "Consume the full-width partial produced independently by this rank.", "status": "supported", "object_ref": {"node_id": "d-group"}, "support_refs": [{"port": {"owner": {"node_id": "a-attn-gate"}, "direction": "input", "port_id": "attn-gate-partial-in"}}]},
+          {"entry_id": "attn-gate-summed-out", "key": "output", "value": "Produce the replicated fixed-order sum P_0 + P_1.", "status": "supported", "object_ref": {"node_id": "d-attn-summed"}, "support_refs": [{"port": {"owner": {"node_id": "a-attn-gate"}, "direction": "output", "port_id": "attn-gate-summed-out"}}]},
+          {"entry_id": "attn-gate-effect", "key": "effect", "value": "The ATTN gate exchanges one full-width partial per rank and restores identical attention output on both ranks.", "status": "supported"},
+          {"entry_id": "attn-gate-exit", "key": "exit", "value": "replicated sum ready", "status": "supported"},
+          {"entry_id": "attn-gate-cu", "key": "code_unit", "value": "TP gate exchange and fixed-order add (ds4.c:23081-23099)", "status": "supported"},
+          {"entry_id": "attn-gate-im", "key": "implementation_choice", "value": "free", "status": "supported"},
+          {"entry_id": "attn-gate-nd", "key": "no_diagnostic", "value": "none", "status": "supported"},
+          {"entry_id": "attn-gate-order", "key": "ordering", "value": "Stage 05b; both ranks must arrive after 05a and before stage 06.", "status": "supported"},
+          {"entry_id": "attn-gate-collective", "key": "collective", "value": "all_reduce_sum", "status": "supported", "support_refs": [{"node_id": "d-group"}, {"node_id": "d-attn-summed"}]},
+          {"entry_id": "attn-gate-scope", "key": "execution_scope", "value": "collective", "status": "supported"}
+        ],
+        "evidence_refs": ["ev-atten"],
+        "preconditions": [{"condition_id": "a-attn-gate-pre", "kind": "join", "text": "both rank-local partials P_0 and P_1 are ready for layer i"}],
+        "postconditions": [{"condition_id": "a-attn-gate-pos", "kind": "data", "text": "d-attn-summed is identical on rank 0 and rank 1"}]
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "action",
+      "graph_id": "decode",
+      "entity_id": "a-attn-resid",
+      "params": {
+        "id": "a-attn-resid",
+        "kind": "ACTION",
+        "label": "[06] Per-layer attention residual and norm on both ranks",
+        "input_ports": [
+          {"port_id": "attnresid-attn-in", "node_id": "d-attn-summed", "type_ref": "blueprint.work.ds4_arch.attention_block_vector", "cardinality": "exactly_one"}
+        ],
+        "output_ports": [
+          {"port_id": "attnresid-hidden-out", "node_id": "d-hattn", "type_ref": "blueprint.work.ds4_arch.hidden", "cardinality": "exactly_one"}
+        ],
+        "state_set": [
+          {"state_node_id": "s-model", "access": "read", "meaning": "norm weights"}
+        ],
+        "semantics": [
+          {"entry_id": "attnresid-ov", "key": "overview", "value": "Both ranks consume the replicated attention sum, combine it with the residual path, and apply the layer's normalization contract while preserving mirrored hidden state.", "status": "supported"},
+          {"entry_id": "attnresid-attn-in", "key": "input_use", "value": "Consume only the post-collective replicated attention block output.", "status": "supported", "object_ref": {"node_id": "d-attn-summed"}, "support_refs": [{"port": {"owner": {"node_id": "a-attn-resid"}, "direction": "input", "port_id": "attnresid-attn-in"}}]},
+          {"entry_id": "attnresid-hidden-out", "key": "output", "value": "Produce the replicated post-attention hidden for layer i.", "status": "supported", "object_ref": {"node_id": "d-hattn"}, "support_refs": [{"port": {"owner": {"node_id": "a-attn-resid"}, "direction": "output", "port_id": "attnresid-hidden-out"}}]},
+          {"entry_id": "attn-resid-effect", "key": "no_effect", "value": "No externally observable effect; establishes post-attention hidden state.", "status": "supported"},
+          {"entry_id": "attnresid-exit", "key": "exit", "value": "normed", "status": "supported"},
+          {"entry_id": "attnresid-cu", "key": "code_unit", "value": "residual + rmsnorm", "status": "supported"},
+          {"entry_id": "attnresid-im", "key": "implementation_choice", "value": "free", "status": "supported"},
+          {"entry_id": "attnresid-nd", "key": "no_diagnostic", "value": "none", "status": "supported"},
+          {"entry_id": "attn-resid-order", "key": "ordering", "value": "Stage 06; runs only after the explicit ATTN collective has produced d-attn-summed.", "status": "supported"},
+          {"entry_id": "attnresid-scope", "key": "execution_scope", "value": "rank_local_on_replicated_input", "status": "supported"}
+        ],
+        "evidence_refs": ["ev-eval"],
+        "preconditions": [{"condition_id": "a-attn-resid-pre", "kind": "input", "text": "d-attn-summed is replicated after the ATTN gate"}],
+        "postconditions": [{"condition_id": "a-attn-resid-pos", "kind": "state", "text": "d-hattn holds the same post-attention hidden on both ranks"}]
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "edge",
+      "graph_id": "decode",
+      "entity_id": "c-outproj-out",
+      "params": {
+        "id": "c-outproj-out",
+        "source_node_id": "a-outproj",
+        "target_node_id": "d-group",
+        "family": "dataflow",
+        "kind": "rank-local-partial",
+        "label": "[05a] rank-local full-width partial P_r",
+        "semantics": [{"entry_id": "c-outproj-out-relationship", "key": "relationship", "value": "The local grouped projection produces only this rank's additive partial.", "status": "supported"}]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode",
+      "params": {
+        "id": "c-attn-partial-gate",
+        "source_node_id": "d-group",
+        "target_node_id": "a-attn-gate",
+        "family": "dataflow",
+        "kind": "collective-input",
+        "label": "rank-local P_r enters ATTN all-reduce",
+        "semantics": [{"entry_id": "c-attn-partial-gate-r", "key": "relationship", "value": "Each rank supplies its own full-width partial to the collective.", "status": "supported"}]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode",
+      "params": {
+        "id": "c-attn-gate-out",
+        "source_node_id": "a-attn-gate",
+        "target_node_id": "d-attn-summed",
+        "family": "dataflow",
+        "kind": "collective-output",
+        "label": "[05b] replicated P_0 + P_1",
+        "semantics": [{"entry_id": "c-attn-gate-out-r", "key": "relationship", "value": "The collective produces a distinct replicated attention output occurrence.", "status": "supported"}]
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "edge",
+      "graph_id": "decode",
+      "entity_id": "c-proj-res",
+      "params": {
+        "id": "c-proj-res",
+        "source_node_id": "d-attn-summed",
+        "target_node_id": "a-attn-resid",
+        "family": "dataflow",
+        "kind": "replicated-attention-input",
+        "label": "[05b -> 06] replicated attention sum to residual",
+        "semantics": [{"entry_id": "c-proj-res-r", "key": "relationship", "value": "Residual processing consumes only the distinct post-collective occurrence.", "status": "supported"}]
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "edge",
+      "graph_id": "decode",
+      "entity_id": "c-tp-outproj",
+      "params": {
+        "id": "c-tp-outproj",
+        "source_node_id": "a-attn-gate",
+        "target_node_id": "s-tp",
+        "family": "state",
+        "kind": "state-access",
+        "label": "ATTN gate all-reduce state",
+        "semantics": [
+          {"entry_id": "c-tp-outproj-r", "key": "relationship", "value": "The dedicated collective owns the ATTN gate exchange.", "status": "supported"},
+          {"entry_id": "c-tp-outproj-s", "key": "state_update", "value": "exchange P_0/P_1 and publish their fixed-order sum", "status": "supported", "object_ref": {"node_id": "s-tp"}}
+        ]
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "semantic",
+      "graph_id": "decode",
+      "entity_id": "dec-order",
+      "params": {
+        "owner_kind": "graph",
+        "entry": {
+          "entry_id": "dec-order",
+          "key": "ordering",
+          "value": "01 embed; per layer: 02 Q/KV, 03 rank-local scores, 04 rank-local head contexts, 05a rank-local output partial, 05b ATTN all-reduce, 06 residual, 07 route, 08 FFN gate, 09 residual; then 10 vocab halves, 11 leader merge, 12 sample.",
+          "status": "supported",
+          "support_refs": [
+            {"node_id": "a-emb"}, {"node_id": "a-qkv"}, {"node_id": "a-score"}, {"node_id": "a-ctx"},
+            {"node_id": "a-outproj"}, {"node_id": "a-attn-gate"}, {"node_id": "a-attn-resid"},
+            {"node_id": "a-route"}, {"node_id": "a-expert"}, {"node_id": "a-ffn-resid"},
+            {"node_id": "a-head"}, {"node_id": "a-merge"}, {"node_id": "a-sample"}, {"edge_id": "c-layer-loop"}
+          ]
+        }
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "semantic",
+      "graph_id": "decode",
+      "entity_id": "cos2",
+      "params": {
+        "owner_kind": "graph",
+        "entry": {
+          "entry_id": "cos2",
+          "key": "operating_scenario",
+          "value": "Rank 0 and rank 1 independently compute owned attention heads and full-width partials, explicitly all-reduce those partials at stage 05b, exchange FFN partials at stage 08, and leave leader-only logits assembly and sampling to stages 11-12.",
+          "status": "supported",
+          "support_refs": [{"node_id": "a-outproj"}, {"node_id": "a-attn-gate"}, {"node_id": "a-expert"}, {"node_id": "a-merge"}, {"node_id": "a-sample"}]
+        }
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "graph",
+      "graph_id": "decode",
+      "params": {
+        "display_name": "Decode token j on a 2-Mac tensor-parallel pair",
+        "overall_semantic": {
+          "overview": "Given token j-1 and session state at position j, run both Macs through every decoder layer, preserve rank-local attention head ownership through output projection, explicitly all-reduce full-width attention partials, exchange FFN partials, merge vocabulary logits on the leader, and return token j.",
+          "support_refs": [{"node_id": "a-emb"}, {"node_id": "a-outproj"}, {"node_id": "a-attn-gate"}, {"node_id": "a-expert"}, {"node_id": "a-sample"}]
+        },
+        "architecture_rationale": {
+          "entry_id": "rat-dec2",
+          "value": "Rank-local head contexts and projection partials remain distinct from their replicated result. A dedicated ATTN collective makes the local-to-global boundary explicit before residual processing; the analogous FFN gate restores mirrored hidden state later in the layer.",
+          "support_refs": [{"node_id": "d-ctx"}, {"node_id": "d-group"}, {"node_id": "a-attn-gate"}, {"node_id": "d-attn-summed"}, {"node_id": "a-expert"}]
+        }
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "operation",
+      "graph_id": "decode",
+      "entity_id": "op-decode",
+      "params": {
+        "operation_id": "op-decode",
+        "name": "Decode token j on two tensor-parallel Macs",
+        "overview": "Execute stages 01-12 in order, with stage 05 split into rank-local projection (05a) and explicit ATTN all-reduce (05b). Stages 02-09 repeat per decoder layer.",
+        "members": [
+          {"ref": {"node_id": "a-emb"}, "role": "stage 01"},
+          {"ref": {"node_id": "a-qkv"}, "role": "stage 02"},
+          {"ref": {"node_id": "a-score"}, "role": "stage 03"},
+          {"ref": {"node_id": "a-ctx"}, "role": "stage 04"},
+          {"ref": {"node_id": "a-outproj"}, "role": "stage 05a rank-local projection"},
+          {"ref": {"node_id": "a-attn-gate"}, "role": "stage 05b collective"},
+          {"ref": {"node_id": "a-attn-resid"}, "role": "stage 06"},
+          {"ref": {"node_id": "a-route"}, "role": "stage 07"},
+          {"ref": {"node_id": "a-expert"}, "role": "stage 08"},
+          {"ref": {"node_id": "a-ffn-resid"}, "role": "stage 09"},
+          {"ref": {"node_id": "a-head"}, "role": "stage 10"},
+          {"ref": {"node_id": "a-merge"}, "role": "stage 11"},
+          {"ref": {"node_id": "a-sample"}, "role": "stage 12"}
+        ],
+        "data_flow_ids": [],
+        "semantics": [
+          {"entry_id": "cop1", "key": "ordering", "value": "The action labels define execution order; 05a produces a rank-local partial, 05b is the only action that makes it replicated, and 09 -> 02 is the per-layer loop.", "status": "supported", "support_refs": [{"edge_id": "c-attn-partial-gate"}, {"edge_id": "c-attn-gate-out"}, {"edge_id": "c-layer-loop"}]}
+        ],
+        "end_goals": [
+          {
+            "goal_id": "g-one-token",
+            "intent": "token j is sampled and delivered, append-only KV grows from length j to j+1, and the sequence index advances to j+1",
+            "bindings": [
+              {"ref": {"node_id": "d-token-out"}, "role": "produced_output", "semantics": [{"entry_id": "cg1", "key": "end_condition", "value": "token j sampled on the leader", "status": "supported"}]},
+              {"ref": {"node_id": "s-kv"}, "role": "final_state", "semantics": [{"entry_id": "cg2", "key": "end_condition", "value": "append-only KV length j+1", "status": "supported"}]},
+              {"ref": {"node_id": "s-pos"}, "role": "final_state", "semantics": [{"entry_id": "cg3", "key": "end_condition", "value": "token-step index j+1", "status": "supported"}]}
+            ],
+            "semantics": []
+          }
+        ]
+      }
+    },
+    {
+      "verb": "update",
+      "entity": "semantic",
+      "graph_id": "serve",
+      "entity_id": "dec-ov",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "action-decode-token",
+        "entry": {
+          "entry_id": "dec-ov",
+          "key": "overview",
+          "value": "Given token j-1 and session state at position j, run both Macs through every decoder layer, preserve rank-local attention head ownership through output projection, explicitly all-reduce full-width attention partials, exchange FFN partials, merge vocabulary logits on the leader, and return token j.",
+          "status": "supported"
+        }
+      }
+    }
+  ],
+  "contract_validation": {
+    "profile": "leaf",
+    "graph_ids": ["decode"]
+  }
+}

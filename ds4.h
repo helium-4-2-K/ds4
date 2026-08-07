@@ -152,6 +152,9 @@ typedef struct {
     bool dspark_strict;
     bool dspark_confidence_threshold_set;
     bool cuda_tensor_parallel;
+    bool glm52_tp4_l0;
+    bool glm52_tp4_mock_model;
+    bool glm52_tp4_mock_matmul;
     bool ssd_streaming;
     bool ssd_streaming_cold;
     bool ssd_streaming_full_layers_set;
@@ -168,6 +171,14 @@ typedef struct {
     uint32_t load_layer_start;
     uint32_t load_layer_end;
     bool load_output;
+    bool glm52_tp4_rank_set;
+    int glm52_tp4_rank;
+    int glm52_tp4_tp_size;
+    int glm52_tp4_dcp_size;
+    int glm52_tp4_pp_size;
+    const char *glm52_tp4_rank_plan;
+    const char *glm52_tp4_layout_path;
+    const char *glm52_tp4_fabric_addr;
     ds4_distributed_options distributed;
     ds4_tp_options tp;
 } ds4_engine_options;

@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GLM 5.2 TP4 Rank Hosting Architecture</title>
+  <style>
+    :root {
+      --bg: #f7f8fa;
+      --panel: #ffffff;
+      --ink: #1f2933;
+      --muted: #5d6978;
+      --line: #ccd3dd;
+      --rank0: #e9f5ff;
+      --rank1: #edf8f1;
+      --rank2: #fff7e6;
+      --rank3: #f4edf9;
+      --fabric: #eef1f5;
+      --accent: #155e75;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      width: min(1420px, calc(100vw - 48px));
+      margin: 24px auto 48px;
+    }
+    h1 {
+      margin: 0 0 6px;
+      font-size: 24px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+    .subtitle {
+      margin: 0 0 18px;
+      color: var(--muted);
+      max-width: 980px;
+    }
+    .diagram-shell {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: auto;
+    }
+    svg {
+      display: block;
+      width: 1360px;
+      height: 760px;
+    }
+    text {
+      fill: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .small { font-size: 12px; fill: var(--muted); }
+    .tiny { font-size: 11px; fill: var(--muted); }
+    .label { font-size: 13px; font-weight: 600; }
+    .title { font-size: 17px; font-weight: 700; }
+    .rank-meta { font-size: 12px; font-weight: 600; fill: #334155; }
+    .box { stroke: var(--line); stroke-width: 1.2; rx: 8; }
+    .inner { fill: #fff; stroke: var(--line); stroke-width: 1; rx: 6; }
+    .fabric { fill: var(--fabric); stroke: #aab5c3; stroke-width: 1.2; rx: 8; }
+    .arrow { stroke: #64748b; stroke-width: 1.6; fill: none; marker-end: url(#arrow); }
+    .strong-arrow { stroke: var(--accent); stroke-width: 2.2; fill: none; marker-end: url(#arrowAccent); }
+    .dash { stroke-dasharray: 6 5; }
+    .note {
+      margin: 18px 0 0;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .note section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    h2 {
+      margin: 0 0 8px;
+      font-size: 15px;
+    }
+    ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+    li { margin: 4px 0; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      background: #eef1f5;
+      border: 1px solid #d8dee7;
+      border-radius: 4px;
+      padding: 1px 4px;
+    }
+    @media (max-width: 900px) {
+      main { width: calc(100vw - 24px); margin-top: 16px; }
+      .note { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>GLM 5.2 on 4x GX10: Tensor-Parallel Rank Hosting</h1>
+  <p class="subtitle">
+    Dedicated architecture view for the BCD artifacts. The key invariant is TP4/PP1: every rank hosts shards for every layer and runs each decode layer in lockstep. Rank 0 adds API and sampling duties; it is not a layer-stage owner.
+  </p>
+
+  <div class="diagram-shell" aria-label="Four-rank tensor parallel hosting diagram">
+    <svg viewBox="0 0 1360 760" role="img">
+      <defs>
+        <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+          <path d="M0,0 L10,4 L0,8 Z" fill="#64748b"></path>
+        </marker>
+        <marker id="arrowAccent" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+          <path d="M0,0 L10,4 L0,8 Z" fill="#155e75"></path>
+        </marker>
+      </defs>
+
+      <rect x="18" y="18" width="1324" height="724" fill="#ffffff"></rect>
+
+      <text x="48" y="54" class="title">Runtime layout</text>
+      <text x="48" y="77" class="small">Bird/vLLM reference: tensor-parallel-size 4, pipeline-parallel-size 1, decode-context-parallel-size 4, B12X_MLA_SPARSE, fp8_ds_mla, NCCL 2.30.4.</text>
+
+      <rect x="48" y="112" width="292" height="462" class="box" fill="var(--rank0)"></rect>
+      <rect x="372" y="112" width="292" height="462" class="box" fill="var(--rank1)"></rect>
+      <rect x="696" y="112" width="292" height="462" class="box" fill="var(--rank2)"></rect>
+      <rect x="1020" y="112" width="292" height="462" class="box" fill="var(--rank3)"></rect>
+
+      <text x="68" y="146" class="title">Rank 0: API + worker</text>
+      <text x="68" y="168" class="rank-meta">host 192.168.0.40 / fabric 10.100.185.3</text>
+      <rect x="68" y="190" width="252" height="62" class="inner"></rect>
+      <text x="84" y="215" class="label">Hosted process</text>
+      <text x="84" y="236" class="small">vllm serve, node-rank 0, API :8216</text>
+      <rect x="68" y="268" width="252" height="88" class="inner"></rect>
+      <text x="84" y="293" class="label">Local checkpoint shard set</text>
+      <text x="84" y="314" class="small">glm52-full-tp4-mtp-rank0</text>
+      <text x="84" y="334" class="small">20 base parts + 1 MTP part</text>
+      <rect x="68" y="372" width="252" height="104" class="inner"></rect>
+      <text x="84" y="397" class="label">Model tensors for every layer</text>
+      <text x="84" y="418" class="small">Q heads 0-15 + k_b slices</text>
+      <text x="84" y="438" class="small">shared MLA kv_lora/k_rope path</text>
+      <text x="84" y="458" class="small">rank0 FFN/output/vocab shards</text>
+      <rect x="68" y="492" width="252" height="62" class="inner"></rect>
+      <text x="84" y="517" class="label">State</text>
+      <text x="84" y="538" class="small">rank0 KV slice + sampling/top-k</text>
+
+      <text x="392" y="146" class="title">Rank 1: worker</text>
+      <text x="392" y="168" class="rank-meta">host 192.168.0.240 / fabric 10.100.185.1</text>
+      <rect x="392" y="190" width="252" height="62" class="inner"></rect>
+      <text x="408" y="215" class="label">Hosted process</text>
+      <text x="408" y="236" class="small">vllm serve, node-rank 1, headless</text>
+      <rect x="392" y="268" width="252" height="88" class="inner"></rect>
+      <text x="408" y="293" class="label">Local checkpoint shard set</text>
+      <text x="408" y="314" class="small">glm52-full-tp4-mtp-rank1</text>
+      <text x="408" y="334" class="small">20 base parts + 1 MTP part</text>
+      <rect x="392" y="372" width="252" height="104" class="inner"></rect>
+      <text x="408" y="397" class="label">Model tensors for every layer</text>
+      <text x="408" y="418" class="small">Q heads 16-31 + k_b slices</text>
+      <text x="408" y="438" class="small">shared MLA kv_lora/k_rope path</text>
+      <text x="408" y="458" class="small">rank1 FFN/output/vocab shards</text>
+      <rect x="392" y="492" width="252" height="62" class="inner"></rect>
+      <text x="408" y="517" class="label">State</text>
+      <text x="408" y="538" class="small">rank1 KV slice + partials</text>
+
+      <text x="716" y="146" class="title">Rank 2: worker</text>
+      <text x="716" y="168" class="rank-meta">host 192.168.0.99 / fabric 10.100.185.2</text>
+      <rect x="716" y="190" width="252" height="62" class="inner"></rect>
+      <text x="732" y="215" class="label">Hosted process</text>
+      <text x="732" y="236" class="small">vllm serve, node-rank 2, headless</text>
+      <rect x="716" y="268" width="252" height="88" class="inner"></rect>
+      <text x="732" y="293" class="label">Local checkpoint shard set</text>
+      <text x="732" y="314" class="small">glm52-full-tp4-mtp-rank2</text>
+      <text x="732" y="334" class="small">20 base parts + 1 MTP part</text>
+      <rect x="716" y="372" width="252" height="104" class="inner"></rect>
+      <text x="732" y="397" class="label">Model tensors for every layer</text>
+      <text x="732" y="418" class="small">Q heads 32-47 + k_b slices</text>
+      <text x="732" y="438" class="small">shared MLA kv_lora/k_rope path</text>
+      <text x="732" y="458" class="small">rank2 FFN/output/vocab shards</text>
+      <rect x="716" y="492" width="252" height="62" class="inner"></rect>
+      <text x="732" y="517" class="label">State</text>
+      <text x="732" y="538" class="small">rank2 KV slice + partials</text>
+
+      <text x="1040" y="146" class="title">Rank 3: worker</text>
+      <text x="1040" y="168" class="rank-meta">host 192.168.0.39 / fabric 10.100.185.4</text>
+      <rect x="1040" y="190" width="252" height="62" class="inner"></rect>
+      <text x="1056" y="215" class="label">Hosted process</text>
+      <text x="1056" y="236" class="small">vllm serve, node-rank 3, headless</text>
+      <rect x="1040" y="268" width="252" height="88" class="inner"></rect>
+      <text x="1056" y="293" class="label">Local checkpoint shard set</text>
+      <text x="1056" y="314" class="small">glm52-full-tp4-mtp-rank3</text>
+      <text x="1056" y="334" class="small">20 base parts + 1 MTP part</text>
+      <rect x="1040" y="372" width="252" height="104" class="inner"></rect>
+      <text x="1056" y="397" class="label">Model tensors for every layer</text>
+      <text x="1056" y="418" class="small">Q heads 48-63 + k_b slices</text>
+      <text x="1056" y="438" class="small">shared MLA kv_lora/k_rope path</text>
+      <text x="1056" y="458" class="small">rank3 FFN/output/vocab shards</text>
+      <rect x="1040" y="492" width="252" height="62" class="inner"></rect>
+      <text x="1056" y="517" class="label">State</text>
+      <text x="1056" y="538" class="small">rank3 KV slice + partials</text>
+
+      <rect x="118" y="616" width="1124" height="74" class="fabric"></rect>
+      <text x="138" y="644" class="label">TP collective fabric across all four ranks</text>
+      <text x="138" y="666" class="small">Decode broadcast; per-layer attention all_reduce_sum; per-layer FFN all_reduce_sum; logits gather or distributed top-k. NCCL/RoCE reference uses four channels and both HCAs.</text>
+
+      <path d="M194 574 L194 616" class="strong-arrow"></path>
+      <path d="M518 574 L518 616" class="strong-arrow"></path>
+      <path d="M842 574 L842 616" class="strong-arrow"></path>
+      <path d="M1166 574 L1166 616" class="strong-arrow"></path>
+      <path d="M320 222 C350 222 360 222 392 222" class="arrow dash"></path>
+      <path d="M644 222 C674 222 686 222 716 222" class="arrow dash"></path>
+      <path d="M968 222 C998 222 1010 222 1040 222" class="arrow dash"></path>
+      <text x="339" y="209" class="tiny">collective peers</text>
+      <text x="663" y="209" class="tiny">collective peers</text>
+      <text x="987" y="209" class="tiny">collective peers</text>
+
+      <rect x="48" y="704" width="1264" height="24" fill="#fff"></rect>
+      <text x="54" y="722" class="tiny">Digest after Q/K distribution update: 7a3486731a142dc9396dea01a3250d1a9f40f58fd00261182b9a831e73048dac. This diagram is derived from BCD serve/decode architecture and Bird launch artifacts.</text>
+    </svg>
+  </div>
+
+  <div class="note">
+    <section>
+      <h2>What Is Sharded</h2>
+      <ul>
+        <li>Q is query-head sharded: 16 of 64 query heads per rank.</li>
+        <li>K is MLA-aware: shared <code>kv_lora[512]</code>/<code>k_rope[64]</code> semantics plus rank-owned <code>k_b</code> slices for the owned query heads.</li>
+        <li>Each rank owns shards for all GLM 5.2 layers, not a layer range.</li>
+      </ul>
+    </section>
+    <section>
+      <h2>What Is Replicated</h2>
+      <ul>
+        <li>Model metadata and launch configuration are logically shared across ranks.</li>
+        <li>Hidden state becomes replicated only after explicit TP collectives.</li>
+        <li>KV shape and cursor metadata are replicated; KV/MLA cache contents are rank-owned slices.</li>
+      </ul>
+    </section>
+    <section>
+      <h2>Token j Decode</h2>
+      <ul>
+        <li>Rank 0 receives the request and broadcasts the hidden input.</li>
+        <li>Ranks 0-3 compute local QKV/attention/FFN/logits shards in lockstep.</li>
+        <li>Collectives produce replicated hidden after attention and FFN; rank 0 gathers/top-k logits and samples token j.</li>
+      </ul>
+    </section>
+  </div>
+</main>
+</body>
+</html>
