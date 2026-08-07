@@ -171,6 +171,30 @@ typedef struct {
     bool present;
 } ds4_glm52_mock_dcp_selection;
 
+typedef struct {
+    int tp_size;
+    int dcp_size;
+    int rank_count;
+    uint64_t model_hash;
+    uint64_t session_hash;
+    uint64_t prefill_token_step_j;
+    uint64_t prefill_kv_length;
+    uint64_t decode_token_step_j;
+    uint64_t decode_kv_length;
+    uint64_t prefill_hidden_checksum;
+    uint64_t decode_hidden_checksum;
+    uint64_t logits_checksum;
+    int prefill_candidate_token;
+    int prefill_candidate_rank;
+    int decode_candidate_token;
+    int decode_candidate_rank;
+    bool q_heads_tile;
+    bool vocab_tiles;
+    bool prefill_replicated;
+    bool decode_replicated;
+    bool coordinator_token_rank_owned;
+} ds4_glm52_mock_serve_observation;
+
 bool ds4_glm52_mock_model_init(const ds4_glm52_l0_config *cfg,
                                ds4_glm52_mock_model *model,
                                char *err,
@@ -204,6 +228,12 @@ bool ds4_glm52_mock_tp4_decode(
         const ds4_glm52_mock_model models[DS4_GLM52_L0_RANK_COUNT],
         ds4_glm52_mock_session sessions[DS4_GLM52_L0_RANK_COUNT],
         int input_token,
+        char *err,
+        size_t err_size);
+bool ds4_glm52_mock_tp4_serve_request(
+        const int *prompt_tokens,
+        size_t prompt_token_count,
+        ds4_glm52_mock_serve_observation *obs,
         char *err,
         size_t err_size);
 bool ds4_glm52_mock_tp4_apply_collectives(

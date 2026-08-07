@@ -1,0 +1,8 @@
+{
+  "schema": "blueprint-write-request/v11",
+  "action": "lint",
+  "request_id": "lint-mock-serve",
+  "root": "/Users/helium/src/ds4-gb10x4-bcd/bdev",
+  "record_dir": "/Users/helium/src/ds4-gb10x4-bcd/dev-artifacts/03_record",
+  "validation_stage": "complete"
+}

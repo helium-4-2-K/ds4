@@ -1260,6 +1260,196 @@ bool ds4_glm52_mock_tp4_decode(
     return ds4_glm52_mock_tp4_apply_collectives(models, sessions, err, err_size);
 }
 
+static ds4_glm52_l0_config mock_tp4_rank_cfg(int rank) {
+    ds4_glm52_l0_config cfg;
+    memset(&cfg, 0, sizeof(cfg));
+    cfg.enabled = true;
+    cfg.mock_model = true;
+    cfg.mock_matmul = true;
+    cfg.rank_set = true;
+    cfg.rank = rank;
+    cfg.tp_size = DS4_GLM52_L0_TP_SIZE;
+    cfg.dcp_size = DS4_GLM52_L0_DCP_SIZE;
+    cfg.pp_size = DS4_GLM52_L0_PP_SIZE;
+    cfg.model_root = "/mock/glm-5.2";
+    cfg.rank_plan = "/mock/rank-plan.textproto";
+    cfg.fabric_addr = "127.0.0.1:0";
+    return cfg;
+}
+
+static bool mock_tp4_rank_plans_tile(
+        const ds4_glm52_mock_model models[DS4_GLM52_L0_RANK_COUNT],
+        bool *q_heads_tile,
+        bool *vocab_tiles) {
+    bool q_seen[DS4_GLM52_MOCK_N_HEAD] = {false};
+    int vocab_end = 0;
+    bool q_ok = true;
+    bool vocab_ok = true;
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        const int expected_q0 = rank * DS4_GLM52_L0_Q_HEADS_PER_RANK;
+        const int expected_q1 = expected_q0 + DS4_GLM52_L0_Q_HEADS_PER_RANK;
+        if (models[rank].rank != rank ||
+            models[rank].q_head_start != expected_q0 ||
+            models[rank].q_head_end != expected_q1) {
+            q_ok = false;
+        }
+        for (int q = models[rank].q_head_start; q < models[rank].q_head_end; q++) {
+            if (q < 0 || q >= DS4_GLM52_MOCK_N_HEAD || q_seen[q]) {
+                q_ok = false;
+            } else {
+                q_seen[q] = true;
+            }
+        }
+        if (models[rank].vocab_start != vocab_end ||
+            models[rank].vocab_end <= models[rank].vocab_start) {
+            vocab_ok = false;
+        }
+        vocab_end = models[rank].vocab_end;
+    }
+    for (int q = 0; q < DS4_GLM52_MOCK_N_HEAD; q++) {
+        if (!q_seen[q]) q_ok = false;
+    }
+    if (vocab_end != DS4_GLM52_MOCK_N_VOCAB) vocab_ok = false;
+    if (q_heads_tile) *q_heads_tile = q_ok;
+    if (vocab_tiles) *vocab_tiles = vocab_ok;
+    return q_ok && vocab_ok;
+}
+
+static bool mock_tp4_sessions_replicated(
+        const ds4_glm52_mock_session sessions[DS4_GLM52_L0_RANK_COUNT]) {
+    for (int rank = 1; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        if (!sessions[rank].prefilled ||
+            sessions[rank].session_hash != sessions[0].session_hash ||
+            sessions[rank].token_step_j != sessions[0].token_step_j ||
+            sessions[rank].kv_length != sessions[0].kv_length ||
+            sessions[rank].hidden_checksum != sessions[0].hidden_checksum) {
+            return false;
+        }
+    }
+    return sessions[0].prefilled;
+}
+
+bool ds4_glm52_mock_tp4_serve_request(
+        const int *prompt_tokens,
+        size_t prompt_token_count,
+        ds4_glm52_mock_serve_observation *obs,
+        char *err,
+        size_t err_size) {
+    if (!prompt_tokens || prompt_token_count == 0 || !obs) {
+        mock_error(err, err_size, "GLM 5.2 mock TP4 serve request requires prompt tokens and observation output");
+        return false;
+    }
+    memset(obs, 0, sizeof(*obs));
+
+    ds4_glm52_mock_model models[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_mock_session sessions[DS4_GLM52_L0_RANK_COUNT];
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        ds4_glm52_l0_config cfg = mock_tp4_rank_cfg(rank);
+        if (!ds4_glm52_mock_model_init(&cfg,
+                                       &models[rank],
+                                       err,
+                                       err_size)) {
+            return false;
+        }
+    }
+
+    obs->tp_size = DS4_GLM52_L0_TP_SIZE;
+    obs->dcp_size = DS4_GLM52_L0_DCP_SIZE;
+    obs->rank_count = DS4_GLM52_L0_RANK_COUNT;
+    obs->model_hash = models[0].model_hash;
+    mock_tp4_rank_plans_tile(models, &obs->q_heads_tile, &obs->vocab_tiles);
+    if (!obs->q_heads_tile || !obs->vocab_tiles) {
+        mock_error(err, err_size, "GLM 5.2 mock TP4 serve rank plan does not tile");
+        return false;
+    }
+
+    if (!ds4_glm52_mock_tp4_prefill(models,
+                                    prompt_tokens,
+                                    prompt_token_count,
+                                    sessions,
+                                    err,
+                                    err_size)) {
+        return false;
+    }
+    ds4_glm52_mock_tp4_step prefill_step = {0};
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        if (!ds4_glm52_mock_tp4_step_add_rank(&prefill_step,
+                                              &models[rank],
+                                              &sessions[rank],
+                                              DS4_GLM52_TP4_COMMAND_PREFILL,
+                                              UINT64_C(1),
+                                              err,
+                                              err_size)) {
+            return false;
+        }
+    }
+    if (!prefill_step.complete) {
+        mock_error(err, err_size, "GLM 5.2 mock TP4 serve prefill gather is incomplete");
+        return false;
+    }
+    obs->session_hash = sessions[0].session_hash;
+    obs->prefill_token_step_j = sessions[0].token_step_j;
+    obs->prefill_kv_length = sessions[0].kv_length;
+    obs->prefill_hidden_checksum = sessions[0].hidden_checksum;
+    obs->prefill_candidate_token = prefill_step.coordinator_token;
+    obs->prefill_candidate_rank = prefill_step.coordinator_rank;
+    obs->prefill_replicated = mock_tp4_sessions_replicated(sessions);
+    if (!obs->prefill_replicated) {
+        mock_error(err, err_size, "GLM 5.2 mock TP4 serve prefill state is not replicated");
+        return false;
+    }
+    if (prefill_step.coordinator_rank < 0 ||
+        prefill_step.coordinator_rank >= DS4_GLM52_L0_RANK_COUNT) {
+        mock_error(err, err_size, "GLM 5.2 mock TP4 serve prefill winner rank is invalid");
+        return false;
+    }
+    const ds4_glm52_mock_model *winner_model =
+        &models[prefill_step.coordinator_rank];
+    obs->coordinator_token_rank_owned =
+        prefill_step.coordinator_token >= winner_model->vocab_start &&
+        prefill_step.coordinator_token < winner_model->vocab_end;
+    if (!obs->coordinator_token_rank_owned) {
+        mock_error(err, err_size, "GLM 5.2 mock TP4 serve prefill token is outside winner vocab shard");
+        return false;
+    }
+
+    if (!ds4_glm52_mock_tp4_decode(models,
+                                   sessions,
+                                   prefill_step.coordinator_token,
+                                   err,
+                                   err_size)) {
+        return false;
+    }
+    ds4_glm52_mock_tp4_step decode_step = {0};
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        if (!ds4_glm52_mock_tp4_step_add_rank(&decode_step,
+                                              &models[rank],
+                                              &sessions[rank],
+                                              DS4_GLM52_TP4_COMMAND_DECODE,
+                                              UINT64_C(2),
+                                              err,
+                                              err_size)) {
+            return false;
+        }
+    }
+    if (!decode_step.complete) {
+        mock_error(err, err_size, "GLM 5.2 mock TP4 serve decode gather is incomplete");
+        return false;
+    }
+    obs->decode_token_step_j = sessions[0].token_step_j;
+    obs->decode_kv_length = sessions[0].kv_length;
+    obs->decode_hidden_checksum = sessions[0].hidden_checksum;
+    obs->logits_checksum = sessions[0].logits_checksum;
+    obs->decode_candidate_token = decode_step.coordinator_token;
+    obs->decode_candidate_rank = decode_step.coordinator_rank;
+    obs->decode_replicated = mock_tp4_sessions_replicated(sessions);
+    if (!obs->decode_replicated) {
+        mock_error(err, err_size, "GLM 5.2 mock TP4 serve decode state is not replicated");
+        return false;
+    }
+    return true;
+}
+
 typedef struct {
     uint32_t magic;
     uint32_t version;

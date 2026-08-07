@@ -41,3 +41,7 @@ __pycache__/
 /tests/test_tp4_rank_group
 /tests/test_glm52_mock
 /tests/test_glm52_tp4_mock
+/tests/test_glm52_tp4_mock_process
+/tests/test_glm52_tp4_allreduce
+/tests/test_glm52_dcp_row_exchange
+/tests/test_glm52_tp4_mock_serve

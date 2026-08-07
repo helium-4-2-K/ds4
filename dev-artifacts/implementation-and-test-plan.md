@@ -256,10 +256,23 @@ Active in `tests/test_glm52_tp4_mock_process.c`:
 - rank 0 broadcasts `SHUTDOWN`, records all worker acknowledgements, and
   verifies every worker exits cleanly.
 
+Active in `tests/test_glm52_tp4_mock_serve.c`:
+
+- `ds4_glm52_mock_tp4_serve_request` initializes four full-shape mock rank
+  descriptors and records one serving request observation;
+- the observation proves TP4/DCP4/rank-count identity, shared model/session
+  identity, Q-head tiling, global vocab tiling, rank-owned top-k selection,
+  prefill cursor/KV advancement to prompt length, decode cursor/KV advancement
+  by exactly one token, replicated hidden/cursor state, and rank-local logits
+  summary publication for top-k gather;
+- invalid prompt/observation inputs are rejected before any request is claimed.
+
 This proves TP4 mock orchestration, process/rank identity, local TCP command
 transport, shared command/cursor agreement, and rank-local output-gather
-semantics. It still does not prove real QKV/MLA kernels, DCP row exchange,
-all-reduce tensor math, cross-GX10 deployment, or GX10 transport performance.
+semantics. It also now proves the executable mock serving-request seam through
+prefill plus one decode token. It still does not prove real QKV/MLA kernels,
+real DCP network row exchange, real all-reduce device tensor math,
+cross-GX10 deployment, or GX10 transport performance.
 
 ### Rung 3: DS4-Native Shard-Layout Fixture Tests
 
