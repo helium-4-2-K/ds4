@@ -69,6 +69,20 @@ static void worker_send_step(int fd,
     }
 }
 
+static void worker_recv_session_state(int fd,
+                                      int rank,
+                                      ds4_glm52_mock_session *session) {
+    char err[192] = "";
+    ds4_glm52_mock_session_state state;
+    if (!ds4_glm52_mock_transport_recv_session_state(fd,
+                                                     &state,
+                                                     err,
+                                                     sizeof(err))) {
+        worker_fail(rank, "recv replicated session state failed", err);
+    }
+    ds4_glm52_mock_session_import(session, &state);
+}
+
 static void worker_main(uint16_t port, int rank) {
     char err[192] = "";
     ds4_glm52_l0_config cfg = mock_cfg(rank);
@@ -146,6 +160,7 @@ static void worker_main(uint16_t port, int rank) {
             worker_fail(rank, "unexpected command", NULL);
         }
         worker_send_step(fd, rank, &model, &session, command, seq);
+        worker_recv_session_state(fd, rank, &session);
     }
 }
 
@@ -187,6 +202,18 @@ static void recv_worker_contribution(int fd,
           "coordinator should record worker ack");
 }
 
+static void send_worker_session_state(int fd,
+                                      const ds4_glm52_mock_session *session) {
+    char err[192] = "";
+    ds4_glm52_mock_session_state state;
+    ds4_glm52_mock_session_export(session, &state);
+    check(ds4_glm52_mock_transport_send_session_state(fd,
+                                                      &state,
+                                                      err,
+                                                      sizeof(err)),
+          "coordinator should send replicated session state");
+}
+
 static void assert_complete_step(const ds4_glm52_mock_tp4_step *step,
                                  uint64_t token_step_j,
                                  uint64_t kv_length) {
@@ -212,12 +239,14 @@ static void assert_complete_step(const ds4_glm52_mock_tp4_step *step,
 
 static void test_tcp_process_prefill_decode_mock(void) {
     char err[192] = "";
-    ds4_glm52_l0_config cfg0 = mock_cfg(0);
-    ds4_glm52_mock_model model0;
-    ds4_glm52_mock_session session0;
-    memset(&session0, 0, sizeof(session0));
-    check(ds4_glm52_mock_model_init(&cfg0, &model0, err, sizeof(err)),
-          "coordinator mock model should initialize");
+    ds4_glm52_mock_model models[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_mock_session sessions[DS4_GLM52_L0_RANK_COUNT];
+    memset(sessions, 0, sizeof(sessions));
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        ds4_glm52_l0_config cfg = mock_cfg(rank);
+        check(ds4_glm52_mock_model_init(&cfg, &models[rank], err, sizeof(err)),
+              "coordinator mock model should initialize all rank descriptors");
+    }
 
     ds4_glm52_tp4_tcp_endpoint endpoint;
     check(ds4_glm52_tp4_tcp_parse_endpoint("127.0.0.1:0",
@@ -252,12 +281,12 @@ static void test_tcp_process_prefill_decode_mock(void) {
     }
 
     ds4_glm52_tp4_rank_group group;
-    ds4_glm52_tp4_rank_group_init(&group, model0.model_hash, 22, 33);
+    ds4_glm52_tp4_rank_group_init(&group, models[0].model_hash, 22, 33);
     check(ds4_glm52_tp4_rank_group_register(&group,
                                             0,
                                             DS4_GLM52_L0_TP_SIZE,
                                             DS4_GLM52_L0_DCP_SIZE,
-                                            model0.model_hash,
+                                            models[0].model_hash,
                                             22,
                                             33,
                                             err,
@@ -298,10 +327,10 @@ static void test_tcp_process_prefill_decode_mock(void) {
                                 prompt,
                                 sizeof(prompt) / sizeof(prompt[0]));
     }
-    check(ds4_glm52_mock_prefill(&model0,
+    check(ds4_glm52_mock_prefill(&models[0],
                                  prompt,
                                  sizeof(prompt) / sizeof(prompt[0]),
-                                 &session0,
+                                 &sessions[0],
                                  NULL,
                                  0,
                                  err,
@@ -309,8 +338,8 @@ static void test_tcp_process_prefill_decode_mock(void) {
           "coordinator mock prefill should run");
     ds4_glm52_mock_tp4_step prefill = {0};
     check(ds4_glm52_mock_tp4_step_add_rank(&prefill,
-                                           &model0,
-                                           &session0,
+                                           &models[0],
+                                           &sessions[0],
                                            DS4_GLM52_TP4_COMMAND_PREFILL,
                                            seq,
                                            err,
@@ -329,6 +358,23 @@ static void test_tcp_process_prefill_decode_mock(void) {
     check(ds4_glm52_tp4_rank_group_command_done(&group),
           "prefill command should complete");
     assert_complete_step(&prefill, 4, 4);
+    const uint64_t rank_local_prefill_hidden =
+        prefill.ranks[0].hidden_checksum;
+    check(ds4_glm52_mock_tp4_collective_step(models,
+                                             &prefill,
+                                             prompt[(sizeof(prompt) /
+                                                     sizeof(prompt[0])) - 1u],
+                                             sessions,
+                                             err,
+                                             sizeof(err)),
+          "coordinator should run process-level DCP/all-reduce prefill");
+    check(sessions[0].hidden_checksum != rank_local_prefill_hidden,
+          "process prefill should publish collective hidden, not rank-local hidden");
+    for (int rank = 1; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        check(sessions[rank].hidden_checksum == sessions[0].hidden_checksum,
+              "process prefill hidden should be replicated");
+        send_worker_session_state(worker_fds[rank], &sessions[rank]);
+    }
 
     const int gathered_token = prefill.coordinator_token;
     const int decode_tokens[] = {gathered_token};
@@ -346,8 +392,8 @@ static void test_tcp_process_prefill_decode_mock(void) {
                                 decode_tokens,
                                 1);
     }
-    check(ds4_glm52_mock_decode(&model0,
-                                &session0,
+    check(ds4_glm52_mock_decode(&models[0],
+                                &sessions[0],
                                 gathered_token,
                                 NULL,
                                 0,
@@ -356,8 +402,8 @@ static void test_tcp_process_prefill_decode_mock(void) {
           "coordinator mock decode should run");
     ds4_glm52_mock_tp4_step decode = {0};
     check(ds4_glm52_mock_tp4_step_add_rank(&decode,
-                                           &model0,
-                                           &session0,
+                                           &models[0],
+                                           &sessions[0],
                                            DS4_GLM52_TP4_COMMAND_DECODE,
                                            seq,
                                            err,
@@ -376,6 +422,21 @@ static void test_tcp_process_prefill_decode_mock(void) {
     check(ds4_glm52_tp4_rank_group_command_done(&group),
           "decode command should complete");
     assert_complete_step(&decode, 5, 5);
+    const uint64_t rank_local_decode_hidden = decode.ranks[0].hidden_checksum;
+    check(ds4_glm52_mock_tp4_collective_step(models,
+                                             &decode,
+                                             gathered_token,
+                                             sessions,
+                                             err,
+                                             sizeof(err)),
+          "coordinator should run process-level DCP/all-reduce decode");
+    check(sessions[0].hidden_checksum != rank_local_decode_hidden,
+          "process decode should publish collective hidden, not rank-local hidden");
+    for (int rank = 1; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        check(sessions[rank].hidden_checksum == sessions[0].hidden_checksum,
+              "process decode hidden should be replicated");
+        send_worker_session_state(worker_fds[rank], &sessions[rank]);
+    }
 
     check(ds4_glm52_tp4_rank_group_broadcast(&group,
                                              0,

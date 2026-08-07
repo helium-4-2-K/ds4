@@ -32,6 +32,12 @@ static uint64_t fnv1a_bytes(uint64_t h, const char *s) {
     return h;
 }
 
+static bool mock_float_ptr_isfinite(const float *v) {
+    uint32_t bits;
+    memcpy(&bits, v, sizeof(bits));
+    return (bits & UINT32_C(0x7f800000)) != UINT32_C(0x7f800000);
+}
+
 static bool add_tensor(ds4_glm52_mock_model *model,
                        const char *name,
                        ds4_glm52_layout_role role,
@@ -180,11 +186,12 @@ static void mock_fill_logits(const ds4_glm52_mock_model *model,
                              ds4_glm52_mock_session *session,
                              float *logits,
                              size_t logits_count) {
-    if (!logits || logits_count == 0) return;
-    for (size_t i = 0; i < logits_count; i++) logits[i] = -120.0f;
     uint64_t h = session->hidden_checksum;
     h = fnv1a_u64(h, model ? (uint64_t)model->rank : 0);
     h = fnv1a_u64(h, session->token_step_j);
+    session->logits_checksum = h;
+    if (!logits || logits_count == 0) return;
+    for (size_t i = 0; i < logits_count; i++) logits[i] = -120.0f;
     const size_t vocab = logits_count < DS4_GLM52_MOCK_N_VOCAB ?
         logits_count : DS4_GLM52_MOCK_N_VOCAB;
     const int best = (int)(h % (uint64_t)vocab);
@@ -192,7 +199,6 @@ static void mock_fill_logits(const ds4_glm52_mock_model *model,
     for (int i = 1; i <= 4; i++) {
         logits[(best + i) % (int)vocab] = 7.0f - (float)i;
     }
-    session->logits_checksum = h;
 }
 
 bool ds4_glm52_mock_prefill(const ds4_glm52_mock_model *model,
@@ -486,6 +492,774 @@ bool ds4_glm52_mock_tp4_step_add_rank(
                                                     err, err_size);
 }
 
+static bool mock_valid_allreduce_kind(ds4_glm52_mock_allreduce_kind kind) {
+    return kind == DS4_GLM52_MOCK_ALLREDUCE_ATTN ||
+           kind == DS4_GLM52_MOCK_ALLREDUCE_FFN;
+}
+
+uint64_t ds4_glm52_mock_hidden_shape_hash(size_t hidden_count, int dtype) {
+    uint64_t h = 1469598103934665603ull;
+    h = fnv1a_bytes(h, "glm52-mock/hidden-shape");
+    h = fnv1a_u64(h, (uint64_t)hidden_count);
+    h = fnv1a_u64(h, (uint64_t)(uint32_t)dtype);
+    return h;
+}
+
+bool ds4_glm52_mock_make_hidden_partial(
+        const ds4_glm52_mock_model *model,
+        const ds4_glm52_mock_session *session,
+        ds4_glm52_mock_allreduce_kind kind,
+        uint64_t seq,
+        int layer,
+        const float *partial,
+        size_t hidden_count,
+        ds4_glm52_mock_hidden_partial *out,
+        char *err,
+        size_t err_size) {
+    if (!out || !session || !session->prefilled) {
+        mock_error(err, err_size, "GLM 5.2 mock all-reduce requires rank session state");
+        return false;
+    }
+    if (!mock_valid_allreduce_kind(kind)) {
+        mock_error(err, err_size, "GLM 5.2 mock all-reduce kind is invalid");
+        return false;
+    }
+    if (seq == 0) {
+        mock_error(err, err_size, "GLM 5.2 mock all-reduce requires nonzero command sequence");
+        return false;
+    }
+    if (layer < 0 || layer >= DS4_GLM52_MOCK_N_LAYER) {
+        mock_error(err, err_size, "GLM 5.2 mock all-reduce layer is invalid");
+        return false;
+    }
+    if (!partial || hidden_count == 0) {
+        mock_error(err, err_size, "GLM 5.2 mock all-reduce hidden partial is empty");
+        return false;
+    }
+    if (hidden_count != DS4_GLM52_MOCK_N_EMBD) {
+        mock_error(err, err_size, "GLM 5.2 mock all-reduce hidden shape is invalid");
+        return false;
+    }
+    if (!ds4_glm52_mock_model_validate(model, err, err_size)) return false;
+
+    for (size_t i = 0; i < hidden_count; i++) {
+        if (!mock_float_ptr_isfinite(&partial[i])) {
+            mock_error(err, err_size, "GLM 5.2 mock all-reduce partial contains non-finite values");
+            return false;
+        }
+    }
+
+    memset(out, 0, sizeof(*out));
+    out->rank = model->rank;
+    out->kind = kind;
+    out->seq = seq;
+    out->model_hash = model->model_hash;
+    out->session_hash = session->session_hash;
+    out->token_step_j = session->token_step_j;
+    out->layer = layer;
+    out->dtype = DS4_GLM52_MOCK_HIDDEN_DTYPE_F32;
+    out->shape_hash =
+        ds4_glm52_mock_hidden_shape_hash(hidden_count, out->dtype);
+    out->hidden_count = hidden_count;
+    out->partial = partial;
+    out->present = true;
+    return true;
+}
+
+static bool mock_allreduce_check_complete(ds4_glm52_mock_allreduce_step *step) {
+    step->complete =
+        step->rank_mask == ((1u << DS4_GLM52_L0_RANK_COUNT) - 1u);
+    return step->complete;
+}
+
+bool ds4_glm52_mock_allreduce_add_contribution(
+        ds4_glm52_mock_allreduce_step *step,
+        const ds4_glm52_mock_hidden_partial *partial,
+        char *err,
+        size_t err_size) {
+    if (!step || !partial || !partial->present || !partial->partial) {
+        mock_error(err, err_size, "GLM 5.2 mock all-reduce requires a hidden partial contribution");
+        return false;
+    }
+    if (!mock_valid_allreduce_kind(partial->kind)) {
+        mock_error(err, err_size, "GLM 5.2 mock all-reduce contribution kind is invalid");
+        return false;
+    }
+    if (partial->seq == 0) {
+        mock_error(err, err_size, "GLM 5.2 mock all-reduce contribution requires nonzero sequence");
+        return false;
+    }
+    if (partial->rank < 0 || partial->rank >= DS4_GLM52_L0_RANK_COUNT) {
+        mock_error(err, err_size, "GLM 5.2 mock all-reduce contribution rank is invalid");
+        return false;
+    }
+    if (partial->layer < 0 || partial->layer >= DS4_GLM52_MOCK_N_LAYER) {
+        mock_error(err, err_size, "GLM 5.2 mock all-reduce contribution layer is invalid");
+        return false;
+    }
+    if (partial->dtype != DS4_GLM52_MOCK_HIDDEN_DTYPE_F32 ||
+        partial->hidden_count != DS4_GLM52_MOCK_N_EMBD ||
+        partial->shape_hash != ds4_glm52_mock_hidden_shape_hash(
+            partial->hidden_count, partial->dtype)) {
+        mock_error(err, err_size, "GLM 5.2 mock all-reduce contribution shape/dtype is invalid");
+        return false;
+    }
+    for (size_t i = 0; i < partial->hidden_count; i++) {
+        if (!mock_float_ptr_isfinite(&partial->partial[i])) {
+            mock_error(err, err_size, "GLM 5.2 mock all-reduce contribution contains non-finite values");
+            return false;
+        }
+    }
+
+    const int rank = partial->rank;
+    if (step->rank_mask & (1u << rank)) {
+        mock_error(err, err_size, "GLM 5.2 mock all-reduce duplicate rank contribution");
+        return false;
+    }
+    if (step->rank_mask == 0) {
+        memset(step, 0, sizeof(*step));
+        step->kind = partial->kind;
+        step->seq = partial->seq;
+        step->model_hash = partial->model_hash;
+        step->session_hash = partial->session_hash;
+        step->token_step_j = partial->token_step_j;
+        step->layer = partial->layer;
+        step->dtype = partial->dtype;
+        step->shape_hash = partial->shape_hash;
+        step->hidden_count = partial->hidden_count;
+    } else {
+        if (step->kind != partial->kind) {
+            mock_error(err, err_size, "GLM 5.2 mock all-reduce kind mismatch");
+            return false;
+        }
+        if (step->seq != partial->seq) {
+            mock_error(err, err_size, "GLM 5.2 mock all-reduce sequence mismatch");
+            return false;
+        }
+        if (step->model_hash != partial->model_hash) {
+            mock_error(err, err_size, "GLM 5.2 mock all-reduce model identity mismatch");
+            return false;
+        }
+        if (step->session_hash != partial->session_hash) {
+            mock_error(err, err_size, "GLM 5.2 mock all-reduce session identity mismatch");
+            return false;
+        }
+        if (step->token_step_j != partial->token_step_j) {
+            mock_error(err, err_size, "GLM 5.2 mock all-reduce token position mismatch");
+            return false;
+        }
+        if (step->layer != partial->layer) {
+            mock_error(err, err_size, "GLM 5.2 mock all-reduce layer mismatch");
+            return false;
+        }
+        if (step->dtype != partial->dtype ||
+            step->shape_hash != partial->shape_hash ||
+            step->hidden_count != partial->hidden_count) {
+            mock_error(err, err_size, "GLM 5.2 mock all-reduce shape/dtype mismatch");
+            return false;
+        }
+    }
+
+    step->partials[rank] = partial->partial;
+    step->rank_mask |= 1u << rank;
+    mock_allreduce_check_complete(step);
+    return true;
+}
+
+bool ds4_glm52_mock_allreduce_finish(
+        ds4_glm52_mock_allreduce_step *step,
+        float *out,
+        size_t out_count,
+        char *err,
+        size_t err_size) {
+    if (!step || !out) {
+        mock_error(err, err_size, "GLM 5.2 mock all-reduce finish requires output storage");
+        return false;
+    }
+    if (!mock_allreduce_check_complete(step)) {
+        mock_error(err, err_size, "GLM 5.2 mock all-reduce is missing rank contributions");
+        return false;
+    }
+    if (out_count != step->hidden_count ||
+        out_count != DS4_GLM52_MOCK_N_EMBD) {
+        mock_error(err, err_size, "GLM 5.2 mock all-reduce output shape is invalid");
+        return false;
+    }
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        if (!step->partials[rank]) {
+            mock_error(err, err_size, "GLM 5.2 mock all-reduce rank partial is missing");
+            return false;
+        }
+    }
+    for (size_t i = 0; i < out_count; i++) out[i] = 0.0f;
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        const float *partial = step->partials[rank];
+        for (size_t i = 0; i < out_count; i++) {
+            out[i] += partial[i];
+        }
+    }
+    for (size_t i = 0; i < out_count; i++) {
+        if (!mock_float_ptr_isfinite(&out[i])) {
+            mock_error(err, err_size, "GLM 5.2 mock all-reduce output contains non-finite values");
+            return false;
+        }
+    }
+    return true;
+}
+
+bool ds4_glm52_mock_dcp_build_owner_ranges(
+        uint64_t row_count,
+        ds4_glm52_mock_dcp_owner_range owners[DS4_GLM52_L0_RANK_COUNT],
+        char *err,
+        size_t err_size) {
+    if (!owners || row_count == 0) {
+        mock_error(err, err_size, "GLM 5.2 mock DCP owner ranges require rows");
+        return false;
+    }
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        owners[rank].rank = rank;
+        owners[rank].start_row =
+            (row_count * (uint64_t)rank) / DS4_GLM52_L0_RANK_COUNT;
+        owners[rank].end_row =
+            (row_count * (uint64_t)(rank + 1)) / DS4_GLM52_L0_RANK_COUNT;
+        owners[rank].present = true;
+    }
+    return true;
+}
+
+uint64_t ds4_glm52_mock_dcp_row_checksum(int owner_rank,
+                                         int layer,
+                                         uint64_t token_step_j,
+                                         uint64_t row_id) {
+    uint64_t h = 1469598103934665603ull;
+    h = fnv1a_bytes(h, "glm52-mock/dcp-row");
+    h = fnv1a_u64(h, (uint64_t)(uint32_t)owner_rank);
+    h = fnv1a_u64(h, (uint64_t)(uint32_t)layer);
+    h = fnv1a_u64(h, token_step_j);
+    h = fnv1a_u64(h, row_id);
+    return h;
+}
+
+static bool mock_dcp_validate_owner_ranges(
+        const ds4_glm52_mock_dcp_owner_range owners[DS4_GLM52_L0_RANK_COUNT],
+        uint64_t *total_rows,
+        char *err,
+        size_t err_size) {
+    if (!owners || !total_rows) {
+        mock_error(err, err_size, "GLM 5.2 mock DCP owner ranges are missing");
+        return false;
+    }
+    uint64_t expected_start = 0;
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        const ds4_glm52_mock_dcp_owner_range *o = &owners[rank];
+        if (!o->present || o->rank != rank) {
+            mock_error(err, err_size, "GLM 5.2 mock DCP owner rank is missing");
+            return false;
+        }
+        if (o->start_row != expected_start || o->end_row < o->start_row) {
+            mock_error(err, err_size, "GLM 5.2 mock DCP owner ranges have gaps or overlaps");
+            return false;
+        }
+        expected_start = o->end_row;
+    }
+    if (expected_start == 0) {
+        mock_error(err, err_size, "GLM 5.2 mock DCP owner ranges are empty");
+        return false;
+    }
+    *total_rows = expected_start;
+    return true;
+}
+
+static int mock_dcp_owner_for_row(
+        const ds4_glm52_mock_dcp_owner_range owners[DS4_GLM52_L0_RANK_COUNT],
+        uint64_t row_id) {
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        if (row_id >= owners[rank].start_row &&
+            row_id < owners[rank].end_row) {
+            return rank;
+        }
+    }
+    return -1;
+}
+
+static void mock_dcp_sort_selection(ds4_glm52_mock_dcp_selection *sel) {
+    for (int i = 1; i < sel->row_count; i++) {
+        ds4_glm52_mock_dcp_row row = sel->rows[i];
+        int j = i - 1;
+        while (j >= 0 && sel->rows[j].row_id > row.row_id) {
+            sel->rows[j + 1] = sel->rows[j];
+            j--;
+        }
+        sel->rows[j + 1] = row;
+    }
+}
+
+bool ds4_glm52_mock_dcp_exchange(
+        const ds4_glm52_mock_dcp_owner_range owners[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_mock_dcp_row *rows,
+        size_t row_count,
+        const ds4_glm52_mock_dcp_request *requests,
+        size_t request_count,
+        ds4_glm52_mock_dcp_selection selections[DS4_GLM52_L0_RANK_COUNT],
+        char *err,
+        size_t err_size) {
+    uint64_t total_rows = 0;
+    if (!mock_dcp_validate_owner_ranges(owners, &total_rows, err, err_size)) {
+        return false;
+    }
+    if (!rows || row_count == 0 || !requests || request_count == 0 ||
+        !selections) {
+        mock_error(err, err_size, "GLM 5.2 mock DCP exchange requires rows and requests");
+        return false;
+    }
+    if (request_count > DS4_GLM52_MOCK_DCP_MAX_ROWS *
+            DS4_GLM52_L0_RANK_COUNT) {
+        mock_error(err, err_size, "GLM 5.2 mock DCP exchange request set is too large");
+        return false;
+    }
+
+    for (size_t i = 0; i < row_count; i++) {
+        const ds4_glm52_mock_dcp_row *r = &rows[i];
+        if (!r->present ||
+            r->owner_rank < 0 ||
+            r->owner_rank >= DS4_GLM52_L0_RANK_COUNT ||
+            r->row_id >= total_rows ||
+            mock_dcp_owner_for_row(owners, r->row_id) != r->owner_rank) {
+            mock_error(err, err_size, "GLM 5.2 mock DCP row owner mapping is invalid");
+            return false;
+        }
+        if (r->checksum != ds4_glm52_mock_dcp_row_checksum(
+                r->owner_rank, r->layer, r->token_step_j, r->row_id)) {
+            mock_error(err, err_size, "GLM 5.2 mock DCP row checksum mismatch");
+            return false;
+        }
+        for (size_t j = 0; j < i; j++) {
+            if (rows[j].present && rows[j].row_id == r->row_id) {
+                mock_error(err, err_size, "GLM 5.2 mock DCP duplicate row payload");
+                return false;
+            }
+        }
+    }
+
+    memset(selections, 0,
+           sizeof(selections[0]) * DS4_GLM52_L0_RANK_COUNT);
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        selections[rank].requester_rank = rank;
+        selections[rank].present = true;
+        selections[rank].checksum = fnv1a_u64(
+            fnv1a_bytes(1469598103934665603ull,
+                        "glm52-mock/dcp-selection"),
+            (uint64_t)(uint32_t)rank);
+    }
+
+    for (size_t i = 0; i < request_count; i++) {
+        const ds4_glm52_mock_dcp_request *req = &requests[i];
+        if (!req->present ||
+            req->requester_rank < 0 ||
+            req->requester_rank >= DS4_GLM52_L0_RANK_COUNT ||
+            req->row_id >= total_rows) {
+            mock_error(err, err_size, "GLM 5.2 mock DCP request is invalid");
+            return false;
+        }
+        const int owner_rank = mock_dcp_owner_for_row(owners, req->row_id);
+        if (owner_rank < 0) {
+            mock_error(err, err_size, "GLM 5.2 mock DCP selected row has no owner");
+            return false;
+        }
+
+        const ds4_glm52_mock_dcp_row *found = NULL;
+        for (size_t j = 0; j < row_count; j++) {
+            if (rows[j].present && rows[j].row_id == req->row_id) {
+                found = &rows[j];
+                break;
+            }
+        }
+        if (!found || found->owner_rank != owner_rank) {
+            mock_error(err, err_size, "GLM 5.2 mock DCP selected row payload is missing");
+            return false;
+        }
+
+        ds4_glm52_mock_dcp_selection *sel = &selections[req->requester_rank];
+        bool duplicate_request = false;
+        for (int k = 0; k < sel->row_count; k++) {
+            if (sel->rows[k].row_id == req->row_id) {
+                duplicate_request = true;
+                break;
+            }
+        }
+        if (duplicate_request) continue;
+        if (sel->row_count >= DS4_GLM52_MOCK_DCP_MAX_ROWS) {
+            mock_error(err, err_size, "GLM 5.2 mock DCP selected row output exceeds capacity");
+            return false;
+        }
+        sel->rows[sel->row_count++] = *found;
+    }
+
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        ds4_glm52_mock_dcp_selection *sel = &selections[rank];
+        if (sel->row_count == 0) {
+            mock_error(err, err_size, "GLM 5.2 mock DCP selected row output is empty");
+            return false;
+        }
+        mock_dcp_sort_selection(sel);
+        for (int i = 0; i < sel->row_count; i++) {
+            sel->checksum = fnv1a_u64(sel->checksum, sel->rows[i].row_id);
+            sel->checksum = fnv1a_u64(sel->checksum,
+                                      (uint64_t)(uint32_t)sel->rows[i].owner_rank);
+            sel->checksum = fnv1a_u64(sel->checksum, sel->rows[i].checksum);
+        }
+    }
+    return true;
+}
+
+static bool mock_tp4_run_dcp_exchange_for_layer(
+        const ds4_glm52_mock_session sessions[DS4_GLM52_L0_RANK_COUNT],
+        int layer,
+        ds4_glm52_mock_dcp_selection selections[DS4_GLM52_L0_RANK_COUNT],
+        char *err,
+        size_t err_size) {
+    ds4_glm52_mock_dcp_owner_range owners[DS4_GLM52_L0_RANK_COUNT];
+    if (!ds4_glm52_mock_dcp_build_owner_ranges(sessions[0].kv_length,
+                                               owners,
+                                               err,
+                                               err_size)) {
+        return false;
+    }
+
+    ds4_glm52_mock_dcp_request requests[
+        DS4_GLM52_L0_RANK_COUNT * DS4_GLM52_MOCK_DCP_TOPK];
+    ds4_glm52_mock_dcp_row rows[
+        DS4_GLM52_L0_RANK_COUNT * DS4_GLM52_MOCK_DCP_TOPK];
+    size_t request_count = 0;
+    size_t row_count = 0;
+    for (int requester = 0; requester < DS4_GLM52_L0_RANK_COUNT; requester++) {
+        for (int k = 0; k < DS4_GLM52_MOCK_DCP_TOPK; k++) {
+            int owner_rank = -1;
+            for (int probe = 0; probe < DS4_GLM52_L0_RANK_COUNT; probe++) {
+                const int candidate =
+                    (requester + k + probe) % DS4_GLM52_L0_RANK_COUNT;
+                if (owners[candidate].end_row > owners[candidate].start_row) {
+                    owner_rank = candidate;
+                    break;
+                }
+            }
+            if (owner_rank < 0) {
+                mock_error(err, err_size, "GLM 5.2 mock DCP selected row has no non-empty owner");
+                return false;
+            }
+            const uint64_t span =
+                owners[owner_rank].end_row - owners[owner_rank].start_row;
+            const uint64_t offset =
+                (sessions[requester].hidden_checksum +
+                 sessions[0].token_step_j +
+                 (uint64_t)(layer + 1) * 17u +
+                 (uint64_t)k * 23u) % span;
+            const uint64_t row_id = owners[owner_rank].start_row + offset;
+            requests[request_count++] = (ds4_glm52_mock_dcp_request){
+                .requester_rank = requester,
+                .row_id = row_id,
+                .present = true,
+            };
+
+            bool have_row = false;
+            for (size_t i = 0; i < row_count; i++) {
+                if (rows[i].row_id == row_id) {
+                    have_row = true;
+                    break;
+                }
+            }
+            if (!have_row) {
+                rows[row_count++] = (ds4_glm52_mock_dcp_row){
+                    .owner_rank = owner_rank,
+                    .layer = layer,
+                    .token_step_j = sessions[0].token_step_j,
+                    .row_id = row_id,
+                    .checksum = ds4_glm52_mock_dcp_row_checksum(
+                        owner_rank, layer, sessions[0].token_step_j, row_id),
+                    .present = true,
+                };
+            }
+        }
+    }
+    return ds4_glm52_mock_dcp_exchange(owners,
+                                       rows,
+                                       row_count,
+                                       requests,
+                                       request_count,
+                                       selections,
+                                       err,
+                                       err_size);
+}
+
+static uint64_t mock_hash_f32_span(uint64_t h, const float *v, size_t count) {
+    for (size_t i = 0; i < count; i++) {
+        uint32_t bits;
+        memcpy(&bits, &v[i], sizeof(bits));
+        h = fnv1a_u64(h, bits);
+    }
+    return h;
+}
+
+static void mock_fill_hidden_partial(
+        const ds4_glm52_mock_model *model,
+        const ds4_glm52_mock_session *session,
+        ds4_glm52_mock_allreduce_kind kind,
+        int layer,
+        float *out,
+        size_t count) {
+    uint64_t h = session->hidden_checksum;
+    h = fnv1a_u64(h, model->model_hash);
+    h = fnv1a_u64(h, session->token_step_j);
+    h = fnv1a_u64(h, (uint64_t)(uint32_t)kind);
+    h = fnv1a_u64(h, (uint64_t)(uint32_t)layer);
+    h = fnv1a_u64(h, (uint64_t)(uint32_t)model->rank);
+    const float scale = kind == DS4_GLM52_MOCK_ALLREDUCE_ATTN ?
+        1.0f / 4096.0f : 1.0f / 3072.0f;
+    for (size_t i = 0; i < count; i++) {
+        h = fnv1a_u64(h, (uint64_t)i);
+        const int centered = (int)(h % 2049u) - 1024;
+        out[i] = (float)centered * scale;
+    }
+}
+
+static bool mock_tp4_validate_collective_inputs(
+        const ds4_glm52_mock_model models[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_mock_session sessions[DS4_GLM52_L0_RANK_COUNT],
+        char *err,
+        size_t err_size) {
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        if (!ds4_glm52_mock_model_validate(&models[rank], err, err_size)) {
+            return false;
+        }
+        if (models[rank].rank != rank) {
+            mock_error(err, err_size, "GLM 5.2 mock TP4 collective model rank order is invalid");
+            return false;
+        }
+        if (!sessions[rank].prefilled) {
+            mock_error(err, err_size, "GLM 5.2 mock TP4 collective requires prefilled rank sessions");
+            return false;
+        }
+        if (models[rank].model_hash != models[0].model_hash ||
+            sessions[rank].session_hash != sessions[0].session_hash ||
+            sessions[rank].token_step_j != sessions[0].token_step_j ||
+            sessions[rank].kv_length != sessions[0].kv_length) {
+            mock_error(err, err_size, "GLM 5.2 mock TP4 collective rank identity/cursor mismatch");
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool mock_tp4_apply_one_allreduce(
+        const ds4_glm52_mock_model models[DS4_GLM52_L0_RANK_COUNT],
+        ds4_glm52_mock_session sessions[DS4_GLM52_L0_RANK_COUNT],
+        ds4_glm52_mock_allreduce_kind kind,
+        uint64_t seq,
+        int layer,
+        float *rank_partials,
+        float *reduced,
+        char *err,
+        size_t err_size) {
+    ds4_glm52_mock_hidden_partial partials[DS4_GLM52_L0_RANK_COUNT];
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        float *p = rank_partials + (size_t)rank * DS4_GLM52_MOCK_N_EMBD;
+        mock_fill_hidden_partial(&models[rank], &sessions[rank], kind,
+                                 layer, p, DS4_GLM52_MOCK_N_EMBD);
+        if (!ds4_glm52_mock_make_hidden_partial(&models[rank],
+                                                &sessions[rank],
+                                                kind,
+                                                seq,
+                                                layer,
+                                                p,
+                                                DS4_GLM52_MOCK_N_EMBD,
+                                                &partials[rank],
+                                                err,
+                                                err_size)) {
+            return false;
+        }
+    }
+
+    ds4_glm52_mock_allreduce_step step = {0};
+    const int order[] = {2, 0, 3, 1};
+    for (int i = 0; i < DS4_GLM52_L0_RANK_COUNT; i++) {
+        if (!ds4_glm52_mock_allreduce_add_contribution(&step,
+                                                       &partials[order[i]],
+                                                       err,
+                                                       err_size)) {
+            return false;
+        }
+    }
+    if (!ds4_glm52_mock_allreduce_finish(&step,
+                                         reduced,
+                                         DS4_GLM52_MOCK_N_EMBD,
+                                         err,
+                                         err_size)) {
+        return false;
+    }
+
+    uint64_t h = fnv1a_u64(sessions[0].hidden_checksum,
+                           (uint64_t)(uint32_t)kind);
+    h = fnv1a_u64(h, (uint64_t)(uint32_t)layer);
+    h = fnv1a_u64(h, seq);
+    h = mock_hash_f32_span(h, reduced, DS4_GLM52_MOCK_N_EMBD);
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        sessions[rank].hidden_checksum = h;
+    }
+    return true;
+}
+
+bool ds4_glm52_mock_tp4_apply_collectives(
+        const ds4_glm52_mock_model models[DS4_GLM52_L0_RANK_COUNT],
+        ds4_glm52_mock_session sessions[DS4_GLM52_L0_RANK_COUNT],
+        char *err,
+        size_t err_size) {
+    if (!mock_tp4_validate_collective_inputs(models, sessions, err, err_size)) {
+        return false;
+    }
+    float *rank_partials = malloc(
+        (size_t)DS4_GLM52_L0_RANK_COUNT *
+        (size_t)DS4_GLM52_MOCK_N_EMBD *
+        sizeof(float));
+    float *reduced = malloc((size_t)DS4_GLM52_MOCK_N_EMBD * sizeof(float));
+    if (!rank_partials || !reduced) {
+        free(rank_partials);
+        free(reduced);
+        mock_error(err, err_size, "GLM 5.2 mock TP4 collective allocation failed");
+        return false;
+    }
+
+    for (int layer = 0; layer < DS4_GLM52_MOCK_N_LAYER; layer++) {
+        ds4_glm52_mock_dcp_selection selections[DS4_GLM52_L0_RANK_COUNT];
+        if (!mock_tp4_run_dcp_exchange_for_layer(sessions,
+                                                 layer,
+                                                 selections,
+                                                 err,
+                                                 err_size)) {
+            free(rank_partials);
+            free(reduced);
+            return false;
+        }
+        for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+            sessions[rank].hidden_checksum =
+                fnv1a_u64(sessions[rank].hidden_checksum,
+                          selections[rank].checksum);
+        }
+        const uint64_t base_seq =
+            sessions[0].token_step_j * UINT64_C(1000000) +
+            (uint64_t)(layer + 1) * UINT64_C(10);
+        if (!mock_tp4_apply_one_allreduce(models,
+                                          sessions,
+                                          DS4_GLM52_MOCK_ALLREDUCE_ATTN,
+                                          base_seq + 1u,
+                                          layer,
+                                          rank_partials,
+                                          reduced,
+                                          err,
+                                          err_size) ||
+            !mock_tp4_apply_one_allreduce(models,
+                                          sessions,
+                                          DS4_GLM52_MOCK_ALLREDUCE_FFN,
+                                          base_seq + 2u,
+                                          layer,
+                                          rank_partials,
+                                          reduced,
+                                          err,
+                                          err_size)) {
+            free(rank_partials);
+            free(reduced);
+            return false;
+        }
+    }
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        mock_fill_logits(&models[rank], &sessions[rank], NULL, 0);
+    }
+    free(rank_partials);
+    free(reduced);
+    return true;
+}
+
+bool ds4_glm52_mock_tp4_collective_step(
+        const ds4_glm52_mock_model models[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_mock_tp4_step *step,
+        int last_token,
+        ds4_glm52_mock_session sessions[DS4_GLM52_L0_RANK_COUNT],
+        char *err,
+        size_t err_size) {
+    if (!models || !step || !sessions || !step->complete) {
+        mock_error(err, err_size, "GLM 5.2 mock TP4 collective step requires a complete rank step");
+        return false;
+    }
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        const ds4_glm52_mock_rank_step *r = &step->ranks[rank];
+        if (!r->present || r->rank != rank) {
+            mock_error(err, err_size, "GLM 5.2 mock TP4 collective step rank is missing");
+            return false;
+        }
+        memset(&sessions[rank], 0, sizeof(sessions[rank]));
+        sessions[rank].session_hash = r->session_hash;
+        sessions[rank].token_step_j = r->token_step_j;
+        sessions[rank].kv_length = r->kv_length;
+        sessions[rank].hidden_checksum = r->hidden_checksum;
+        sessions[rank].logits_checksum = r->logits_checksum;
+        sessions[rank].last_token = last_token;
+        sessions[rank].prefilled = true;
+    }
+    return ds4_glm52_mock_tp4_apply_collectives(models,
+                                                sessions,
+                                                err,
+                                                err_size);
+}
+
+bool ds4_glm52_mock_tp4_prefill(
+        const ds4_glm52_mock_model models[DS4_GLM52_L0_RANK_COUNT],
+        const int *tokens,
+        size_t token_count,
+        ds4_glm52_mock_session sessions[DS4_GLM52_L0_RANK_COUNT],
+        char *err,
+        size_t err_size) {
+    if (!models || !sessions) {
+        mock_error(err, err_size, "GLM 5.2 mock TP4 prefill requires rank models and sessions");
+        return false;
+    }
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        if (!ds4_glm52_mock_prefill(&models[rank],
+                                    tokens,
+                                    token_count,
+                                    &sessions[rank],
+                                    NULL,
+                                    0,
+                                    err,
+                                    err_size)) {
+            return false;
+        }
+    }
+    return ds4_glm52_mock_tp4_apply_collectives(models, sessions, err, err_size);
+}
+
+bool ds4_glm52_mock_tp4_decode(
+        const ds4_glm52_mock_model models[DS4_GLM52_L0_RANK_COUNT],
+        ds4_glm52_mock_session sessions[DS4_GLM52_L0_RANK_COUNT],
+        int input_token,
+        char *err,
+        size_t err_size) {
+    if (!models || !sessions) {
+        mock_error(err, err_size, "GLM 5.2 mock TP4 decode requires rank models and sessions");
+        return false;
+    }
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        if (!ds4_glm52_mock_decode(&models[rank],
+                                   &sessions[rank],
+                                   input_token,
+                                   NULL,
+                                   0,
+                                   err,
+                                   err_size)) {
+            return false;
+        }
+    }
+    return ds4_glm52_mock_tp4_apply_collectives(models, sessions, err, err_size);
+}
+
 typedef struct {
     uint32_t magic;
     uint32_t version;
@@ -496,6 +1270,7 @@ typedef struct {
 typedef enum {
     DS4_GLM52_MOCK_FRAME_RANK_STEP = 1,
     DS4_GLM52_MOCK_FRAME_TOKENS = 2,
+    DS4_GLM52_MOCK_FRAME_SESSION_STATE = 3,
 } ds4_glm52_mock_frame_type;
 
 typedef struct {
@@ -521,6 +1296,16 @@ typedef struct {
     uint32_t token_count;
     int32_t tokens[DS4_GLM52_L0_PREFILL_MAX_PROMPT_TOKENS];
 } ds4_glm52_mock_tokens_payload;
+
+typedef struct {
+    uint64_t session_hash;
+    uint64_t token_step_j;
+    uint64_t kv_length;
+    uint64_t hidden_checksum;
+    uint64_t logits_checksum;
+    int32_t last_token;
+    uint32_t prefilled;
+} ds4_glm52_mock_session_state_payload;
 
 static size_t mock_tokens_payload_size(size_t token_count) {
     return sizeof(uint32_t) + token_count * sizeof(int32_t);
@@ -728,6 +1513,103 @@ bool ds4_glm52_mock_transport_recv_tokens(
         tokens[i] = payload.tokens[i];
     }
     *token_count = payload.token_count;
+    return true;
+}
+
+void ds4_glm52_mock_session_export(
+        const ds4_glm52_mock_session *session,
+        ds4_glm52_mock_session_state *state) {
+    if (!session || !state) return;
+    state->session_hash = session->session_hash;
+    state->token_step_j = session->token_step_j;
+    state->kv_length = session->kv_length;
+    state->hidden_checksum = session->hidden_checksum;
+    state->logits_checksum = session->logits_checksum;
+    state->last_token = session->last_token;
+    state->prefilled = session->prefilled;
+}
+
+void ds4_glm52_mock_session_import(
+        ds4_glm52_mock_session *session,
+        const ds4_glm52_mock_session_state *state) {
+    if (!session || !state) return;
+    session->session_hash = state->session_hash;
+    session->token_step_j = state->token_step_j;
+    session->kv_length = state->kv_length;
+    session->hidden_checksum = state->hidden_checksum;
+    session->logits_checksum = state->logits_checksum;
+    session->last_token = state->last_token;
+    session->prefilled = state->prefilled;
+}
+
+bool ds4_glm52_mock_transport_send_session_state(
+        int fd,
+        const ds4_glm52_mock_session_state *state,
+        char *err,
+        size_t err_size) {
+    if (!state || !state->prefilled) {
+        mock_error(err, err_size, "GLM 5.2 mock transport session state is missing");
+        return false;
+    }
+    ds4_glm52_mock_session_state_payload payload;
+    memset(&payload, 0, sizeof(payload));
+    payload.session_hash = state->session_hash;
+    payload.token_step_j = state->token_step_j;
+    payload.kv_length = state->kv_length;
+    payload.hidden_checksum = state->hidden_checksum;
+    payload.logits_checksum = state->logits_checksum;
+    payload.last_token = state->last_token;
+    payload.prefilled = state->prefilled ? 1u : 0u;
+
+    ds4_glm52_mock_step_frame_header header = {
+        .magic = DS4_GLM52_MOCK_STEP_MAGIC,
+        .version = DS4_GLM52_MOCK_STEP_VERSION,
+        .type = DS4_GLM52_MOCK_FRAME_SESSION_STATE,
+        .payload_size = (uint32_t)sizeof(payload),
+    };
+    if (!mock_write_exact(fd, &header, sizeof(header)) ||
+        !mock_write_exact(fd, &payload, sizeof(payload))) {
+        mock_error(err, err_size, "GLM 5.2 mock transport session state write failed");
+        return false;
+    }
+    return true;
+}
+
+bool ds4_glm52_mock_transport_recv_session_state(
+        int fd,
+        ds4_glm52_mock_session_state *state,
+        char *err,
+        size_t err_size) {
+    if (!state) {
+        mock_error(err, err_size, "GLM 5.2 mock transport session state output is missing");
+        return false;
+    }
+    ds4_glm52_mock_step_frame_header header;
+    if (!mock_read_exact(fd, &header, sizeof(header))) {
+        mock_error(err, err_size, "GLM 5.2 mock transport session state header read failed");
+        return false;
+    }
+    if (header.magic != DS4_GLM52_MOCK_STEP_MAGIC ||
+        header.version != DS4_GLM52_MOCK_STEP_VERSION ||
+        header.type != DS4_GLM52_MOCK_FRAME_SESSION_STATE ||
+        header.payload_size != sizeof(ds4_glm52_mock_session_state_payload)) {
+        mock_error(err, err_size, "GLM 5.2 mock transport session state frame mismatch");
+        return false;
+    }
+
+    ds4_glm52_mock_session_state_payload payload;
+    if (!mock_read_exact(fd, &payload, sizeof(payload))) {
+        mock_error(err, err_size, "GLM 5.2 mock transport session state payload read failed");
+        return false;
+    }
+    memset(state, 0, sizeof(*state));
+    state->session_hash = payload.session_hash;
+    state->token_step_j = payload.token_step_j;
+    state->kv_length = payload.kv_length;
+    state->hidden_checksum = payload.hidden_checksum;
+    state->logits_checksum = payload.logits_checksum;
+    state->last_token = payload.last_token;
+    state->prefilled = payload.prefilled != 0;
     return true;
 }
 

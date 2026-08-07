@@ -92,22 +92,22 @@ static void prefill_sessions(
         ds4_glm52_mock_session sessions[DS4_GLM52_L0_RANK_COUNT]) {
     int prompt[] = {100, 101, 102, 103};
     char err[192] = "";
-    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
-        check(ds4_glm52_mock_prefill(&models[rank],
+    check(ds4_glm52_mock_tp4_prefill(models,
                                      prompt,
                                      sizeof(prompt) / sizeof(prompt[0]),
-                                     &sessions[rank],
-                                     NULL,
-                                     0,
+                                     sessions,
                                      err,
                                      sizeof(err)),
-              "rank mock prefill should succeed");
+          "TP4 mock prefill should run rank-local work and all-reduce collectives");
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
         check(sessions[rank].session_hash == sessions[0].session_hash,
               "all ranks should preserve one logical session identity");
         check(sessions[rank].token_step_j == 4,
               "prefill token_step_j should point at prompt-length cursor");
         check(sessions[rank].kv_length == 4,
               "prefill should commit four KV rows");
+        check(sessions[rank].hidden_checksum == sessions[0].hidden_checksum,
+              "TP4 prefill should publish replicated hidden after all-reduce");
     }
 }
 
@@ -218,15 +218,15 @@ static void test_prefill_and_decode_tp4_mock_steps(void) {
     assert_complete_step(&prefill, 4, 4);
 
     const int gathered_token = prefill.coordinator_token;
-    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
-        check(ds4_glm52_mock_decode(&models[rank],
-                                    &sessions[rank],
+    check(ds4_glm52_mock_tp4_decode(models,
+                                    sessions,
                                     gathered_token,
-                                    NULL,
-                                    0,
                                     err,
                                     sizeof(err)),
-              "rank mock decode should consume gathered token");
+          "TP4 mock decode should consume gathered token and all-reduce hidden");
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        check(sessions[rank].hidden_checksum == sessions[0].hidden_checksum,
+              "TP4 decode should publish replicated hidden after all-reduce");
     }
 
     check(ds4_glm52_tp4_rank_group_broadcast(&group,
@@ -299,15 +299,36 @@ static void test_tp4_mock_rejects_mismatches(void) {
                                            err,
                                            sizeof(err)),
           "first rank contribution should establish cursor");
-    sessions[1].kv_length++;
+    ds4_glm52_mock_session bad_kv_cursor = sessions[1];
+    bad_kv_cursor.kv_length++;
     check(!ds4_glm52_mock_tp4_step_add_rank(&cursor_mismatch,
                                             &models[1],
-                                            &sessions[1],
+                                            &bad_kv_cursor,
                                             DS4_GLM52_TP4_COMMAND_PREFILL,
                                             1,
                                             err,
                                             sizeof(err)),
           "cursor mismatch should fail");
+
+    ds4_glm52_mock_tp4_step step_cursor_mismatch = {0};
+    check(ds4_glm52_mock_tp4_step_add_rank(&step_cursor_mismatch,
+                                           &models[0],
+                                           &sessions[0],
+                                           DS4_GLM52_TP4_COMMAND_PREFILL,
+                                           1,
+                                           err,
+                                           sizeof(err)),
+          "first rank contribution should establish token cursor");
+    ds4_glm52_mock_session bad_token_cursor = sessions[2];
+    bad_token_cursor.token_step_j++;
+    check(!ds4_glm52_mock_tp4_step_add_rank(&step_cursor_mismatch,
+                                            &models[2],
+                                            &bad_token_cursor,
+                                            DS4_GLM52_TP4_COMMAND_PREFILL,
+                                            1,
+                                            err,
+                                            sizeof(err)),
+          "token step cursor mismatch should fail");
 
     ds4_glm52_mock_rank_step bad_contribution;
     check(ds4_glm52_mock_make_rank_step(&models[2],
@@ -386,6 +407,86 @@ static void test_tp4_mock_tie_breaks_by_token_id(void) {
           "equal-score top-k merge should choose the lowest token id");
     check(step.coordinator_token == models[0].vocab_start + 7,
           "tie-break coordinator token should be rank 0's lowest token");
+}
+
+static void test_tp4_mock_prefill_decode_use_allreduce_hidden(void) {
+    ds4_glm52_mock_model models[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_mock_session rank_local[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_mock_session tp4[DS4_GLM52_L0_RANK_COUNT];
+    int prompt[] = {100, 101, 102, 103};
+    char err[192] = "";
+
+    init_models(models);
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        check(ds4_glm52_mock_prefill(&models[rank],
+                                     prompt,
+                                     sizeof(prompt) / sizeof(prompt[0]),
+                                     &rank_local[rank],
+                                     NULL,
+                                     0,
+                                     err,
+                                     sizeof(err)),
+              "rank-local mock prefill should succeed");
+    }
+    check(ds4_glm52_mock_tp4_prefill(models,
+                                     prompt,
+                                     sizeof(prompt) / sizeof(prompt[0]),
+                                     tp4,
+                                     err,
+                                     sizeof(err)),
+          "TP4 mock prefill should succeed");
+    check(tp4[0].hidden_checksum != rank_local[0].hidden_checksum,
+          "TP4 prefill hidden should include all-reduce output, not just rank-local checksum");
+    for (int rank = 1; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        check(tp4[rank].hidden_checksum == tp4[0].hidden_checksum,
+              "TP4 prefill hidden should be replicated across ranks");
+    }
+
+    const int input_token = 4242;
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        check(ds4_glm52_mock_decode(&models[rank],
+                                    &rank_local[rank],
+                                    input_token,
+                                    NULL,
+                                    0,
+                                    err,
+                                    sizeof(err)),
+              "rank-local mock decode should succeed");
+    }
+    check(ds4_glm52_mock_tp4_decode(models,
+                                    tp4,
+                                    input_token,
+                                    err,
+                                    sizeof(err)),
+          "TP4 mock decode should succeed");
+    check(tp4[0].hidden_checksum != rank_local[0].hidden_checksum,
+          "TP4 decode hidden should include all-reduce output, not just rank-local checksum");
+    for (int rank = 1; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        check(tp4[rank].hidden_checksum == tp4[0].hidden_checksum,
+              "TP4 decode hidden should be replicated across ranks");
+    }
+}
+
+static void test_tp4_mock_short_prompt_dcp_empty_shards(void) {
+    ds4_glm52_mock_model models[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_mock_session sessions[DS4_GLM52_L0_RANK_COUNT];
+    int prompt[] = {777};
+    char err[192] = "";
+
+    init_models(models);
+    check(ds4_glm52_mock_tp4_prefill(models,
+                                     prompt,
+                                     sizeof(prompt) / sizeof(prompt[0]),
+                                     sessions,
+                                     err,
+                                     sizeof(err)),
+          "TP4 mock prefill should tolerate DCP ranks with empty short-prompt shards");
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        check(sessions[rank].kv_length == 1,
+              "short-prompt prefill should commit one KV row");
+        check(sessions[rank].hidden_checksum == sessions[0].hidden_checksum,
+              "short-prompt TP4 hidden should be replicated");
+    }
 }
 
 static void test_mock_transport_round_trip_and_rejections(void) {
@@ -497,10 +598,256 @@ static void test_mock_transport_round_trip_and_rejections(void) {
     close_pair(fds);
 }
 
+static void add_rank_contribution_scored(
+        ds4_glm52_mock_tp4_step *step,
+        const ds4_glm52_mock_model *model,
+        const ds4_glm52_mock_session *session,
+        float score,
+        int token_offset,
+        char *err,
+        size_t err_size) {
+    ds4_glm52_mock_rank_step contribution;
+    check(ds4_glm52_mock_make_rank_step(model, session,
+                                        DS4_GLM52_TP4_COMMAND_PREFILL, 11,
+                                        &contribution, err, err_size),
+          "scored rank step creation should succeed");
+    contribution.candidate_score = score;
+    contribution.candidate_token = model->vocab_start + token_offset;
+    check(ds4_glm52_mock_tp4_step_add_contribution(step, &contribution,
+                                                   err, err_size),
+          "scored contribution should be accepted");
+}
+
+static void test_tp4_mock_shards_tile_vocab_exactly(void) {
+    ds4_glm52_mock_model models[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_mock_session sessions[DS4_GLM52_L0_RANK_COUNT];
+    char err[192] = "";
+    init_models(models);
+    prefill_sessions(models, sessions);
+
+    ds4_glm52_mock_tp4_step step = {0};
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        check(ds4_glm52_mock_tp4_step_add_rank(&step,
+                                               &models[rank],
+                                               &sessions[rank],
+                                               DS4_GLM52_TP4_COMMAND_PREFILL,
+                                               21,
+                                               err,
+                                               sizeof(err)),
+              "rank contribution should be accepted for coverage tiling");
+    }
+    check(step.complete, "four shards should complete coverage");
+    const int span = DS4_GLM52_MOCK_N_VOCAB / DS4_GLM52_L0_TP_SIZE;
+    int covered = 0;
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        const ds4_glm52_mock_rank_step *r = &step.ranks[rank];
+        check(r->vocab_start == covered,
+              "gathered shards should be contiguous with no gap");
+        check(r->vocab_end - r->vocab_start == span,
+              "gathered shards should be non-empty fixed-span partitions");
+        check(r->candidate_token >= r->vocab_start &&
+                  r->candidate_token < r->vocab_end,
+              "gathered candidate should stay inside its owned shard");
+        covered = r->vocab_end;
+    }
+    check(covered == DS4_GLM52_MOCK_N_VOCAB,
+          "four gathered shards should cover the global vocabulary exactly once");
+}
+
+static void test_tp4_mock_rejects_invalid_vocab_shards(void) {
+    ds4_glm52_mock_model models[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_mock_session sessions[DS4_GLM52_L0_RANK_COUNT];
+    char err[192] = "";
+    init_models(models);
+    prefill_sessions(models, sessions);
+
+    ds4_glm52_mock_rank_step contribution;
+    check(ds4_glm52_mock_make_rank_step(&models[1],
+                                        &sessions[1],
+                                        DS4_GLM52_TP4_COMMAND_PREFILL,
+                                        5,
+                                        &contribution,
+                                        err,
+                                        sizeof(err)),
+          "rank step creation should succeed before vocab mutation");
+    contribution.candidate_score = 3.0f;
+
+    {
+        ds4_glm52_mock_tp4_step step = {0};
+        ds4_glm52_mock_rank_step c = contribution;
+        c.vocab_start += 17;
+        c.candidate_token = c.vocab_start + 5;
+        check(!ds4_glm52_mock_tp4_step_add_contribution(&step, &c,
+                                                        err, sizeof(err)),
+              "vocab shard gap should be rejected");
+    }
+    {
+        ds4_glm52_mock_tp4_step step = {0};
+        ds4_glm52_mock_rank_step c = contribution;
+        c.vocab_end -= 17;
+        c.candidate_token = c.vocab_end - 5;
+        check(!ds4_glm52_mock_tp4_step_add_contribution(&step, &c,
+                                                        err, sizeof(err)),
+              "vocab shard overlap should be rejected");
+    }
+    {
+        ds4_glm52_mock_tp4_step step = {0};
+        ds4_glm52_mock_rank_step c = contribution;
+        c.vocab_end = c.vocab_start;
+        check(!ds4_glm52_mock_tp4_step_add_contribution(&step, &c,
+                                                        err, sizeof(err)),
+              "empty vocab shard should be rejected");
+    }
+    {
+        ds4_glm52_mock_tp4_step step = {0};
+        ds4_glm52_mock_rank_step c = contribution;
+        c.vocab_start = -1;
+        c.candidate_token = 0;
+        check(!ds4_glm52_mock_tp4_step_add_contribution(&step, &c,
+                                                        err, sizeof(err)),
+              "negative vocab start should be rejected");
+    }
+    {
+        ds4_glm52_mock_tp4_step step = {0};
+        ds4_glm52_mock_rank_step c = contribution;
+        c.vocab_end = DS4_GLM52_MOCK_N_VOCAB + 100;
+        c.candidate_token = c.vocab_end - 1;
+        check(!ds4_glm52_mock_tp4_step_add_contribution(&step, &c,
+                                                        err, sizeof(err)),
+              "vocab end beyond global vocab should be rejected");
+    }
+    {
+        ds4_glm52_mock_tp4_step step = {0};
+        ds4_glm52_mock_rank_step c = contribution;
+        c.candidate_token = -1;
+        check(!ds4_glm52_mock_tp4_step_add_contribution(&step, &c,
+                                                        err, sizeof(err)),
+              "negative candidate token should be rejected");
+    }
+    {
+        ds4_glm52_mock_tp4_step step = {0};
+        ds4_glm52_mock_rank_step c = contribution;
+        c.candidate_token = DS4_GLM52_MOCK_N_VOCAB;
+        check(!ds4_glm52_mock_tp4_step_add_contribution(&step, &c,
+                                                        err, sizeof(err)),
+              "candidate token at global vocab end should be rejected");
+    }
+}
+
+static void test_tp4_mock_missing_rank_stays_incomplete(void) {
+    ds4_glm52_mock_model models[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_mock_session sessions[DS4_GLM52_L0_RANK_COUNT];
+    char err[192] = "";
+    init_models(models);
+    prefill_sessions(models, sessions);
+
+    ds4_glm52_mock_tp4_step step = {0};
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT - 1; rank++) {
+        check(ds4_glm52_mock_tp4_step_add_rank(&step,
+                                               &models[rank],
+                                               &sessions[rank],
+                                               DS4_GLM52_TP4_COMMAND_PREFILL,
+                                               31,
+                                               err,
+                                               sizeof(err)),
+              "partial rank contribution should be accepted");
+    }
+    check(!step.complete, "missing rank should leave the gather incomplete");
+    check(ds4_glm52_mock_tp4_step_add_rank(&step,
+                                           &models[3],
+                                           &sessions[3],
+                                           DS4_GLM52_TP4_COMMAND_PREFILL,
+                                           31,
+                                           err,
+                                           sizeof(err)),
+          "final rank contribution should be accepted");
+    check(step.complete, "gather should complete once all ranks contribute");
+}
+
+static void test_tp4_mock_merge_deterministic_across_orders(void) {
+    ds4_glm52_mock_model models[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_mock_session sessions[DS4_GLM52_L0_RANK_COUNT];
+    init_models(models);
+    prefill_sessions(models, sessions);
+
+    /* Pattern A: rank1 wins on the highest score even though rank3 holds the
+     * smallest token offset - proves score dominates the token-id tie-break. */
+    const float scores_a[DS4_GLM52_L0_RANK_COUNT] = {5.0f, 9.0f, 5.0f, 7.0f};
+    const int offsets_a[DS4_GLM52_L0_RANK_COUNT] = {100, 200, 300, 50};
+    /* Pattern B: ranks 1..3 tie at the max score; the globally lowest raw
+     * token id (on rank1, across a rank boundary) must win in every order. */
+    const float scores_b[DS4_GLM52_L0_RANK_COUNT] = {1.0f, 8.0f, 8.0f, 8.0f};
+    const int offsets_b[DS4_GLM52_L0_RANK_COUNT] = {50, 30, 25, 20};
+
+    const struct {
+        const float *scores;
+        const int *offsets;
+    } patterns[] = {
+        {scores_a, offsets_a},
+        {scores_b, offsets_b},
+    };
+    for (size_t pat = 0;
+         pat < sizeof(patterns) / sizeof(patterns[0]);
+         pat++) {
+        const float *scores = patterns[pat].scores;
+        const int *offsets = patterns[pat].offsets;
+        int best_rank = -1;
+        int best_token = -1;
+        float best_score = 0.0f;
+        for (int r = 0; r < DS4_GLM52_L0_RANK_COUNT; r++) {
+            const int token = models[r].vocab_start + offsets[r];
+            if (best_rank < 0 || scores[r] > best_score ||
+                (scores[r] == best_score && token < best_token)) {
+                best_rank = r;
+                best_score = scores[r];
+                best_token = token;
+            }
+        }
+        check(best_rank >= 0, "reference merge should always select a winner");
+
+        for (int i0 = 0; i0 < 4; i0++)
+        for (int i1 = 0; i1 < 4; i1++) {
+            if (i1 == i0) continue;
+            for (int i2 = 0; i2 < 4; i2++) {
+                if (i2 == i0 || i2 == i1) continue;
+                for (int i3 = 0; i3 < 4; i3++) {
+                    if (i3 == i0 || i3 == i1 || i3 == i2) continue;
+                    const int order[4] = {i0, i1, i2, i3};
+                    ds4_glm52_mock_tp4_step step = {0};
+                    char err[192] = "";
+                    for (int k = 0; k < DS4_GLM52_L0_RANK_COUNT; k++) {
+                        const int rank = order[k];
+                        add_rank_contribution_scored(&step,
+                                                     &models[rank],
+                                                     &sessions[rank],
+                                                     scores[rank],
+                                                     offsets[rank],
+                                                     err,
+                                                     sizeof(err));
+                    }
+                    check(step.complete, "permuted gather should complete");
+                    check(step.coordinator_rank == best_rank,
+                          "coordinator rank should be independent of arrival order");
+                    check(step.coordinator_token == best_token,
+                          "coordinator token should be independent of arrival order");
+                    check(step.coordinator_score == best_score,
+                          "coordinator score should be independent of arrival order");
+                }
+            }
+        }
+    }
+}
+
 int main(void) {
     test_prefill_and_decode_tp4_mock_steps();
     test_tp4_mock_rejects_mismatches();
     test_tp4_mock_tie_breaks_by_token_id();
+    test_tp4_mock_prefill_decode_use_allreduce_hidden();
+    test_tp4_mock_short_prompt_dcp_empty_shards();
+    test_tp4_mock_shards_tile_vocab_exactly();
+    test_tp4_mock_rejects_invalid_vocab_shards();
+    test_tp4_mock_missing_rank_stays_incomplete();
+    test_tp4_mock_merge_deterministic_across_orders();
     test_mock_transport_round_trip_and_rejections();
     puts("test_glm52_tp4_mock: ok");
     return 0;
