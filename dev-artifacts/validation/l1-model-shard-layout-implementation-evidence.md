@@ -27,10 +27,13 @@ code unit function in `ds4_glm52_l0.c`:
 - Validates: replicated tensors visible on all ranks, rank-local entries only
   visible on owning rank, no foreign-rank entries, no foreign-rank file paths,
   sha256 present for every entry, byte_length non-empty, Q-head coverage
-  exactly once per rank (expected span [R*16, (R+1)*16)), no overlapping
-  Q-head spans, no missing Q-head spans.
+  exactly once per rank (expected span [R*16, (R+1)*16)), expert coverage
+  exactly once per rank (expected span [R*64, (R+1)*64)), vocab coverage
+  exactly once per rank (expected span based on 154880 / 4), and no overlapping
+  or out-of-rank ownership spans.
 - Produces a `ds4_glm52_layout_ownership_plan` with coverage_complete,
-  overlaps_present, missing_spans_present flags.
+  overlaps_present, missing_spans_present flags plus Q-head/expert/vocab span
+  bindings for the rank plan.
 
 ### a-load-rank-tensors -> `ds4_glm52_layout_mmap_rank_tensors`
 
@@ -38,10 +41,12 @@ code unit function in `ds4_glm52_l0.c`:
 - For each entry in the ownership plan: resolves the file path relative to
   checkpoint_root, verifies the file exists as a regular file, validates the
   byte range [offset, offset+length) is inside the file, checks for
-  foreign-rank path references.
+  foreign-rank path references, recomputes sha256 over the exact declared byte
+  slice, and rejects mismatches before any resident shard readiness is
+  published.
 - Produces a `ds4_glm52_layout_mapped_slices` with tensor_count, mapped_bytes,
-  no_foreign_rank_shard, and hash_verified=false (full sha256 recomputation
-  deferred; sha256 fields are confirmed present during ownership validation).
+  no_foreign_rank_shard, and hash_verified=true after all mapped slices match
+  their manifest sha256 values.
 - Does NOT create real mmap handles yet; records file existence and byte-range
   validity. This is the first action allowed to create runtime mmap handles
   per the contract authority semantic.
@@ -52,7 +57,8 @@ code unit function in `ds4_glm52_l0.c`:
 - Converts mapped tensor slices into the parent-visible `loaded_rank_shard`
   record by updating `state->resident_shards` (mapped, mapped_bytes,
   no_foreign_rank_shard, base/mtp shard counts) and `state->rank_plan`
-  (q_head_start, q_head_end, rank, bound).
+  (q_head_start, q_head_end, expert_start, expert_end, vocab_start, vocab_end,
+  rank, bound).
 - Updates `state-model-worker` (same_state_as parent model-load graph) only
   after the complete rank-local layout is mapped.
 
@@ -90,9 +96,14 @@ gate is TP4/DCP4 fabric readiness, not model-load readiness.
 
 - `make cpu`: PASS (0 errors, 0 warnings).
 - `make tests/test_glm52_l0 && ./tests/test_glm52_l0`: PASS.
+- Focused GLM 5.2 suite: PASS
+  (`tests/test_glm52_l0`, `tests/test_tp4_rank_group`,
+  `tests/test_glm52_mock`, `tests/test_glm52_tp4_mock`,
+  `tests/test_glm52_tp4_mock_serve`, `tests/test_glm52_tp4_mock_process`,
+  `tests/test_glm52_tp4_allreduce`, `tests/test_glm52_dcp_row_exchange`).
 - `git diff --check`: PASS.
 
-### Test cases (8 required scenarios)
+### Test cases (10 required scenarios)
 
 | Test | Scenario |
 | --- | --- |
@@ -104,49 +115,40 @@ gate is TP4/DCP4 fabric readiness, not model-load readiness.
 | `test_layout_replicated_visible_all_ranks` | Replicated tensor visible on all 4 ranks |
 | `test_layout_sharded_only_on_owning_rank` | Sharded tensor visible on rank 2, invisible on rank 0 |
 | `test_layout_missing_shard_file_fails` | Nonexistent file_path fails at mmap |
+| `test_layout_sha256_mismatch_fails` | Existing file with wrong slice sha256 fails before publish |
 | `test_model_load_layout_reaches_ready_rank_engines` | Valid layout lets serve-open publish ready rank-local model engines |
 
 ### BCD mechanical validation
 
 - Lint (complete): PASS, 10 graphs, 0 errors, 0 warnings.
-- model-shard-layout leaf validation: PASS, 0 errors, 0 warnings.
+- model-shard-layout leaf validation: PASS, 0 errors, 0 warnings
+  (`dev-artifacts/validation/validate-model-shard-layout-current-real-loader.result.json`).
 - model-load composite validation: PASS, 0 errors.
 - model-shard-layout simulation (map-rank-local-ds4-layout-success): PASS,
   simulation_sha256 `a5cabe3d7bf7a2bd9a2829d8c30572cbd3c241d20b60fce1bdb09610ebbc9ce0`.
 
 ### Current digests
 
-- blueprint_sha256: `a0d9cf6b17df5f544ab2d17930aaf58b6f2bf4a3c1ce4034d3f91f1ba202e30a`
-- semantic_sha256: `a4808fa315b82548de56bf906a6497cffb4f39d09c03a5b2267c69bfd9ff3f6e`
+- blueprint_sha256: `f5090c2f97f06122067f4b3c840bb2e6e581e52bccdbaf370c5a4bec47aa31ed`
+- semantic_sha256: `d90ce8a6de0e834c605c043318e3806cf1b8186cac93a897698438f64da2b538`
 - model-shard-layout graph_contract_sha256: `eb05725c27670f0c0d9c3b90044c040e3ee5e6130eca1e09e8d1b26a202b911e`
 
 ## Remaining Gaps
 
-1. **Full sha256 verification is deferred.** The loader confirms sha256
-   fields are present for every entry but does not recompute the hash of
-   tensor bytes. `mapped_slices.hash_verified` is always false. A follow-up
-   should implement incremental hash verification during or after mmap.
-
-2. **Real mmap handles are not created.** `ds4_glm52_layout_mmap_rank_tensors`
+1. **Real mmap handles are not retained.** `ds4_glm52_layout_mmap_rank_tensors`
    validates file existence and byte ranges but does not call `mmap()` or
    record mapped addresses. The `mapped_tensor_slices` struct records counts
-   and totals but not actual memory pointers. This is sufficient for the L0
-   skeleton fail-closed path but needs real mmap for production serving.
+   and totals plus verified slice hashes, but not actual memory pointers. This
+   is sufficient for a real layout/file-integrity dry run but needs retained
+   mappings for production kernels.
 
-3. **Base/MTP shard count is simplified.** `publish_loaded_rank_shard` sets
+2. **Base/MTP shard count is simplified.** `publish_loaded_rank_shard` sets
    `base_shard_count` and `mtp_shard_count` to the expected constants (20/1)
    rather than counting from the actual mapped entries. This satisfies the
    `resident_shards_ready` check but should be derived from the ownership
    plan's actual entry roles.
 
-4. **Expert and vocab span coverage is not validated.** Q-head coverage is
-   checked exactly-once per rank, but expert spans (256 routed experts, 64
-   per rank) and vocab spans (154880 vocab, 38720 per rank) are not yet
-   checked for completeness or overlap. The contract's overview mentions
-   "MLA/KV-related tensors, routed experts, and vocab/output rows exactly
-   once" — expert and vocab coverage validation is a follow-up.
-
-5. **Real resident tensor handles are still deferred.** The parent-visible
+3. **Real resident tensor handles are still deferred.** The parent-visible
    ready state proves DS4 has a validated rank-local layout and file/byte-range
-   residency evidence. It still does not prove real model tensor handles,
-   decoded tensor metadata objects, or GPU upload are wired.
+   residency evidence with verified bytes. It still does not prove real model
+   tensor handles, decoded tensor metadata objects, or GPU upload are wired.

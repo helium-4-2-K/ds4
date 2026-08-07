@@ -1435,6 +1435,207 @@ static bool parse_kv_line(const char *line, int line_no,
     return true;
 }
 
+typedef struct {
+    uint32_t state[8];
+    uint64_t bit_len;
+    unsigned char block[64];
+    size_t block_len;
+} ds4_sha256_ctx;
+
+static uint32_t sha256_rotr(uint32_t x, uint32_t n) {
+    return (x >> n) | (x << (32u - n));
+}
+
+static void sha256_transform(ds4_sha256_ctx *ctx,
+                             const unsigned char block[64]) {
+    static const uint32_t k[64] = {
+        0x428a2f98u, 0x71374491u, 0xb5c0fbcfu, 0xe9b5dba5u,
+        0x3956c25bu, 0x59f111f1u, 0x923f82a4u, 0xab1c5ed5u,
+        0xd807aa98u, 0x12835b01u, 0x243185beu, 0x550c7dc3u,
+        0x72be5d74u, 0x80deb1feu, 0x9bdc06a7u, 0xc19bf174u,
+        0xe49b69c1u, 0xefbe4786u, 0x0fc19dc6u, 0x240ca1ccu,
+        0x2de92c6fu, 0x4a7484aau, 0x5cb0a9dcu, 0x76f988dau,
+        0x983e5152u, 0xa831c66du, 0xb00327c8u, 0xbf597fc7u,
+        0xc6e00bf3u, 0xd5a79147u, 0x06ca6351u, 0x14292967u,
+        0x27b70a85u, 0x2e1b2138u, 0x4d2c6dfcu, 0x53380d13u,
+        0x650a7354u, 0x766a0abbu, 0x81c2c92eu, 0x92722c85u,
+        0xa2bfe8a1u, 0xa81a664bu, 0xc24b8b70u, 0xc76c51a3u,
+        0xd192e819u, 0xd6990624u, 0xf40e3585u, 0x106aa070u,
+        0x19a4c116u, 0x1e376c08u, 0x2748774cu, 0x34b0bcb5u,
+        0x391c0cb3u, 0x4ed8aa4au, 0x5b9cca4fu, 0x682e6ff3u,
+        0x748f82eeu, 0x78a5636fu, 0x84c87814u, 0x8cc70208u,
+        0x90befffau, 0xa4506cebu, 0xbef9a3f7u, 0xc67178f2u,
+    };
+    uint32_t w[64];
+    for (int i = 0; i < 16; i++) {
+        w[i] = ((uint32_t)block[i * 4] << 24) |
+               ((uint32_t)block[i * 4 + 1] << 16) |
+               ((uint32_t)block[i * 4 + 2] << 8) |
+               (uint32_t)block[i * 4 + 3];
+    }
+    for (int i = 16; i < 64; i++) {
+        uint32_t s0 = sha256_rotr(w[i - 15], 7) ^
+                      sha256_rotr(w[i - 15], 18) ^
+                      (w[i - 15] >> 3);
+        uint32_t s1 = sha256_rotr(w[i - 2], 17) ^
+                      sha256_rotr(w[i - 2], 19) ^
+                      (w[i - 2] >> 10);
+        w[i] = w[i - 16] + s0 + w[i - 7] + s1;
+    }
+
+    uint32_t a = ctx->state[0];
+    uint32_t b = ctx->state[1];
+    uint32_t c = ctx->state[2];
+    uint32_t d = ctx->state[3];
+    uint32_t e = ctx->state[4];
+    uint32_t f = ctx->state[5];
+    uint32_t g = ctx->state[6];
+    uint32_t h = ctx->state[7];
+
+    for (int i = 0; i < 64; i++) {
+        uint32_t s1 = sha256_rotr(e, 6) ^ sha256_rotr(e, 11) ^
+                      sha256_rotr(e, 25);
+        uint32_t ch = (e & f) ^ ((~e) & g);
+        uint32_t temp1 = h + s1 + ch + k[i] + w[i];
+        uint32_t s0 = sha256_rotr(a, 2) ^ sha256_rotr(a, 13) ^
+                      sha256_rotr(a, 22);
+        uint32_t maj = (a & b) ^ (a & c) ^ (b & c);
+        uint32_t temp2 = s0 + maj;
+        h = g;
+        g = f;
+        f = e;
+        e = d + temp1;
+        d = c;
+        c = b;
+        b = a;
+        a = temp1 + temp2;
+    }
+
+    ctx->state[0] += a;
+    ctx->state[1] += b;
+    ctx->state[2] += c;
+    ctx->state[3] += d;
+    ctx->state[4] += e;
+    ctx->state[5] += f;
+    ctx->state[6] += g;
+    ctx->state[7] += h;
+}
+
+static void sha256_init(ds4_sha256_ctx *ctx) {
+    ctx->state[0] = 0x6a09e667u;
+    ctx->state[1] = 0xbb67ae85u;
+    ctx->state[2] = 0x3c6ef372u;
+    ctx->state[3] = 0xa54ff53au;
+    ctx->state[4] = 0x510e527fu;
+    ctx->state[5] = 0x9b05688cu;
+    ctx->state[6] = 0x1f83d9abu;
+    ctx->state[7] = 0x5be0cd19u;
+    ctx->bit_len = 0;
+    ctx->block_len = 0;
+}
+
+static void sha256_update(ds4_sha256_ctx *ctx,
+                          const unsigned char *data,
+                          size_t len) {
+    while (len > 0) {
+        size_t take = 64u - ctx->block_len;
+        if (take > len) take = len;
+        memcpy(ctx->block + ctx->block_len, data, take);
+        ctx->block_len += take;
+        data += take;
+        len -= take;
+        if (ctx->block_len == 64u) {
+            sha256_transform(ctx, ctx->block);
+            ctx->bit_len += 512u;
+            ctx->block_len = 0;
+        }
+    }
+}
+
+static void sha256_final(ds4_sha256_ctx *ctx, unsigned char out[32]) {
+    ctx->bit_len += (uint64_t)ctx->block_len * 8u;
+    ctx->block[ctx->block_len++] = 0x80u;
+    if (ctx->block_len > 56u) {
+        while (ctx->block_len < 64u) ctx->block[ctx->block_len++] = 0;
+        sha256_transform(ctx, ctx->block);
+        ctx->block_len = 0;
+    }
+    while (ctx->block_len < 56u) ctx->block[ctx->block_len++] = 0;
+    for (int i = 7; i >= 0; i--) {
+        ctx->block[ctx->block_len++] =
+            (unsigned char)((ctx->bit_len >> (i * 8)) & 0xffu);
+    }
+    sha256_transform(ctx, ctx->block);
+    for (int i = 0; i < 8; i++) {
+        out[i * 4] = (unsigned char)(ctx->state[i] >> 24);
+        out[i * 4 + 1] = (unsigned char)(ctx->state[i] >> 16);
+        out[i * 4 + 2] = (unsigned char)(ctx->state[i] >> 8);
+        out[i * 4 + 3] = (unsigned char)ctx->state[i];
+    }
+}
+
+static bool sha256_hex_valid(const char *s) {
+    if (!s) return false;
+    for (int i = 0; i < 64; i++) {
+        if (!isxdigit((unsigned char)s[i])) return false;
+    }
+    return s[64] == '\0';
+}
+
+static void sha256_to_hex(const unsigned char digest[32],
+                          char out[65]) {
+    static const char hex[] = "0123456789abcdef";
+    for (int i = 0; i < 32; i++) {
+        out[i * 2] = hex[digest[i] >> 4];
+        out[i * 2 + 1] = hex[digest[i] & 0x0f];
+    }
+    out[64] = '\0';
+}
+
+static bool sha256_hex_equal(const char *a, const char *b) {
+    for (int i = 0; i < 64; i++) {
+        if (tolower((unsigned char)a[i]) !=
+            tolower((unsigned char)b[i])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool file_slice_sha256_hex(const char *path,
+                                  uint64_t offset,
+                                  uint64_t length,
+                                  char out[65]) {
+    FILE *fp = fopen(path, "rb");
+    if (!fp) return false;
+    if (offset > (uint64_t)LLONG_MAX ||
+        fseeko(fp, (off_t)offset, SEEK_SET) != 0) {
+        fclose(fp);
+        return false;
+    }
+
+    ds4_sha256_ctx ctx;
+    sha256_init(&ctx);
+    unsigned char buf[8192];
+    uint64_t remaining = length;
+    while (remaining > 0) {
+        size_t want = sizeof(buf);
+        if (remaining < (uint64_t)want) want = (size_t)remaining;
+        size_t got = fread(buf, 1, want, fp);
+        if (got == 0) {
+            fclose(fp);
+            return false;
+        }
+        sha256_update(&ctx, buf, got);
+        remaining -= got;
+    }
+    fclose(fp);
+    unsigned char digest[32];
+    sha256_final(&ctx, digest);
+    sha256_to_hex(digest, out);
+    return true;
+}
+
 /* ---- a-read-layout-spec: ds4_glm52_layout_read_manifest ---- */
 
 ds4_glm52_l0_status ds4_glm52_layout_read_manifest(
@@ -1696,11 +1897,21 @@ ds4_glm52_l0_status ds4_glm52_layout_validate_ownership(
     plan->rank = current_rank;
     plan->q_head_start = -1;
     plan->q_head_end = -1;
+    plan->expert_start = -1;
+    plan->expert_end = -1;
+    plan->vocab_start = -1;
+    plan->vocab_end = -1;
 
     /* Collect entries visible to this rank: replicated + rank-local owned. */
     int q_head_seen[DS4_GLM52_L0_Q_HEADS];
     memset(q_head_seen, 0, sizeof(q_head_seen));
+    int expert_seen[DS4_GLM52_L0_EXPERTS];
+    memset(expert_seen, 0, sizeof(expert_seen));
+    unsigned char vocab_seen[DS4_GLM52_L0_VOCAB_SIZE];
+    memset(vocab_seen, 0, sizeof(vocab_seen));
     bool any_q_head = false;
+    bool any_expert = false;
+    bool any_vocab = false;
 
     for (int i = 0; i < spec->entry_count; i++) {
         const ds4_glm52_layout_entry *e = &spec->entries[i];
@@ -1744,7 +1955,7 @@ ds4_glm52_l0_status ds4_glm52_layout_validate_ownership(
             return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 1, msg);
         }
 
-        /* sha256 must be present (full hashing may be deferred). */
+        /* sha256 must be present; byte verification happens during mapping. */
         if (!e->sha256[0]) {
             char msg[192];
             snprintf(msg, sizeof(msg),
@@ -1785,6 +1996,13 @@ ds4_glm52_l0_status ds4_glm52_layout_validate_ownership(
             if (plan->q_head_start < 0) {
                 plan->q_head_start = e->q_head_start;
                 plan->q_head_end = e->q_head_end;
+            } else {
+                if (e->q_head_start < plan->q_head_start) {
+                    plan->q_head_start = e->q_head_start;
+                }
+                if (e->q_head_end > plan->q_head_end) {
+                    plan->q_head_end = e->q_head_end;
+                }
             }
             for (int q = e->q_head_start; q < e->q_head_end; q++) {
                 if (q_head_seen[q]) {
@@ -1793,6 +2011,72 @@ ds4_glm52_l0_status ds4_glm52_layout_validate_ownership(
                 q_head_seen[q] = 1;
             }
             any_q_head = true;
+        }
+        if (e->role == DS4_GLM52_LAYOUT_ROLE_EXPERT &&
+            !e->replicated &&
+            e->rank == current_rank &&
+            e->expert_start >= 0 && e->expert_end > e->expert_start) {
+            if (e->expert_start < 0 ||
+                e->expert_end > DS4_GLM52_L0_EXPERTS) {
+                char msg[192];
+                snprintf(msg, sizeof(msg),
+                         "entry '%s' has expert span [%d,%d) outside [0,%d]",
+                         e->tensor_name, e->expert_start, e->expert_end,
+                         DS4_GLM52_L0_EXPERTS);
+                return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 1, msg);
+            }
+            if (plan->expert_start < 0) {
+                plan->expert_start = e->expert_start;
+                plan->expert_end = e->expert_end;
+            } else {
+                if (e->expert_start < plan->expert_start) {
+                    plan->expert_start = e->expert_start;
+                }
+                if (e->expert_end > plan->expert_end) {
+                    plan->expert_end = e->expert_end;
+                }
+            }
+            for (int expert = e->expert_start;
+                 expert < e->expert_end;
+                 expert++) {
+                if (expert_seen[expert]) {
+                    plan->overlaps_present = true;
+                }
+                expert_seen[expert] = 1;
+            }
+            any_expert = true;
+        }
+        if (e->role == DS4_GLM52_LAYOUT_ROLE_VOCAB &&
+            !e->replicated &&
+            e->rank == current_rank &&
+            e->vocab_start >= 0 && e->vocab_end > e->vocab_start) {
+            if (e->vocab_start < 0 ||
+                e->vocab_end > DS4_GLM52_L0_VOCAB_SIZE) {
+                char msg[192];
+                snprintf(msg, sizeof(msg),
+                         "entry '%s' has vocab span [%d,%d) outside [0,%d]",
+                         e->tensor_name, e->vocab_start, e->vocab_end,
+                         DS4_GLM52_L0_VOCAB_SIZE);
+                return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 1, msg);
+            }
+            if (plan->vocab_start < 0) {
+                plan->vocab_start = e->vocab_start;
+                plan->vocab_end = e->vocab_end;
+            } else {
+                if (e->vocab_start < plan->vocab_start) {
+                    plan->vocab_start = e->vocab_start;
+                }
+                if (e->vocab_end > plan->vocab_end) {
+                    plan->vocab_end = e->vocab_end;
+                }
+            }
+            for (int vocab = e->vocab_start; vocab < e->vocab_end; vocab++) {
+                if (vocab_seen[vocab]) {
+                    plan->overlaps_present = true;
+                }
+                vocab_seen[vocab] = 1u;
+            }
+            any_vocab = true;
         }
     }
 
@@ -1817,13 +2101,63 @@ ds4_glm52_l0_status ds4_glm52_layout_validate_ownership(
         plan->missing_spans_present = true;
     }
 
+    int expected_expert_start =
+        current_rank * DS4_GLM52_L0_EXPERTS_PER_RANK;
+    int expected_expert_end =
+        expected_expert_start + DS4_GLM52_L0_EXPERTS_PER_RANK;
+    if (any_expert) {
+        for (int expert = expected_expert_start;
+             expert < expected_expert_end;
+             expert++) {
+            if (!expert_seen[expert]) {
+                plan->missing_spans_present = true;
+            }
+        }
+        for (int expert = 0; expert < DS4_GLM52_L0_EXPERTS; expert++) {
+            if (expert_seen[expert] &&
+                (expert < expected_expert_start ||
+                 expert >= expected_expert_end)) {
+                plan->overlaps_present = true;
+            }
+        }
+    } else {
+        plan->missing_spans_present = true;
+    }
+
+    int expected_vocab_start =
+        (DS4_GLM52_L0_VOCAB_SIZE * current_rank) / DS4_GLM52_L0_TP_SIZE;
+    int expected_vocab_end =
+        (DS4_GLM52_L0_VOCAB_SIZE * (current_rank + 1)) /
+        DS4_GLM52_L0_TP_SIZE;
+    if (!any_vocab ||
+        plan->vocab_start != expected_vocab_start ||
+        plan->vocab_end != expected_vocab_end) {
+        plan->missing_spans_present = true;
+    }
+    if (any_vocab) {
+        for (int vocab = expected_vocab_start;
+             vocab < expected_vocab_end;
+             vocab++) {
+            if (!vocab_seen[vocab]) {
+                plan->missing_spans_present = true;
+            }
+        }
+        for (int vocab = 0; vocab < DS4_GLM52_L0_VOCAB_SIZE; vocab++) {
+            if (vocab_seen[vocab] &&
+                (vocab < expected_vocab_start ||
+                 vocab >= expected_vocab_end)) {
+                plan->overlaps_present = true;
+            }
+        }
+    }
+
     if (plan->overlaps_present) {
         return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 1,
-                           "overlapping Q-head spans detected");
+                           "overlapping or out-of-rank ownership spans detected");
     }
     if (plan->missing_spans_present) {
         return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 1,
-                           "missing Q-head span coverage for this rank");
+                           "missing Q-head, expert, or vocab span coverage for this rank");
     }
     if (plan->entry_count == 0) {
         return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 1,
@@ -1865,6 +2199,14 @@ ds4_glm52_l0_status ds4_glm52_layout_mmap_rank_tensors(
             return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 2,
                                "entry has empty file_path");
         }
+        if (!sha256_hex_valid(e->sha256)) {
+            char msg[192];
+            snprintf(msg, sizeof(msg),
+                     "entry '%s' has invalid sha256 '%s'",
+                     e->tensor_name[0] ? e->tensor_name : "(unnamed)",
+                     e->sha256[0] ? e->sha256 : "(missing)");
+            return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 2, msg);
+        }
         if (!resolve_path(checkpoint_root, e->file_path,
                           resolved, sizeof(resolved))) {
             char msg[192];
@@ -1883,19 +2225,41 @@ ds4_glm52_l0_status ds4_glm52_layout_mmap_rank_tensors(
             return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 2, msg);
         }
         /* Validate byte range is inside file where possible. */
-        if (e->byte_offset + e->byte_length > file_size) {
+        if (e->byte_length > UINT64_MAX - e->byte_offset ||
+            e->byte_offset + e->byte_length > file_size) {
             char msg[192];
             snprintf(msg, sizeof(msg),
                      "entry '%s' byte range [%llu,%llu) exceeds file size %llu",
                      e->tensor_name[0] ? e->tensor_name : "(unnamed)",
                      (unsigned long long)e->byte_offset,
-                     (unsigned long long)(e->byte_offset + e->byte_length),
+                     (unsigned long long)
+                         (e->byte_length > UINT64_MAX - e->byte_offset
+                              ? UINT64_MAX
+                              : e->byte_offset + e->byte_length),
                      (unsigned long long)file_size);
             return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 2, msg);
         }
         /* Check for foreign-rank path references. */
         if (path_contains_foreign_rank(e->file_path, plan->rank)) {
             mapped->no_foreign_rank_shard = false;
+        }
+        char actual_sha256[65];
+        if (!file_slice_sha256_hex(resolved,
+                                   e->byte_offset,
+                                   e->byte_length,
+                                   actual_sha256)) {
+            char msg[192];
+            snprintf(msg, sizeof(msg),
+                     "cannot verify sha256 for entry '%s'",
+                     e->tensor_name[0] ? e->tensor_name : "(unnamed)");
+            return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 2, msg);
+        }
+        if (!sha256_hex_equal(actual_sha256, e->sha256)) {
+            char msg[192];
+            snprintf(msg, sizeof(msg),
+                     "sha256 mismatch for entry '%s'",
+                     e->tensor_name[0] ? e->tensor_name : "(unnamed)");
+            return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 2, msg);
         }
         mapped->tensor_count++;
         mapped->mapped_bytes += e->byte_length;
@@ -1909,16 +2273,13 @@ ds4_glm52_l0_status ds4_glm52_layout_mmap_rank_tensors(
         return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 2,
                            "foreign-rank shard detected during mmap");
     }
-    /* Full sha256 verification of tensor bytes is not yet implemented.
-     * The layout records sha256 fields and the loader confirms they are
-     * present; this flag records that the hash has not been recomputed. */
-    mapped->hash_verified = false;
+    mapped->hash_verified = true;
     mapped->mapped = true;
 
-    /* Record the source layout identity (simplified: use a marker). */
+    /* Record that the installed rank slice set is tied to verified bytes. */
     copy_string(mapped->source_layout_sha256,
                 sizeof(mapped->source_layout_sha256),
-                "pending-full-hash-verification");
+                "verified-entry-sha256");
     return DS4_GLM52_L0_STATUS_OK;
 }
 
@@ -1952,6 +2313,10 @@ ds4_glm52_l0_status ds4_glm52_layout_publish_loaded_rank_shard(
     /* Derive rank-plan spans from the ownership plan. */
     state->rank_plan.q_head_start = plan->q_head_start;
     state->rank_plan.q_head_end = plan->q_head_end;
+    state->rank_plan.expert_start = plan->expert_start;
+    state->rank_plan.expert_end = plan->expert_end;
+    state->rank_plan.vocab_start = plan->vocab_start;
+    state->rank_plan.vocab_end = plan->vocab_end;
     state->rank_plan.rank = plan->rank;
     state->rank_plan.bound = true;
 

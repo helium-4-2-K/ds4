@@ -611,7 +611,11 @@ static char g_layout_foreign_path[PATH_MAX];
 static char g_layout_missing_qhead_path[PATH_MAX];
 static char g_layout_overlap_qhead_path[PATH_MAX];
 static char g_layout_missing_file_path[PATH_MAX];
+static char g_layout_bad_sha_path[PATH_MAX];
 static bool g_layout_fixture_ready;
+
+static const char *k_sha256_x32 =
+    "c62e4615bd39e222572f3a1bf7c2132ea1e65b17ec805047bd6b2842c593493f";
 
 static void write_layout_header(FILE *fp) {
     fprintf(fp, "format_version=ds4-shard-layout/v1\n");
@@ -685,19 +689,19 @@ static void ensure_layout_fixture(void) {
         check(fp != NULL, "valid layout open failed");
         write_layout_header(fp);
         write_layout_entry(fp, "q_proj_b", "q_head", "rank_local_shard",
-                           2, "rank2/shard-00.bin", 0, 32, "hash0",
+                           2, "rank2/shard-00.bin", 0, 32, k_sha256_x32,
                            32, 48, -1, -1, -1, -1);
         write_layout_entry(fp, "mla_kv_b", "mla_kv", "rank_local_shard",
-                           2, "rank2/shard-01.bin", 0, 32, "hash1",
+                           2, "rank2/shard-01.bin", 0, 32, k_sha256_x32,
                            -1, -1, -1, -1, -1, -1);
         write_layout_entry(fp, "expert_0", "expert", "rank_local_shard",
-                           2, "rank2/shard-02.bin", 0, 32, "hash2",
-                           -1, -1, 64, 128, -1, -1);
+                           2, "rank2/shard-02.bin", 0, 32, k_sha256_x32,
+                           -1, -1, 128, 192, -1, -1);
         write_layout_entry(fp, "vocab_w", "vocab", "rank_local_shard",
-                           2, "rank2/shard-03.bin", 0, 32, "hash3",
-                           -1, -1, -1, -1, 38720, 77440);
+                           2, "rank2/shard-03.bin", 0, 32, k_sha256_x32,
+                           -1, -1, -1, -1, 77440, 116160);
         write_layout_entry(fp, "shared_emb", "replicated", "replicated",
-                           -1, "shared.bin", 0, 32, "hash4",
+                           -1, "shared.bin", 0, 32, k_sha256_x32,
                            -1, -1, -1, -1, -1, -1);
         fclose(fp);
     }
@@ -778,11 +782,37 @@ static void ensure_layout_fixture(void) {
         check(fp != NULL, "missing_file layout open failed");
         write_layout_header(fp);
         write_layout_entry(fp, "q_proj_b", "q_head", "rank_local_shard",
-                           2, "rank2/nonexistent.bin", 0, 32, "hash0",
+                           2, "rank2/nonexistent.bin", 0, 32, k_sha256_x32,
                            32, 48, -1, -1, -1, -1);
         write_layout_entry(fp, "mla_kv_b", "mla_kv", "rank_local_shard",
-                           2, "rank2/shard-01.bin", 0, 32, "hash1",
+                           2, "rank2/shard-01.bin", 0, 32, k_sha256_x32,
                            -1, -1, -1, -1, -1, -1);
+        write_layout_entry(fp, "expert_0", "expert", "rank_local_shard",
+                           2, "rank2/shard-02.bin", 0, 32, k_sha256_x32,
+                           -1, -1, 128, 192, -1, -1);
+        write_layout_entry(fp, "vocab_w", "vocab", "rank_local_shard",
+                           2, "rank2/shard-03.bin", 0, 32, k_sha256_x32,
+                           -1, -1, -1, -1, 77440, 116160);
+        fclose(fp);
+    }
+
+    /* Bad sha256: file exists and range is valid, but the digest is wrong. */
+    snprintf(g_layout_bad_sha_path, sizeof(g_layout_bad_sha_path),
+             "%s/bad_sha.layout", g_layout_dir);
+    {
+        FILE *fp = fopen(g_layout_bad_sha_path, "w");
+        check(fp != NULL, "bad_sha layout open failed");
+        write_layout_header(fp);
+        write_layout_entry(fp, "q_proj_b", "q_head", "rank_local_shard",
+                           2, "rank2/shard-00.bin", 0, 32,
+                           "0000000000000000000000000000000000000000000000000000000000000000",
+                           32, 48, -1, -1, -1, -1);
+        write_layout_entry(fp, "expert_0", "expert", "rank_local_shard",
+                           2, "rank2/shard-02.bin", 0, 32, k_sha256_x32,
+                           -1, -1, 128, 192, -1, -1);
+        write_layout_entry(fp, "vocab_w", "vocab", "rank_local_shard",
+                           2, "rank2/shard-03.bin", 0, 32, k_sha256_x32,
+                           -1, -1, -1, -1, 77440, 116160);
         fclose(fp);
     }
 
@@ -810,6 +840,10 @@ static void test_layout_valid_manifest_passes(void) {
     check(!plan.missing_spans_present, "valid layout should have no missing spans");
     check(plan.q_head_start == 32, "rank 2 Q-head start should be 32");
     check(plan.q_head_end == 48, "rank 2 Q-head end should be 48");
+    check(plan.expert_start == 128, "rank 2 expert start should be 128");
+    check(plan.expert_end == 192, "rank 2 expert end should be 192");
+    check(plan.vocab_start == 77440, "rank 2 vocab start should be 77440");
+    check(plan.vocab_end == 116160, "rank 2 vocab end should be 116160");
     check(plan.entry_count == 5, "valid plan should have 5 visible entries");
 
     ds4_glm52_layout_mapped_slices mapped;
@@ -821,7 +855,9 @@ static void test_layout_valid_manifest_passes(void) {
     check(mapped.no_foreign_rank_shard, "valid layout should have no foreign shards");
     check(mapped.tensor_count == 5, "valid layout should map 5 tensors");
     check(mapped.mapped_bytes > 0, "valid layout should map non-zero bytes");
-    check(!mapped.hash_verified, "full hash verification should be deferred");
+    check(mapped.hash_verified, "valid layout should verify tensor sha256");
+    check(strcmp(mapped.source_layout_sha256, "verified-entry-sha256") == 0,
+          "valid layout should record verified source identity");
 
     ds4_glm52_l0_state state = {0};
     st = ds4_glm52_layout_publish_loaded_rank_shard(&mapped, &plan,
@@ -833,6 +869,14 @@ static void test_layout_valid_manifest_passes(void) {
           "publish should set no_foreign_rank_shard");
     check(state.rank_plan.q_head_start == 32, "publish should set q_head_start");
     check(state.rank_plan.q_head_end == 48, "publish should set q_head_end");
+    check(state.rank_plan.expert_start == 128,
+          "publish should set expert_start");
+    check(state.rank_plan.expert_end == 192,
+          "publish should set expert_end");
+    check(state.rank_plan.vocab_start == 77440,
+          "publish should set vocab_start");
+    check(state.rank_plan.vocab_end == 116160,
+          "publish should set vocab_end");
     check(state.rank_plan.bound, "publish should bind rank plan");
 }
 
@@ -868,8 +912,12 @@ static void test_model_load_layout_reaches_ready_rank_engines(void) {
     check(state.rank_plan.bound &&
               state.rank_plan.rank == 2 &&
               state.rank_plan.q_head_start == 32 &&
-              state.rank_plan.q_head_end == 48,
-          "serve-open should bind the rank-local Q-head layout");
+              state.rank_plan.q_head_end == 48 &&
+              state.rank_plan.expert_start == 128 &&
+              state.rank_plan.expert_end == 192 &&
+              state.rank_plan.vocab_start == 77440 &&
+              state.rank_plan.vocab_end == 116160,
+          "serve-open should bind the rank-local Q-head/expert/vocab layout");
 }
 
 static void test_layout_wrong_tp_fails(void) {
@@ -969,7 +1017,7 @@ static void test_layout_overlap_qhead_fails(void) {
     st = ds4_glm52_layout_validate_ownership(&spec, 2, &plan, &result);
     check(st == DS4_GLM52_L0_STATUS_INVALID,
           "overlapping Q-head span should be rejected");
-    check(strstr(result.message, "overlapping Q-head") != NULL,
+    check(strstr(result.message, "overlapping") != NULL,
           "overlapping Q-head should be named in error");
 }
 
@@ -997,6 +1045,19 @@ static void test_layout_replicated_visible_all_ranks(void) {
                     entry->q_head_end =
                         entry->q_head_start +
                         DS4_GLM52_L0_Q_HEADS_PER_RANK;
+                } else if (entry->role == DS4_GLM52_LAYOUT_ROLE_EXPERT) {
+                    entry->expert_start =
+                        r * DS4_GLM52_L0_EXPERTS_PER_RANK;
+                    entry->expert_end =
+                        entry->expert_start +
+                        DS4_GLM52_L0_EXPERTS_PER_RANK;
+                } else if (entry->role == DS4_GLM52_LAYOUT_ROLE_VOCAB) {
+                    entry->vocab_start =
+                        (DS4_GLM52_L0_VOCAB_SIZE * r) /
+                        DS4_GLM52_L0_TP_SIZE;
+                    entry->vocab_end =
+                        (DS4_GLM52_L0_VOCAB_SIZE * (r + 1)) /
+                        DS4_GLM52_L0_TP_SIZE;
                 }
                 snprintf(entry->file_path,
                          sizeof(entry->file_path),
@@ -1080,6 +1141,30 @@ static void test_layout_missing_shard_file_fails(void) {
           "missing required shard file should fail at mmap");
     check(strstr(result.message, "missing required shard file") != NULL,
           "missing shard file should be named in error");
+}
+
+static void test_layout_sha256_mismatch_fails(void) {
+    ensure_layout_fixture();
+    ds4_glm52_layout_spec spec;
+    ds4_glm52_l0_result result;
+    ds4_glm52_l0_status st =
+        ds4_glm52_layout_read_manifest(g_layout_bad_sha_path, &spec, &result);
+    check(st == DS4_GLM52_L0_STATUS_OK,
+          "bad-sha layout header should parse");
+    ds4_glm52_layout_ownership_plan plan;
+    st = ds4_glm52_layout_validate_ownership(&spec, 2, &plan, &result);
+    check(st == DS4_GLM52_L0_STATUS_OK,
+          "bad-sha layout ownership should pass before file verification");
+    ds4_glm52_layout_mapped_slices mapped;
+    st = ds4_glm52_layout_mmap_rank_tensors(&plan, g_model_root,
+                                            &mapped, &result);
+    check(st == DS4_GLM52_L0_STATUS_INVALID,
+          "sha256 mismatch should fail during rank tensor load");
+    check(strstr(result.message, "sha256 mismatch") != NULL,
+          "sha256 mismatch should be named in error");
+    check(!mapped.mapped, "sha256 mismatch must not claim mapped tensors");
+    check(!mapped.hash_verified,
+          "sha256 mismatch must not claim hash verification");
 }
 
 /* ---- prefill child graph tests ---- */
@@ -1741,6 +1826,7 @@ int main(void) {
     test_layout_replicated_visible_all_ranks();
     test_layout_sharded_only_on_owning_rank();
     test_layout_missing_shard_file_fails();
+    test_layout_sha256_mismatch_fails();
     /* prefill child graph tests */
     test_prefill_action_order_and_phase_names();
     test_prefill_set_prompt_validation();

@@ -353,13 +353,15 @@ Active in `tests/test_glm52_l0.c`:
 - Q-head ownership covers the current rank's 16-head span exactly once;
 - missing Q-head span fails;
 - overlapping Q-head span fails;
+- expert ownership covers the current rank's 64-expert span exactly once;
+- vocab ownership covers the current rank's 38,720-token shard exactly once;
+- every mapped file slice recomputes and verifies the entry sha256;
+- sha256 mismatch fails before resident shard readiness is published;
 
 Still to add:
 
-- full sha256 recomputation failure;
 - real mmap handle presence;
 - missing required MTP/speculator shard failure derived from manifest roles;
-- expert and vocab span coverage completeness;
 - `kv_lora[512]` replicated activation semantics and DCP-owned committed row
   semantics in the real kernel path.
 

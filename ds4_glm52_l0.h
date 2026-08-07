@@ -21,6 +21,10 @@
 #define DS4_GLM52_L0_Q_HEADS 64
 #define DS4_GLM52_L0_Q_HEADS_PER_RANK \
     (DS4_GLM52_L0_Q_HEADS / DS4_GLM52_L0_TP_SIZE)
+#define DS4_GLM52_L0_EXPERTS 256
+#define DS4_GLM52_L0_EXPERTS_PER_RANK \
+    (DS4_GLM52_L0_EXPERTS / DS4_GLM52_L0_TP_SIZE)
+#define DS4_GLM52_L0_VOCAB_SIZE 154880
 #define DS4_GLM52_L0_EXPECTED_BASE_SHARDS 20
 #define DS4_GLM52_L0_EXPECTED_MTP_SHARDS 1
 #define DS4_GLM52_LAYOUT_FORMAT_VERSION "ds4-shard-layout/v1"
@@ -584,6 +588,10 @@ typedef struct {
     int rank;
     int q_head_start;
     int q_head_end;
+    int expert_start;
+    int expert_end;
+    int vocab_start;
+    int vocab_end;
     bool coverage_complete;
     bool overlaps_present;
     bool missing_spans_present;
