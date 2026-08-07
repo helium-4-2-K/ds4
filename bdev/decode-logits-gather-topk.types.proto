@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+package blueprint.work.ds4_arch;
+
+import "blueprint/v1/blueprint.proto";
+import "decode.types.proto";
+import "serve.types.proto";

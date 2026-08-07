@@ -1,0 +1,721 @@
+schema_version: "blueprint-graph/v1"
+graph_id: "decode-dcp-row-exchange"
+display_name: "Lowered DCP4 selected-row exchange child"
+graph_version: "1.0"
+lifecycle: DRAFT
+schema_ref: "blueprint-schema/blueprint/v1/blueprint.proto"
+type_schema_ref: "decode-dcp-row-exchange.types.proto"
+input_ports {
+  port_id: "k-dcp-cache-row-in"
+  node_id: "d-mla-cache-row"
+  type_ref: "blueprint.work.ds4_arch.mla_cache_row"
+  cardinality: PORT_CARDINALITY_EXACTLY_ONE
+}
+input_ports {
+  port_id: "k-dcp-qkv-in"
+  node_id: "d-qkv-shard"
+  type_ref: "blueprint.work.ds4_arch.qkv_shard"
+  cardinality: PORT_CARDINALITY_EXACTLY_ONE
+}
+output_ports {
+  port_id: "k-dcp-selection-out"
+  node_id: "d-dcp-selection"
+  type_ref: "blueprint.work.ds4_arch.sparse_selection"
+  cardinality: PORT_CARDINALITY_EXACTLY_ONE
+}
+graph {
+  overall_semantic {
+    overview: "Ranks merge sparse-index scores across DCP context shards so each rank obtains the selected cache rows needed for its owned query heads."
+    support_refs {
+      node_id: "a-dcp-row-exchange"
+    }
+  }
+  semantics {
+    entry_id: "a-dcp-topk-merge-ov"
+    key: "overview"
+    value: "Ranks merge sparse-index scores across DCP context shards so each rank obtains the selected cache rows needed for its owned query heads."
+    support_refs {
+      node_id: "a-dcp-row-exchange"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "k-dcp-cache-row-in"
+    key: "input_use"
+    value: "Consumes d-mla-cache-row."
+    object_ref {
+      port {
+        graph_boundary {
+        }
+        direction: PORT_DIRECTION_INPUT
+        port_id: "k-dcp-cache-row-in"
+      }
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "k-dcp-qkv-in"
+    key: "input_use"
+    value: "Consumes d-qkv-shard."
+    object_ref {
+      port {
+        graph_boundary {
+        }
+        direction: PORT_DIRECTION_INPUT
+        port_id: "k-dcp-qkv-in"
+      }
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "k-dcp-selection-out"
+    key: "output"
+    value: "Produces d-dcp-selection."
+    object_ref {
+      port {
+        graph_boundary {
+        }
+        direction: PORT_DIRECTION_OUTPUT
+        port_id: "k-dcp-selection-out"
+      }
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "a-dcp-topk-merge-ef"
+    key: "effect"
+    value: "Ranks merge sparse-index scores across DCP context shards so each rank obtains the selected cache rows needed for its owned query heads."
+    support_refs {
+      node_id: "a-dcp-row-exchange"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "a-dcp-topk-merge-exit"
+    key: "exit"
+    value: "a-dcp-topk-merge-done"
+    support_refs {
+      node_id: "a-dcp-row-exchange"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "decode-dcp-row-exchange-architecture-rationale"
+    key: "architecture_rationale"
+    value: "The decode-dcp-topk parent names global sparse selection; this child lowers the owner mapping, row payload fetch, and validation rules needed before sparse attention can read selected prefix rows."
+    support_refs {
+      node_id: "a-dcp-row-exchange"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "a-dcp-topk-merge-cu"
+    key: "code_unit"
+    value: "DCP4 sparse indexer score/top-k merge"
+    support_refs {
+      node_id: "a-dcp-row-exchange"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "a-dcp-topk-merge-im"
+    key: "implementation_choice"
+    value: "fixed_by_child_contract_from_parent_action"
+    support_refs {
+      node_id: "a-dcp-row-exchange"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "decode-dcp-row-exchange-lowered-contract"
+    key: "lowered_contract"
+    value: "DCP4 selected-row exchange: score owned MLA/index rows for current rank Q, allgather candidate descriptors, merge global top-k, fetch selected row payloads from owner ranks, and publish owner-mapped sparse selection before attention reads the prefix."
+    support_refs {
+      node_id: "a-dcp-row-exchange"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "a-dcp-topk-merge-nd"
+    key: "no_diagnostic"
+    value: "none"
+    support_refs {
+      node_id: "a-dcp-row-exchange"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "decode-dcp-row-exchange-no-guide"
+    key: "no_implementation_guide"
+    value: "This child graph is a target-system contract; implementation planning lives outside the blueprint."
+    status: SUPPORTED
+  }
+  nodes {
+    id: "a-dcp-row-exchange"
+    kind: "ACTION"
+    label: "realize 03 DCP4 selected-row exchange"
+    input_ports {
+      port_id: "k-row-cache-row-in"
+      node_id: "d-mla-cache-row"
+      type_ref: "blueprint.work.ds4_arch.mla_cache_row"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    input_ports {
+      port_id: "k-row-qkv-in"
+      node_id: "d-qkv-shard"
+      type_ref: "blueprint.work.ds4_arch.qkv_shard"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "k-row-selection-out"
+      node_id: "d-dcp-selection"
+      type_ref: "blueprint.work.ds4_arch.sparse_selection"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "a-dcp-row-exchange-ov"
+      key: "overview"
+      value: "DCP4 selected-row exchange: score owned MLA/index rows for current rank Q, allgather candidate descriptors, merge global top-k, fetch selected row payloads from owner ranks, and publish owner-mapped sparse selection before attention reads the prefix."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "k-row-cache-row-in"
+      key: "input_use"
+      value: "Consumes d-mla-cache-row."
+      object_ref {
+        node_id: "d-mla-cache-row"
+      }
+      support_refs {
+        port {
+          node_id: "a-dcp-row-exchange"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "k-row-cache-row-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "k-row-qkv-in"
+      key: "input_use"
+      value: "Consumes d-qkv-shard."
+      object_ref {
+        node_id: "d-qkv-shard"
+      }
+      support_refs {
+        port {
+          node_id: "a-dcp-row-exchange"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "k-row-qkv-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "k-row-selection-out"
+      key: "output"
+      value: "Produces d-dcp-selection."
+      object_ref {
+        node_id: "d-dcp-selection"
+      }
+      support_refs {
+        port {
+          node_id: "a-dcp-row-exchange"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "k-row-selection-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-dcp-row-exchange-effect"
+      key: "effect"
+      value: "DCP4 selected-row exchange: score owned MLA/index rows for current rank Q, allgather candidate descriptors, merge global top-k, fetch selected row payloads from owner ranks, and publish owner-mapped sparse selection before attention reads the prefix."
+      support_refs {
+        node_id: "a-dcp-row-exchange"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-dcp-row-exchange-exit"
+      key: "exit"
+      value: "a-dcp-row-exchange-done"
+      support_refs {
+        node_id: "a-dcp-row-exchange"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-dcp-row-exchange-code"
+      key: "code_unit"
+      value: "realize 03 DCP4 selected-row exchange"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-dcp-row-exchange-fail"
+      key: "failure_semantics"
+      value: "Reject and produce no sparse selection on stale cursor, missing row owner, duplicate owner, insufficient top-k, checksum/byte-range mismatch, layer/position mismatch, q shard mismatch, or row payload fetch timeout. Output records selected positions, selected DCP ranks, top_k, global_merge_done, and owner mapping sufficient for attention to read the prefix."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-dcp-row-exchange-impl"
+      key: "implementation_choice"
+      value: "fixed_by_child_contract_from_parent_action"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-dcp-row-exchange-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "s-kv"
+      access: "read"
+      meaning: "read prefix rows and selected row payloads by DCP owner"
+    }
+    state_set {
+      state_node_id: "s-tp"
+      access: "update"
+      meaning: "allgather scores/descriptors and fetch selected rows across DCP ranks"
+    }
+    state_set {
+      state_node_id: "s-rank-plan"
+      access: "read"
+      meaning: "validate DCP shard ownership spans and row owner mapping"
+    }
+  }
+  nodes {
+    id: "d-dcp-selection"
+    kind: "DATA"
+    label: "global sparse row selection"
+    data_type: "blueprint.work.ds4_arch.sparse_selection"
+    semantics {
+      entry_id: "decode-dcp-row-exchange-d-dcp-selection-data-role"
+      key: "data_role"
+      value: "child boundary or intermediate data"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-dcp-row-exchange-d-dcp-selection-identity"
+      key: "identity"
+      value: "d-dcp-selection is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-dcp-row-exchange-d-dcp-selection-ordering"
+      key: "ordering"
+      value: "ordered by query layer and token position"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-dcp-row-exchange-d-dcp-selection-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-dcp-row-exchange-d-dcp-selection-provenance"
+      key: "provenance"
+      value: "produced by child action"
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "d-mla-cache-row"
+    kind: "DATA"
+    label: "DCP-owned MLA/index cache row"
+    data_type: "blueprint.work.ds4_arch.mla_cache_row"
+    semantics {
+      entry_id: "decode-dcp-row-exchange-d-mla-cache-row-data-role"
+      key: "data_role"
+      value: "child boundary or intermediate data"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-dcp-row-exchange-d-mla-cache-row-identity"
+      key: "identity"
+      value: "d-mla-cache-row is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-dcp-row-exchange-d-mla-cache-row-ordering"
+      key: "ordering"
+      value: "append-ordered by token position and DCP owner"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-dcp-row-exchange-d-mla-cache-row-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-dcp-row-exchange-d-mla-cache-row-provenance"
+      key: "provenance"
+      value: "enters through graph input"
+      status: SUPPORTED
+    }
+    sources {
+      source_id: "src-decode-dcp-row-exchange-d-mla-cache-row"
+      kind: "graph_input"
+      source_ref: "k-dcp-cache-row-in graph input"
+      graph_input_port_id: "k-dcp-cache-row-in"
+      meaning: "child graph boundary input"
+    }
+  }
+  nodes {
+    id: "d-qkv-shard"
+    kind: "DATA"
+    label: "rank-owned query/KV reconstruction shard"
+    data_type: "blueprint.work.ds4_arch.qkv_shard"
+    semantics {
+      entry_id: "decode-dcp-row-exchange-d-qkv-shard-data-role"
+      key: "data_role"
+      value: "child boundary or intermediate data"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-dcp-row-exchange-d-qkv-shard-identity"
+      key: "identity"
+      value: "d-qkv-shard is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-dcp-row-exchange-d-qkv-shard-ordering"
+      key: "ordering"
+      value: "ordered by layer index and token position"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-dcp-row-exchange-d-qkv-shard-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-dcp-row-exchange-d-qkv-shard-provenance"
+      key: "provenance"
+      value: "enters through graph input"
+      status: SUPPORTED
+    }
+    sources {
+      source_id: "src-decode-dcp-row-exchange-d-qkv-shard"
+      kind: "graph_input"
+      source_ref: "k-dcp-qkv-in graph input"
+      graph_input_port_id: "k-dcp-qkv-in"
+      meaning: "child graph boundary input"
+    }
+  }
+  nodes {
+    id: "s-kv"
+    kind: "STATE"
+    label: "same state s-kv"
+    data_type: "blueprint.work.ds4_arch.kv"
+    semantics {
+      entry_id: "decode-dcp-row-exchange-s-kv-data-role"
+      key: "data_role"
+      value: "child-visible parent state"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-dcp-row-exchange-s-kv-identity"
+      key: "identity"
+      value: "s-kv is the same logical state as the parent graph node."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-dcp-row-exchange-s-kv-ordering"
+      key: "ordering"
+      value: "append-ordered by prompt/decode token position; cursor state records monotonic length and current position."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-dcp-row-exchange-s-kv-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-dcp-row-exchange-s-kv-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "decode-dcp-topk"
+      state_node_id: "s-kv"
+      relation: "same logical state as decode-dcp-topk graph"
+      meaning: "child action reads or updates the same state occurrence declared by the parent action"
+    }
+  }
+  nodes {
+    id: "s-rank-plan"
+    kind: "STATE"
+    label: "same state s-rank-plan"
+    data_type: "blueprint.work.ds4_arch.rank_plan"
+    semantics {
+      entry_id: "decode-dcp-row-exchange-s-rank-plan-data-role"
+      key: "data_role"
+      value: "child-visible parent state"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-dcp-row-exchange-s-rank-plan-identity"
+      key: "identity"
+      value: "s-rank-plan is the same logical state as the parent graph node."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-dcp-row-exchange-s-rank-plan-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-dcp-row-exchange-s-rank-plan-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-dcp-row-exchange-s-rank-plan-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "decode-dcp-topk"
+      state_node_id: "s-rank-plan"
+      relation: "same logical state as decode-dcp-topk graph"
+      meaning: "child action reads or updates the same state occurrence declared by the parent action"
+    }
+  }
+  nodes {
+    id: "s-tp"
+    kind: "STATE"
+    label: "same state s-tp"
+    data_type: "blueprint.work.ds4_arch.distlink"
+    semantics {
+      entry_id: "decode-dcp-row-exchange-s-tp-data-role"
+      key: "data_role"
+      value: "child-visible parent state"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-dcp-row-exchange-s-tp-identity"
+      key: "identity"
+      value: "s-tp is the same logical state as the parent graph node."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-dcp-row-exchange-s-tp-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-dcp-row-exchange-s-tp-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-dcp-row-exchange-s-tp-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "decode-dcp-topk"
+      state_node_id: "s-tp"
+      relation: "same logical state as decode-dcp-topk graph"
+      meaning: "child action reads or updates the same state occurrence declared by the parent action"
+    }
+  }
+  edges {
+    id: "e-dcp-cache-in"
+    source_node_id: "d-mla-cache-row"
+    target_node_id: "a-dcp-row-exchange"
+    kind: "input"
+    label: "d-mla-cache-row feeds DCP row exchange"
+    semantics {
+      entry_id: "e-dcp-cache-in-r"
+      key: "relationship"
+      value: "d-mla-cache-row feeds DCP row exchange"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-dcp-kv"
+    source_node_id: "a-dcp-row-exchange"
+    target_node_id: "s-kv"
+    kind: "state-access"
+    label: "read prefix MLA/index rows and selected row payloads by owner"
+    semantics {
+      entry_id: "e-dcp-kv-r"
+      key: "relationship"
+      value: "read prefix MLA/index rows and selected row payloads by owner"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-dcp-kv-s"
+      key: "state_read"
+      value: "read prefix MLA/index rows and selected row payloads by owner"
+      object_ref {
+        node_id: "s-kv"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-dcp-out"
+    source_node_id: "a-dcp-row-exchange"
+    target_node_id: "d-dcp-selection"
+    kind: "output"
+    label: "DCP row exchange produces sparse selection"
+    semantics {
+      entry_id: "e-dcp-out-r"
+      key: "relationship"
+      value: "DCP row exchange produces sparse selection"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-dcp-qkv-in"
+    source_node_id: "d-qkv-shard"
+    target_node_id: "a-dcp-row-exchange"
+    kind: "input"
+    label: "d-qkv-shard feeds DCP row exchange"
+    semantics {
+      entry_id: "e-dcp-qkv-in-r"
+      key: "relationship"
+      value: "d-qkv-shard feeds DCP row exchange"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-dcp-rank"
+    source_node_id: "a-dcp-row-exchange"
+    target_node_id: "s-rank-plan"
+    kind: "state-access"
+    label: "read DCP shard ownership and rank identity mapping"
+    semantics {
+      entry_id: "e-dcp-rank-r"
+      key: "relationship"
+      value: "read DCP shard ownership and rank identity mapping"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-dcp-rank-s"
+      key: "state_read"
+      value: "read DCP shard ownership and rank identity mapping"
+      object_ref {
+        node_id: "s-rank-plan"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-dcp-tp"
+    source_node_id: "a-dcp-row-exchange"
+    target_node_id: "s-tp"
+    kind: "state-access"
+    label: "write DCP allgather descriptors and selected-row fetch events"
+    semantics {
+      entry_id: "e-dcp-tp-r"
+      key: "relationship"
+      value: "write DCP allgather descriptors and selected-row fetch events"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-dcp-tp-s"
+      key: "state_update"
+      value: "write DCP allgather descriptors and selected-row fetch events"
+      object_ref {
+        node_id: "s-tp"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  operations {
+    operation_id: "op-decode-dcp-row-exchange"
+    name: "realize DCP4 selected-row exchange"
+    overview: "DCP4 selected-row exchange: score owned MLA/index rows for current rank Q, allgather candidate descriptors, merge global top-k, fetch selected row payloads from owner ranks, and publish owner-mapped sparse selection before attention reads the prefix."
+    members {
+      ref {
+        node_id: "a-dcp-row-exchange"
+      }
+      role: "dcp exchange"
+    }
+    members {
+      ref {
+        node_id: "d-dcp-selection"
+      }
+      role: "output"
+    }
+    members {
+      ref {
+        node_id: "d-mla-cache-row"
+      }
+      role: "cache input"
+    }
+    members {
+      ref {
+        node_id: "d-qkv-shard"
+      }
+      role: "query input"
+    }
+    members {
+      ref {
+        node_id: "s-kv"
+      }
+      role: "same kv state"
+    }
+    members {
+      ref {
+        node_id: "s-rank-plan"
+      }
+      role: "same rank plan"
+    }
+    members {
+      ref {
+        node_id: "s-tp"
+      }
+      role: "same fabric"
+    }
+    semantics {
+      entry_id: "op-decode-dcp-row-exchange-ov"
+      key: "overview"
+      value: "DCP4 selected-row exchange: score owned MLA/index rows for current rank Q, allgather candidate descriptors, merge global top-k, fetch selected row payloads from owner ranks, and publish owner-mapped sparse selection before attention reads the prefix."
+      status: SUPPORTED
+    }
+    end_goals {
+      goal_id: "goal-decode-dcp-row-exchange"
+      intent: "DCP4 selected-row exchange: score owned MLA/index rows for current rank Q, allgather candidate descriptors, merge global top-k, fetch selected row payloads from owner ranks, and publish owner-mapped sparse selection before attention reads the prefix."
+      bindings {
+        ref {
+          node_id: "d-dcp-selection"
+        }
+        role: "produced_output"
+        semantics {
+          entry_id: "goal-decode-dcp-row-exchange-out"
+          key: "target_state"
+          value: "d-dcp-selection is produced only after the lowered contract checks pass"
+          status: SUPPORTED
+        }
+      }
+    }
+  }
+}
+canonical {
+  schema_sha256: "9de5a18221a33a9379092d084dbae946af604b979dfe7caf07bdd65701b5ea9d"
+  type_schema_sha256: "2d2b16fe1890d35da457577330f2ffc9c6b8ab474995d8c39f7cb1b823d55659"
+  graph_sha256: "1477e20b1e405307d9e85c5e185ca2830c6ad86300f9a4112a5ce5061d93f8a9"
+  graph_contract_sha256: "bf72d88fbd30997f02c075f95b90701cf15f025f76d7cb4572abde9796b0e3b7"
+}

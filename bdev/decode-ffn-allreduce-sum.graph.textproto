@@ -1,0 +1,549 @@
+schema_version: "blueprint-graph/v1"
+graph_id: "decode-ffn-allreduce-sum"
+display_name: "Lowered TP4 FFN all-reduce sum child"
+graph_version: "1.0"
+lifecycle: DRAFT
+schema_ref: "blueprint-schema/blueprint/v1/blueprint.proto"
+type_schema_ref: "decode-ffn-allreduce-sum.types.proto"
+input_ports {
+  port_id: "ffn-partial-in"
+  node_id: "d-ffn-partial"
+  type_ref: "blueprint.work.ds4_arch.hidden"
+  cardinality: PORT_CARDINALITY_EXACTLY_ONE
+}
+output_ports {
+  port_id: "layer-hidden-out"
+  node_id: "d-hidden-layer-out"
+  type_ref: "blueprint.work.ds4_arch.hidden"
+  cardinality: PORT_CARDINALITY_EXACTLY_ONE
+}
+graph {
+  overall_semantic {
+    overview: "All ranks sum FFN partials and apply residual to produce the replicated hidden for the next layer or final head."
+    support_refs {
+      node_id: "a-decode-ffn-allreduce-sum-collective"
+    }
+  }
+  semantics {
+    entry_id: "ffnred-ov"
+    key: "overview"
+    value: "All ranks sum FFN partials and apply residual to produce the replicated hidden for the next layer or final head."
+    support_refs {
+      node_id: "a-decode-ffn-allreduce-sum-collective"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "ffn-partial-in"
+    key: "input_use"
+    value: "Consumes rank-local FFN partials."
+    object_ref {
+      port {
+        graph_boundary {
+        }
+        direction: PORT_DIRECTION_INPUT
+        port_id: "ffn-partial-in"
+      }
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "layer-hidden-out"
+    key: "output"
+    value: "Produces replicated hidden after layer i."
+    object_ref {
+      port {
+        graph_boundary {
+        }
+        direction: PORT_DIRECTION_OUTPUT
+        port_id: "layer-hidden-out"
+      }
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "ffnred-ef"
+    key: "effect"
+    value: "FFN partials summed on all ranks"
+    support_refs {
+      node_id: "a-decode-ffn-allreduce-sum-collective"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "ffnred-exit"
+    key: "exit"
+    value: "layer-hidden-replicated"
+    support_refs {
+      node_id: "a-decode-ffn-allreduce-sum-collective"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "decode-ffn-allreduce-sum-architecture-rationale"
+    key: "architecture_rationale"
+    value: "The parent decode graph stays ordered while this child owns the exact TP4 collective invariants, failure modes, and replicated-output contract."
+    support_refs {
+      node_id: "a-decode-ffn-allreduce-sum-collective"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "ffnred-cu"
+    key: "code_unit"
+    value: "TP all-reduce sum for FFN"
+    support_refs {
+      node_id: "a-decode-ffn-allreduce-sum-collective"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "ffnred-collective"
+    key: "collective"
+    value: "all_reduce_sum"
+    support_refs {
+      node_id: "a-decode-ffn-allreduce-sum-collective"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "ffnred-im"
+    key: "implementation_choice"
+    value: "requires_new_glm52_tp4_support"
+    support_refs {
+      node_id: "a-decode-ffn-allreduce-sum-collective"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "decode-ffn-allreduce-sum-lowered-contract"
+    key: "lowered_contract"
+    value: "TP4 all-reduce sum for FFN output: require ranks 0..3, same session, layer, token position, dtype, and hidden shape hash; exchange one partial per rank; sum in rank order 0,1,2,3; publish identical replicated hidden on all ranks."
+    support_refs {
+      node_id: "a-decode-ffn-allreduce-sum-collective"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "ffnred-nd"
+    key: "no_diagnostic"
+    value: "none"
+    support_refs {
+      node_id: "a-decode-ffn-allreduce-sum-collective"
+    }
+    status: SUPPORTED
+  }
+  semantics {
+    entry_id: "decode-ffn-allreduce-sum-no-guide"
+    key: "no_implementation_guide"
+    value: "This child graph is a target-system contract; implementation planning lives outside the blueprint."
+    status: SUPPORTED
+  }
+  nodes {
+    id: "a-decode-ffn-allreduce-sum-collective"
+    kind: "ACTION"
+    label: "realize 06 TP4 FFN all-reduce sum"
+    input_ports {
+      port_id: "k-ffn-partial-in"
+      node_id: "d-ffn-partial"
+      type_ref: "blueprint.work.ds4_arch.hidden"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "k-layer-hidden-out"
+      node_id: "d-hidden-layer-out"
+      type_ref: "blueprint.work.ds4_arch.hidden"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    semantics {
+      entry_id: "a-decode-ffn-allreduce-sum-collective-ov"
+      key: "overview"
+      value: "TP4 all-reduce sum for FFN output: require ranks 0..3, same session, layer, token position, dtype, and hidden shape hash; exchange one partial per rank; sum in rank order 0,1,2,3; publish identical replicated hidden on all ranks."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "k-ffn-partial-in"
+      key: "input_use"
+      value: "Consumes d-ffn-partial."
+      object_ref {
+        node_id: "d-ffn-partial"
+      }
+      support_refs {
+        port {
+          node_id: "a-decode-ffn-allreduce-sum-collective"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "k-ffn-partial-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "k-layer-hidden-out"
+      key: "output"
+      value: "Produces d-hidden-layer-out."
+      object_ref {
+        node_id: "d-hidden-layer-out"
+      }
+      support_refs {
+        port {
+          node_id: "a-decode-ffn-allreduce-sum-collective"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "k-layer-hidden-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-decode-ffn-allreduce-sum-collective-effect"
+      key: "effect"
+      value: "TP4 all-reduce sum for FFN output: require ranks 0..3, same session, layer, token position, dtype, and hidden shape hash; exchange one partial per rank; sum in rank order 0,1,2,3; publish identical replicated hidden on all ranks."
+      support_refs {
+        node_id: "a-decode-ffn-allreduce-sum-collective"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-decode-ffn-allreduce-sum-collective-exit"
+      key: "exit"
+      value: "a-decode-ffn-allreduce-sum-collective-done"
+      support_refs {
+        node_id: "a-decode-ffn-allreduce-sum-collective"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-decode-ffn-allreduce-sum-collective-code"
+      key: "code_unit"
+      value: "realize 06 TP4 FFN all-reduce sum"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-decode-ffn-allreduce-sum-collective-fail"
+      key: "failure_semantics"
+      value: "Reject and produce no hidden output on missing rank, duplicate rank, seq/layer/position mismatch, dtype or shape-hash mismatch, non-finite partial policy violation, or collective timeout."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-decode-ffn-allreduce-sum-collective-impl"
+      key: "implementation_choice"
+      value: "fixed_by_child_contract_from_parent_action"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-decode-ffn-allreduce-sum-collective-nd"
+      key: "no_diagnostic"
+      value: "none"
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "s-tp"
+      access: "update"
+      meaning: "open a TP4 collective epoch and exchange all hidden partials"
+    }
+    state_set {
+      state_node_id: "s-rank-plan"
+      access: "read"
+      meaning: "validate rank ids 0..3 and TP degree 4"
+    }
+  }
+  nodes {
+    id: "d-ffn-partial"
+    kind: "DATA"
+    label: "FFN output partial input"
+    data_type: "blueprint.work.ds4_arch.hidden"
+    semantics {
+      entry_id: "decode-ffn-allreduce-sum-d-ffn-partial-data-role"
+      key: "data_role"
+      value: "child boundary or intermediate data"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-ffn-allreduce-sum-d-ffn-partial-identity"
+      key: "identity"
+      value: "d-ffn-partial is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-ffn-allreduce-sum-d-ffn-partial-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-ffn-allreduce-sum-d-ffn-partial-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-ffn-allreduce-sum-d-ffn-partial-provenance"
+      key: "provenance"
+      value: "enters through graph input"
+      status: SUPPORTED
+    }
+    sources {
+      source_id: "src-decode-ffn-allreduce-sum-d-ffn-partial"
+      kind: "graph_input"
+      source_ref: "ffn-partial-in graph input"
+      graph_input_port_id: "ffn-partial-in"
+      meaning: "child graph boundary input"
+    }
+  }
+  nodes {
+    id: "d-hidden-layer-out"
+    kind: "DATA"
+    label: "FFN output replicated hidden output"
+    data_type: "blueprint.work.ds4_arch.hidden"
+    semantics {
+      entry_id: "decode-ffn-allreduce-sum-d-hidden-layer-out-data-role"
+      key: "data_role"
+      value: "child boundary or intermediate data"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-ffn-allreduce-sum-d-hidden-layer-out-identity"
+      key: "identity"
+      value: "d-hidden-layer-out is the named occurrence in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-ffn-allreduce-sum-d-hidden-layer-out-ordering"
+      key: "ordering"
+      value: "ordered by layer index and token position"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-ffn-allreduce-sum-d-hidden-layer-out-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-ffn-allreduce-sum-d-hidden-layer-out-provenance"
+      key: "provenance"
+      value: "produced by child action"
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "s-rank-plan"
+    kind: "STATE"
+    label: "same state s-rank-plan"
+    data_type: "blueprint.work.ds4_arch.rank_plan"
+    semantics {
+      entry_id: "decode-ffn-allreduce-sum-s-rank-plan-data-role"
+      key: "data_role"
+      value: "child-visible parent state"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-ffn-allreduce-sum-s-rank-plan-identity"
+      key: "identity"
+      value: "s-rank-plan is the same logical state as the parent graph node."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-ffn-allreduce-sum-s-rank-plan-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-ffn-allreduce-sum-s-rank-plan-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-ffn-allreduce-sum-s-rank-plan-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "decode"
+      state_node_id: "s-rank-plan"
+      relation: "same logical state as decode graph"
+      meaning: "child action reads or updates the same state occurrence declared by the parent action"
+    }
+  }
+  nodes {
+    id: "s-tp"
+    kind: "STATE"
+    label: "same state s-tp"
+    data_type: "blueprint.work.ds4_arch.distlink"
+    semantics {
+      entry_id: "decode-ffn-allreduce-sum-s-tp-data-role"
+      key: "data_role"
+      value: "child-visible parent state"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-ffn-allreduce-sum-s-tp-identity"
+      key: "identity"
+      value: "s-tp is the same logical state as the parent graph node."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-ffn-allreduce-sum-s-tp-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-ffn-allreduce-sum-s-tp-presence"
+      key: "presence"
+      value: "required on the main operation path."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "decode-ffn-allreduce-sum-s-tp-provenance"
+      key: "provenance"
+      value: "declared by same_state_as link."
+      status: SUPPORTED
+    }
+    same_state_as {
+      graph_id: "decode"
+      state_node_id: "s-tp"
+      relation: "same logical state as decode graph"
+      meaning: "child action reads or updates the same state occurrence declared by the parent action"
+    }
+  }
+  edges {
+    id: "e-decode-ffn-allreduce-sum-in"
+    source_node_id: "d-ffn-partial"
+    target_node_id: "a-decode-ffn-allreduce-sum-collective"
+    kind: "input"
+    label: "d-ffn-partial feeds a-decode-ffn-allreduce-sum-collective"
+    semantics {
+      entry_id: "e-decode-ffn-allreduce-sum-in-r"
+      key: "relationship"
+      value: "d-ffn-partial feeds a-decode-ffn-allreduce-sum-collective"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-decode-ffn-allreduce-sum-out"
+    source_node_id: "a-decode-ffn-allreduce-sum-collective"
+    target_node_id: "d-hidden-layer-out"
+    kind: "output"
+    label: "a-decode-ffn-allreduce-sum-collective produces d-hidden-layer-out"
+    semantics {
+      entry_id: "e-decode-ffn-allreduce-sum-out-r"
+      key: "relationship"
+      value: "a-decode-ffn-allreduce-sum-collective produces d-hidden-layer-out"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-decode-ffn-allreduce-sum-rank"
+    source_node_id: "a-decode-ffn-allreduce-sum-collective"
+    target_node_id: "s-rank-plan"
+    kind: "state-access"
+    label: "read TP degree and rank identity mapping"
+    semantics {
+      entry_id: "e-decode-ffn-allreduce-sum-rank-r"
+      key: "relationship"
+      value: "read TP degree and rank identity mapping"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-decode-ffn-allreduce-sum-rank-s"
+      key: "state_read"
+      value: "read TP degree and rank identity mapping"
+      object_ref {
+        node_id: "s-rank-plan"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
+    id: "e-decode-ffn-allreduce-sum-tp"
+    source_node_id: "a-decode-ffn-allreduce-sum-collective"
+    target_node_id: "s-tp"
+    kind: "state-access"
+    label: "open TP4 all-reduce epoch and write received partial metadata"
+    semantics {
+      entry_id: "e-decode-ffn-allreduce-sum-tp-r"
+      key: "relationship"
+      value: "open TP4 all-reduce epoch and write received partial metadata"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-decode-ffn-allreduce-sum-tp-s"
+      key: "state_update"
+      value: "open TP4 all-reduce epoch and write received partial metadata"
+      object_ref {
+        node_id: "s-tp"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  operations {
+    operation_id: "op-decode-ffn-allreduce-sum"
+    name: "realize 06 TP4 FFN all-reduce sum"
+    overview: "TP4 all-reduce sum for FFN output: require ranks 0..3, same session, layer, token position, dtype, and hidden shape hash; exchange one partial per rank; sum in rank order 0,1,2,3; publish identical replicated hidden on all ranks."
+    members {
+      ref {
+        node_id: "a-decode-ffn-allreduce-sum-collective"
+      }
+      role: "collective"
+    }
+    members {
+      ref {
+        node_id: "d-ffn-partial"
+      }
+      role: "input"
+    }
+    members {
+      ref {
+        node_id: "d-hidden-layer-out"
+      }
+      role: "output"
+    }
+    members {
+      ref {
+        node_id: "s-rank-plan"
+      }
+      role: "same rank plan"
+    }
+    members {
+      ref {
+        node_id: "s-tp"
+      }
+      role: "same tp fabric"
+    }
+    semantics {
+      entry_id: "op-decode-ffn-allreduce-sum-ov"
+      key: "overview"
+      value: "TP4 all-reduce sum for FFN output: require ranks 0..3, same session, layer, token position, dtype, and hidden shape hash; exchange one partial per rank; sum in rank order 0,1,2,3; publish identical replicated hidden on all ranks."
+      status: SUPPORTED
+    }
+    end_goals {
+      goal_id: "goal-decode-ffn-allreduce-sum"
+      intent: "TP4 all-reduce sum for FFN output: require ranks 0..3, same session, layer, token position, dtype, and hidden shape hash; exchange one partial per rank; sum in rank order 0,1,2,3; publish identical replicated hidden on all ranks."
+      bindings {
+        ref {
+          node_id: "d-hidden-layer-out"
+        }
+        role: "produced_output"
+        semantics {
+          entry_id: "goal-decode-ffn-allreduce-sum-out"
+          key: "target_state"
+          value: "d-hidden-layer-out is produced only after the lowered contract checks pass"
+          status: SUPPORTED
+        }
+      }
+    }
+  }
+}
+canonical {
+  schema_sha256: "9de5a18221a33a9379092d084dbae946af604b979dfe7caf07bdd65701b5ea9d"
+  type_schema_sha256: "08b5ee97761ad247b0bfaac6f11fcc8840f5fefffc5092270c5d0d92c3074e47"
+  graph_sha256: "85bec5176ca24611608cd402bce8dc63228e6ac15f2e9dd9929efc3784e9f6aa"
+  graph_contract_sha256: "a37addd65edffa7d255d67b5b9ace64e7c227742f57e3af90afa6ac18e31a510"
+}

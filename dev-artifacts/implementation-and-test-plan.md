@@ -29,6 +29,8 @@ unless a code discovery proves that the contract itself is wrong or incomplete.
   - `dev-artifacts/validation/validate-lowered-decode-composite.result.json`: PASS
   - `dev-artifacts/validation/validate-lowered-serve-composite.result.json`: PASS
   - `dev-artifacts/validation/status-after-lowering.result.json`: PASS
+  - `dev-artifacts/ds4-arch-review.html`: regenerated, PASS render with 14
+    graphs, 135 nodes, 179 edges.
   - `dev-artifacts/validation-lint-current.json`: PASS
   - `dev-artifacts/validation-serve-l0-current.json`: PASS
   - `dev-artifacts/validation-decode-composite-current.json`: PASS

@@ -1,0 +1,84 @@
+{
+  "action": "mutate",
+  "added_graph_ids": [
+    "decode-attn-allreduce-sum",
+    "decode-dcp-row-exchange",
+    "decode-ffn-allreduce-sum",
+    "decode-logits-gather-topk"
+  ],
+  "after_artifact_integrity": {
+    "blueprint_sha256": "3466079cab4a6e6d8011d675c3cf429d7cda2bc961c2d5ca006e3087af317b6c",
+    "semantic_sha256": "3177dc06506cb955e519157ab2f2125472287223a6e5f60ded7e3a95ecead023"
+  },
+  "before_artifact_integrity": {
+    "blueprint_sha256": "a0d9cf6b17df5f544ab2d17930aaf58b6f2bf4a3c1ce4034d3f91f1ba202e30a",
+    "semantic_sha256": "a4808fa315b82548de56bf906a6497cffb4f39d09c03a5b2267c69bfd9ff3f6e"
+  },
+  "changed_graph_ids": [
+    "decode",
+    "decode-attn-allreduce-sum",
+    "decode-dcp-row-exchange",
+    "decode-dcp-topk",
+    "decode-ffn-allreduce-sum",
+    "decode-logits-gather-topk"
+  ],
+  "contract_validation": {
+    "error_count": 0,
+    "errors": [],
+    "graph_ids": [
+      "decode",
+      "decode-dcp-topk"
+    ],
+    "profile": "composite",
+    "schema": "blueprint-contract-validation/v4",
+    "snapshot": {
+      "artifact_integrity": {
+        "blueprint_sha256": "3466079cab4a6e6d8011d675c3cf429d7cda2bc961c2d5ca006e3087af317b6c",
+        "semantic_sha256": "3177dc06506cb955e519157ab2f2125472287223a6e5f60ded7e3a95ecead023"
+      },
+      "covered_graphs": [
+        {
+          "graph_contract_sha256": "2af92c0420b89ec8189e6c62009a4b879cb65a12c361d794476dd907904b0a1e",
+          "graph_id": "decode",
+          "role": "selected",
+          "type_schema_sha256": "11aed4b3949cb382442d88c9da0f49383f7a3e1d79ee196a83cb7696855e03be"
+        },
+        {
+          "graph_contract_sha256": "2311682e85d881362a93c0be8eed1d36aad3e87844f612878ff85c816b3c3f24",
+          "graph_id": "decode-dcp-topk",
+          "role": "selected",
+          "type_schema_sha256": "f477d38322af6cab16352f2b1d2db21e9ad400f2b0afb3fae965f8e32efbbf63"
+        },
+        {
+          "graph_contract_sha256": "9212a3685de85a5df4e17c1471458e064e4c335988ae220f36f65731baca3c8a",
+          "graph_id": "serve",
+          "role": "ancestor",
+          "type_schema_sha256": "30f49b45e889237b5bb310b878ab4e6706809d614eedd39946a3bc723ce1c6d4"
+        }
+      ],
+      "selected_graph_ids": [
+        "decode",
+        "decode-dcp-topk"
+      ]
+    },
+    "status": "PASS",
+    "warning_count": 0,
+    "warnings": []
+  },
+  "request_id": "mutate-lower-tp4-data-plane-v5",
+  "schema": "blueprint-write-result/v4",
+  "status": "PASS",
+  "validation": {
+    "blueprint_id": "ds4-arch",
+    "blueprint_sha256": "3466079cab4a6e6d8011d675c3cf429d7cda2bc961c2d5ca006e3087af317b6c",
+    "error_count": 0,
+    "errors": [],
+    "graph_count": 14,
+    "schema": "blueprint-artifact-validation@1",
+    "semantic_sha256": "3177dc06506cb955e519157ab2f2125472287223a6e5f60ded7e3a95ecead023",
+    "stage": "complete",
+    "status": "PASS",
+    "warning_count": 0,
+    "warnings": []
+  }
+}

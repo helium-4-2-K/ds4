@@ -458,7 +458,10 @@ bool ds4_glm52_mock_tp4_step_add_contribution(
     ds4_glm52_mock_rank_step *r = &step->ranks[rank];
     *r = *rank_step;
     step->rank_mask |= 1u << rank;
-    if (rank_step->candidate_score > step->coordinator_score) {
+    if (rank_step->candidate_score > step->coordinator_score ||
+        (rank_step->candidate_score == step->coordinator_score &&
+         (step->coordinator_token < 0 ||
+          rank_step->candidate_token < step->coordinator_token))) {
         step->coordinator_score = rank_step->candidate_score;
         step->coordinator_token = rank_step->candidate_token;
         step->coordinator_rank = rank;

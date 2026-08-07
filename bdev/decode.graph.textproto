@@ -341,12 +341,6 @@ graph {
       status: SUPPORTED
     }
     semantics {
-      entry_id: "attnred-cu"
-      key: "code_unit"
-      value: "TP all-reduce sum for attention"
-      status: SUPPORTED
-    }
-    semantics {
       entry_id: "attnred-collective"
       key: "collective"
       value: "all_reduce_sum"
@@ -364,6 +358,7 @@ graph {
       value: "none"
       status: SUPPORTED
     }
+    expands_to_graph_id: "decode-attn-allreduce-sum"
     state_set {
       state_node_id: "s-tp"
       access: "read"
@@ -796,12 +791,6 @@ graph {
       status: SUPPORTED
     }
     semantics {
-      entry_id: "ffnred-cu"
-      key: "code_unit"
-      value: "TP all-reduce sum for FFN"
-      status: SUPPORTED
-    }
-    semantics {
       entry_id: "ffnred-collective"
       key: "collective"
       value: "all_reduce_sum"
@@ -819,6 +808,7 @@ graph {
       value: "none"
       status: SUPPORTED
     }
+    expands_to_graph_id: "decode-ffn-allreduce-sum"
     state_set {
       state_node_id: "s-tp"
       access: "read"
@@ -1094,12 +1084,6 @@ graph {
       status: SUPPORTED
     }
     semantics {
-      entry_id: "gather-cu"
-      key: "code_unit"
-      value: "TP logits gather/top-k"
-      status: SUPPORTED
-    }
-    semantics {
       entry_id: "gather-collective"
       key: "collective"
       value: "gather_or_distributed_topk"
@@ -1123,6 +1107,7 @@ graph {
       value: "none"
       status: SUPPORTED
     }
+    expands_to_graph_id: "decode-logits-gather-topk"
     state_set {
       state_node_id: "s-tp"
       access: "read"
@@ -3796,6 +3781,6 @@ evidence_sources {
 canonical {
   schema_sha256: "9de5a18221a33a9379092d084dbae946af604b979dfe7caf07bdd65701b5ea9d"
   type_schema_sha256: "11aed4b3949cb382442d88c9da0f49383f7a3e1d79ee196a83cb7696855e03be"
-  graph_sha256: "531b4116a4a6105039821b48f64d501736d8f2e8190874efd6048c3033595b1b"
-  graph_contract_sha256: "e98ec8de0297f19e37d776a48f3cc032a7d0b91972a643ff72ca3ad8c42fe3cb"
+  graph_sha256: "7208581331d6d92668f64433ebc32168c665ed9b1d5d0eae818318a68ae34e20"
+  graph_contract_sha256: "2af92c0420b89ec8189e6c62009a4b879cb65a12c361d794476dd907904b0a1e"
 }

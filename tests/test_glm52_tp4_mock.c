@@ -351,6 +351,43 @@ static void test_tp4_mock_rejects_mismatches(void) {
           "model identity mismatch should fail");
 }
 
+static void test_tp4_mock_tie_breaks_by_token_id(void) {
+    ds4_glm52_mock_model models[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_mock_session sessions[DS4_GLM52_L0_RANK_COUNT];
+    char err[192] = "";
+
+    init_models(models);
+    prefill_sessions(models, sessions);
+
+    ds4_glm52_mock_tp4_step step = {0};
+    const int order[] = {3, 2, 1, 0};
+    for (int i = 0; i < DS4_GLM52_L0_RANK_COUNT; i++) {
+        const int rank = order[i];
+        ds4_glm52_mock_rank_step contribution;
+        check(ds4_glm52_mock_make_rank_step(&models[rank],
+                                            &sessions[rank],
+                                            DS4_GLM52_TP4_COMMAND_PREFILL,
+                                            9,
+                                            &contribution,
+                                            err,
+                                            sizeof(err)),
+              "tie-break rank step creation should succeed");
+        contribution.candidate_score = 42.0f;
+        contribution.candidate_token = contribution.vocab_start + 7;
+        check(ds4_glm52_mock_tp4_step_add_contribution(&step,
+                                                       &contribution,
+                                                       err,
+                                                       sizeof(err)),
+              "tie-break contribution should be accepted");
+    }
+
+    check(step.complete, "tie-break step should complete");
+    check(step.coordinator_rank == 0,
+          "equal-score top-k merge should choose the lowest token id");
+    check(step.coordinator_token == models[0].vocab_start + 7,
+          "tie-break coordinator token should be rank 0's lowest token");
+}
+
 static void test_mock_transport_round_trip_and_rejections(void) {
     ds4_glm52_mock_model models[DS4_GLM52_L0_RANK_COUNT];
     ds4_glm52_mock_session sessions[DS4_GLM52_L0_RANK_COUNT];
@@ -463,6 +500,7 @@ static void test_mock_transport_round_trip_and_rejections(void) {
 int main(void) {
     test_prefill_and_decode_tp4_mock_steps();
     test_tp4_mock_rejects_mismatches();
+    test_tp4_mock_tie_breaks_by_token_id();
     test_mock_transport_round_trip_and_rejections();
     puts("test_glm52_tp4_mock: ok");
     return 0;

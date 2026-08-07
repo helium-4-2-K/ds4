@@ -245,12 +245,6 @@ graph {
       status: SUPPORTED
     }
     semantics {
-      entry_id: "a-dcp-topk-merge-cu"
-      key: "code_unit"
-      value: "DCP4 sparse indexer score/top-k merge"
-      status: SUPPORTED
-    }
-    semantics {
       entry_id: "a-dcp-topk-merge-im"
       key: "implementation_choice"
       value: "fixed_by_child_contract_from_parent_action"
@@ -262,6 +256,7 @@ graph {
       value: "none"
       status: SUPPORTED
     }
+    expands_to_graph_id: "decode-dcp-row-exchange"
     state_set {
       state_node_id: "s-kv"
       access: "read"
@@ -697,6 +692,6 @@ graph {
 canonical {
   schema_sha256: "9de5a18221a33a9379092d084dbae946af604b979dfe7caf07bdd65701b5ea9d"
   type_schema_sha256: "f477d38322af6cab16352f2b1d2db21e9ad400f2b0afb3fae965f8e32efbbf63"
-  graph_sha256: "1da71c35502a2dde890388fcb9d08f6315ab20b88c690d7307ee4f34bd7368b8"
-  graph_contract_sha256: "74863d5d56161f47e4cb755d7bc51fe8e48ccab017eaf2264e0e84e804ac8bc8"
+  graph_sha256: "d52839e622051fc0ed269b49a238a85e1c33e751353b30304ddc630b85022b9c"
+  graph_contract_sha256: "2311682e85d881362a93c0be8eed1d36aad3e87844f612878ff85c816b3c3f24"
 }

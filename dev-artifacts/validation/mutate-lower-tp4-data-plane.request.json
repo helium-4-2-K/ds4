@@ -1,0 +1,3072 @@
+{
+  "schema": "blueprint-write-request/v11",
+  "action": "mutate",
+  "request_id": "mutate-lower-tp4-data-plane-v5",
+  "root": "/Users/helium/src/ds4-gb10x4-bcd/bdev",
+  "record_dir": "/Users/helium/src/ds4-gb10x4-bcd/dev-artifacts/03_record",
+  "expected_blueprint_sha256": "a0d9cf6b17df5f544ab2d17930aaf58b6f2bf4a3c1ce4034d3f91f1ba202e30a",
+  "validation_stage": "complete",
+  "operations": [
+    {
+      "verb": "remove",
+      "entity": "semantic",
+      "graph_id": "decode",
+      "entity_id": "attnred-cu",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "a-attn-allreduce"
+      }
+    },
+    {
+      "verb": "remove",
+      "entity": "semantic",
+      "graph_id": "decode",
+      "entity_id": "ffnred-cu",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "a-ffn-allreduce"
+      }
+    },
+    {
+      "verb": "remove",
+      "entity": "semantic",
+      "graph_id": "decode",
+      "entity_id": "gather-cu",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "a-logits-gather"
+      }
+    },
+    {
+      "verb": "remove",
+      "entity": "semantic",
+      "graph_id": "decode-dcp-topk",
+      "entity_id": "a-dcp-topk-merge-cu",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "a-dcp-topk-merge"
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "graph",
+      "graph_id": "decode-attn-allreduce-sum",
+      "params": {
+        "display_name": "Lowered TP4 attention all-reduce sum child",
+        "graph_version": "1.0",
+        "package": "blueprint.work.ds4_arch",
+        "overall_semantic": {
+          "overview": "All ranks sum attention output-projection partials to produce a distinct replicated hidden occurrence after attention residual/norm boundary.",
+          "support_refs": [
+            {
+              "node_id": "a-decode-attn-allreduce-sum-collective"
+            }
+          ]
+        },
+        "architecture_rationale": {
+          "entry_id": "decode-attn-allreduce-sum-architecture-rationale",
+          "value": "The parent decode graph stays ordered while this child owns the exact TP4 collective invariants, failure modes, and replicated-output contract.",
+          "support_refs": [
+            {
+              "node_id": "a-decode-attn-allreduce-sum-collective"
+            }
+          ]
+        },
+        "semantics": [
+          {
+            "entry_id": "attnred-ov",
+            "key": "overview",
+            "value": "All ranks sum attention output-projection partials to produce a distinct replicated hidden occurrence after attention residual/norm boundary.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-decode-attn-allreduce-sum-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "attn-partial-in",
+            "key": "input_use",
+            "value": "Consumes rank-local attention partials.",
+            "status": "supported",
+            "object_ref": {
+              "port": {
+                "owner": "graph",
+                "direction": "input",
+                "port_id": "attn-partial-in"
+              }
+            }
+          },
+          {
+            "entry_id": "attn-hidden-out",
+            "key": "output",
+            "value": "Produces replicated hidden after ATTN collective.",
+            "status": "supported",
+            "object_ref": {
+              "port": {
+                "owner": "graph",
+                "direction": "output",
+                "port_id": "attn-hidden-out"
+              }
+            }
+          },
+          {
+            "entry_id": "attnred-ef",
+            "key": "effect",
+            "value": "attention partials summed on all ranks",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-decode-attn-allreduce-sum-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "attnred-exit",
+            "key": "exit",
+            "value": "attention-replicated",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-decode-attn-allreduce-sum-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "attnred-cu",
+            "key": "code_unit",
+            "value": "TP all-reduce sum for attention",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-decode-attn-allreduce-sum-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "attnred-collective",
+            "key": "collective",
+            "value": "all_reduce_sum",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-decode-attn-allreduce-sum-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "attnred-im",
+            "key": "implementation_choice",
+            "value": "requires_new_glm52_tp4_support",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-decode-attn-allreduce-sum-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "attnred-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-decode-attn-allreduce-sum-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "decode-attn-allreduce-sum-lowered-contract",
+            "key": "lowered_contract",
+            "value": "TP4 all-reduce sum for attention output projection: require ranks 0..3, same session, layer, token position, dtype, and hidden shape hash; exchange one partial per rank; sum in rank order 0,1,2,3; publish identical replicated hidden on all ranks.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-decode-attn-allreduce-sum-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "decode-attn-allreduce-sum-no-guide",
+            "key": "no_implementation_guide",
+            "value": "This child graph is a target-system contract; implementation planning lives outside the blueprint.",
+            "status": "supported"
+          }
+        ],
+        "input_ports": [
+          {
+            "port_id": "attn-partial-in",
+            "node_id": "d-attn-partial",
+            "type_ref": "blueprint.work.ds4_arch.hidden",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "attn-hidden-out",
+            "node_id": "d-hidden-attn",
+            "type_ref": "blueprint.work.ds4_arch.hidden",
+            "cardinality": "exactly_one"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "type_import",
+      "graph_id": "decode-attn-allreduce-sum",
+      "params": {
+        "import_path": "decode.types.proto"
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "type_import",
+      "graph_id": "decode-attn-allreduce-sum",
+      "params": {
+        "import_path": "serve.types.proto"
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "data",
+      "graph_id": "decode-attn-allreduce-sum",
+      "params": {
+        "id": "d-attn-partial",
+        "kind": "DATA",
+        "label": "attention output projection partial input",
+        "data_type": "blueprint.work.ds4_arch.hidden",
+        "sources": [
+          {
+            "source_id": "src-decode-attn-allreduce-sum-d-attn-partial",
+            "kind": "graph_input",
+            "source_ref": "attn-partial-in graph input",
+            "graph_input_port_id": "attn-partial-in",
+            "meaning": "child graph boundary input"
+          }
+        ],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "decode-attn-allreduce-sum-d-attn-partial-data-role",
+            "key": "data_role",
+            "value": "child boundary or intermediate data",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-attn-allreduce-sum-d-attn-partial-identity",
+            "key": "identity",
+            "value": "d-attn-partial is the named occurrence in this graph.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-attn-allreduce-sum-d-attn-partial-ordering",
+            "key": "no_ordering",
+            "value": "not a stream-ordered data item.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-attn-allreduce-sum-d-attn-partial-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-attn-allreduce-sum-d-attn-partial-provenance",
+            "key": "provenance",
+            "value": "enters through graph input",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "data",
+      "graph_id": "decode-attn-allreduce-sum",
+      "params": {
+        "id": "d-hidden-attn",
+        "kind": "DATA",
+        "label": "attention output projection replicated hidden output",
+        "data_type": "blueprint.work.ds4_arch.hidden",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "decode-attn-allreduce-sum-d-hidden-attn-data-role",
+            "key": "data_role",
+            "value": "child boundary or intermediate data",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-attn-allreduce-sum-d-hidden-attn-identity",
+            "key": "identity",
+            "value": "d-hidden-attn is the named occurrence in this graph.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-attn-allreduce-sum-d-hidden-attn-ordering",
+            "key": "ordering",
+            "value": "ordered by layer index and token position",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-attn-allreduce-sum-d-hidden-attn-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-attn-allreduce-sum-d-hidden-attn-provenance",
+            "key": "provenance",
+            "value": "produced by child action",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "state",
+      "graph_id": "decode-attn-allreduce-sum",
+      "params": {
+        "id": "s-tp",
+        "kind": "STATE",
+        "label": "same state s-tp",
+        "data_type": "blueprint.work.ds4_arch.distlink",
+        "sources": [],
+        "same_state_as": [
+          {
+            "graph_id": "decode",
+            "state_node_id": "s-tp",
+            "relation": "same logical state as decode graph",
+            "meaning": "child action reads or updates the same state occurrence declared by the parent action"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "decode-attn-allreduce-sum-s-tp-data-role",
+            "key": "data_role",
+            "value": "child-visible parent state",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-attn-allreduce-sum-s-tp-identity",
+            "key": "identity",
+            "value": "s-tp is the same logical state as the parent graph node.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-attn-allreduce-sum-s-tp-ordering",
+            "key": "no_ordering",
+            "value": "not a stream-ordered data item.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-attn-allreduce-sum-s-tp-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-attn-allreduce-sum-s-tp-provenance",
+            "key": "provenance",
+            "value": "declared by same_state_as link.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "state",
+      "graph_id": "decode-attn-allreduce-sum",
+      "params": {
+        "id": "s-rank-plan",
+        "kind": "STATE",
+        "label": "same state s-rank-plan",
+        "data_type": "blueprint.work.ds4_arch.rank_plan",
+        "sources": [],
+        "same_state_as": [
+          {
+            "graph_id": "decode",
+            "state_node_id": "s-rank-plan",
+            "relation": "same logical state as decode graph",
+            "meaning": "child action reads or updates the same state occurrence declared by the parent action"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "decode-attn-allreduce-sum-s-rank-plan-data-role",
+            "key": "data_role",
+            "value": "child-visible parent state",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-attn-allreduce-sum-s-rank-plan-identity",
+            "key": "identity",
+            "value": "s-rank-plan is the same logical state as the parent graph node.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-attn-allreduce-sum-s-rank-plan-ordering",
+            "key": "no_ordering",
+            "value": "not a stream-ordered data item.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-attn-allreduce-sum-s-rank-plan-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-attn-allreduce-sum-s-rank-plan-provenance",
+            "key": "provenance",
+            "value": "declared by same_state_as link.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "action",
+      "graph_id": "decode-attn-allreduce-sum",
+      "params": {
+        "id": "a-decode-attn-allreduce-sum-collective",
+        "kind": "ACTION",
+        "label": "realize 04 TP4 attention all-reduce sum",
+        "input_ports": [
+          {
+            "port_id": "k-attn-partial-in",
+            "node_id": "d-attn-partial",
+            "type_ref": "blueprint.work.ds4_arch.hidden",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "k-attn-hidden-out",
+            "node_id": "d-hidden-attn",
+            "type_ref": "blueprint.work.ds4_arch.hidden",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "a-decode-attn-allreduce-sum-collective-ov",
+            "key": "overview",
+            "value": "TP4 all-reduce sum for attention output projection: require ranks 0..3, same session, layer, token position, dtype, and hidden shape hash; exchange one partial per rank; sum in rank order 0,1,2,3; publish identical replicated hidden on all ranks.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "k-attn-partial-in",
+            "key": "input_use",
+            "value": "Consumes d-attn-partial.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-decode-attn-allreduce-sum-collective"
+                  },
+                  "direction": "input",
+                  "port_id": "k-attn-partial-in"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-attn-partial"
+            }
+          },
+          {
+            "entry_id": "k-attn-hidden-out",
+            "key": "output",
+            "value": "Produces d-hidden-attn.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-decode-attn-allreduce-sum-collective"
+                  },
+                  "direction": "output",
+                  "port_id": "k-attn-hidden-out"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-hidden-attn"
+            }
+          },
+          {
+            "entry_id": "a-decode-attn-allreduce-sum-collective-effect",
+            "key": "effect",
+            "value": "TP4 all-reduce sum for attention output projection: require ranks 0..3, same session, layer, token position, dtype, and hidden shape hash; exchange one partial per rank; sum in rank order 0,1,2,3; publish identical replicated hidden on all ranks.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-decode-attn-allreduce-sum-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-decode-attn-allreduce-sum-collective-exit",
+            "key": "exit",
+            "value": "a-decode-attn-allreduce-sum-collective-done",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-decode-attn-allreduce-sum-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-decode-attn-allreduce-sum-collective-code",
+            "key": "code_unit",
+            "value": "realize 04 TP4 attention all-reduce sum",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-decode-attn-allreduce-sum-collective-fail",
+            "key": "failure_semantics",
+            "value": "Reject and produce no hidden output on missing rank, duplicate rank, seq/layer/position mismatch, dtype or shape-hash mismatch, non-finite partial policy violation, or collective timeout.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-decode-attn-allreduce-sum-collective-impl",
+            "key": "implementation_choice",
+            "value": "fixed_by_child_contract_from_parent_action",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-decode-attn-allreduce-sum-collective-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          }
+        ],
+        "state_set": [
+          {
+            "state_node_id": "s-tp",
+            "access": "update",
+            "meaning": "open a TP4 collective epoch and exchange all hidden partials"
+          },
+          {
+            "state_node_id": "s-rank-plan",
+            "access": "read",
+            "meaning": "validate rank ids 0..3 and TP degree 4"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode-attn-allreduce-sum",
+      "params": {
+        "id": "e-decode-attn-allreduce-sum-in",
+        "source_node_id": "d-attn-partial",
+        "target_node_id": "a-decode-attn-allreduce-sum-collective",
+        "family": "dataflow",
+        "kind": "input",
+        "label": "d-attn-partial feeds a-decode-attn-allreduce-sum-collective",
+        "semantics": [
+          {
+            "entry_id": "e-decode-attn-allreduce-sum-in-r",
+            "key": "relationship",
+            "value": "d-attn-partial feeds a-decode-attn-allreduce-sum-collective",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode-attn-allreduce-sum",
+      "params": {
+        "id": "e-decode-attn-allreduce-sum-tp",
+        "source_node_id": "a-decode-attn-allreduce-sum-collective",
+        "target_node_id": "s-tp",
+        "family": "state",
+        "kind": "state-access",
+        "label": "open TP4 all-reduce epoch and write received partial metadata",
+        "semantics": [
+          {
+            "entry_id": "e-decode-attn-allreduce-sum-tp-r",
+            "key": "relationship",
+            "value": "open TP4 all-reduce epoch and write received partial metadata",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-decode-attn-allreduce-sum-tp-s",
+            "key": "state_update",
+            "value": "open TP4 all-reduce epoch and write received partial metadata",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "s-tp"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode-attn-allreduce-sum",
+      "params": {
+        "id": "e-decode-attn-allreduce-sum-rank",
+        "source_node_id": "a-decode-attn-allreduce-sum-collective",
+        "target_node_id": "s-rank-plan",
+        "family": "state",
+        "kind": "state-access",
+        "label": "read TP degree and rank identity mapping",
+        "semantics": [
+          {
+            "entry_id": "e-decode-attn-allreduce-sum-rank-r",
+            "key": "relationship",
+            "value": "read TP degree and rank identity mapping",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-decode-attn-allreduce-sum-rank-s",
+            "key": "state_read",
+            "value": "read TP degree and rank identity mapping",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "s-rank-plan"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode-attn-allreduce-sum",
+      "params": {
+        "id": "e-decode-attn-allreduce-sum-out",
+        "source_node_id": "a-decode-attn-allreduce-sum-collective",
+        "target_node_id": "d-hidden-attn",
+        "family": "dataflow",
+        "kind": "output",
+        "label": "a-decode-attn-allreduce-sum-collective produces d-hidden-attn",
+        "semantics": [
+          {
+            "entry_id": "e-decode-attn-allreduce-sum-out-r",
+            "key": "relationship",
+            "value": "a-decode-attn-allreduce-sum-collective produces d-hidden-attn",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "operation",
+      "graph_id": "decode-attn-allreduce-sum",
+      "params": {
+        "operation_id": "op-decode-attn-allreduce-sum",
+        "name": "realize 04 TP4 attention all-reduce sum",
+        "overview": "TP4 all-reduce sum for attention output projection: require ranks 0..3, same session, layer, token position, dtype, and hidden shape hash; exchange one partial per rank; sum in rank order 0,1,2,3; publish identical replicated hidden on all ranks.",
+        "members": [
+          {
+            "ref": {
+              "node_id": "d-attn-partial"
+            },
+            "role": "input"
+          },
+          {
+            "ref": {
+              "node_id": "a-decode-attn-allreduce-sum-collective"
+            },
+            "role": "collective"
+          },
+          {
+            "ref": {
+              "node_id": "s-tp"
+            },
+            "role": "same tp fabric"
+          },
+          {
+            "ref": {
+              "node_id": "s-rank-plan"
+            },
+            "role": "same rank plan"
+          },
+          {
+            "ref": {
+              "node_id": "d-hidden-attn"
+            },
+            "role": "output"
+          }
+        ],
+        "data_flow_ids": [],
+        "end_goals": [
+          {
+            "goal_id": "goal-decode-attn-allreduce-sum",
+            "intent": "TP4 all-reduce sum for attention output projection: require ranks 0..3, same session, layer, token position, dtype, and hidden shape hash; exchange one partial per rank; sum in rank order 0,1,2,3; publish identical replicated hidden on all ranks.",
+            "bindings": [
+              {
+                "ref": {
+                  "node_id": "d-hidden-attn"
+                },
+                "role": "produced_output",
+                "semantics": [
+                  {
+                    "entry_id": "goal-decode-attn-allreduce-sum-out",
+                    "key": "target_state",
+                    "value": "d-hidden-attn is produced only after the lowered contract checks pass",
+                    "status": "supported"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "op-decode-attn-allreduce-sum-ov",
+            "key": "overview",
+            "value": "TP4 all-reduce sum for attention output projection: require ranks 0..3, same session, layer, token position, dtype, and hidden shape hash; exchange one partial per rank; sum in rank order 0,1,2,3; publish identical replicated hidden on all ranks.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "expansion",
+      "graph_id": "decode",
+      "entity_id": "a-attn-allreduce",
+      "params": {
+        "child_graph_id": "decode-attn-allreduce-sum"
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "graph",
+      "graph_id": "decode-ffn-allreduce-sum",
+      "params": {
+        "display_name": "Lowered TP4 FFN all-reduce sum child",
+        "graph_version": "1.0",
+        "package": "blueprint.work.ds4_arch",
+        "overall_semantic": {
+          "overview": "All ranks sum FFN partials and apply residual to produce the replicated hidden for the next layer or final head.",
+          "support_refs": [
+            {
+              "node_id": "a-decode-ffn-allreduce-sum-collective"
+            }
+          ]
+        },
+        "architecture_rationale": {
+          "entry_id": "decode-ffn-allreduce-sum-architecture-rationale",
+          "value": "The parent decode graph stays ordered while this child owns the exact TP4 collective invariants, failure modes, and replicated-output contract.",
+          "support_refs": [
+            {
+              "node_id": "a-decode-ffn-allreduce-sum-collective"
+            }
+          ]
+        },
+        "semantics": [
+          {
+            "entry_id": "ffnred-ov",
+            "key": "overview",
+            "value": "All ranks sum FFN partials and apply residual to produce the replicated hidden for the next layer or final head.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-decode-ffn-allreduce-sum-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "ffn-partial-in",
+            "key": "input_use",
+            "value": "Consumes rank-local FFN partials.",
+            "status": "supported",
+            "object_ref": {
+              "port": {
+                "owner": "graph",
+                "direction": "input",
+                "port_id": "ffn-partial-in"
+              }
+            }
+          },
+          {
+            "entry_id": "layer-hidden-out",
+            "key": "output",
+            "value": "Produces replicated hidden after layer i.",
+            "status": "supported",
+            "object_ref": {
+              "port": {
+                "owner": "graph",
+                "direction": "output",
+                "port_id": "layer-hidden-out"
+              }
+            }
+          },
+          {
+            "entry_id": "ffnred-ef",
+            "key": "effect",
+            "value": "FFN partials summed on all ranks",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-decode-ffn-allreduce-sum-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "ffnred-exit",
+            "key": "exit",
+            "value": "layer-hidden-replicated",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-decode-ffn-allreduce-sum-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "ffnred-cu",
+            "key": "code_unit",
+            "value": "TP all-reduce sum for FFN",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-decode-ffn-allreduce-sum-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "ffnred-collective",
+            "key": "collective",
+            "value": "all_reduce_sum",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-decode-ffn-allreduce-sum-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "ffnred-im",
+            "key": "implementation_choice",
+            "value": "requires_new_glm52_tp4_support",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-decode-ffn-allreduce-sum-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "ffnred-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-decode-ffn-allreduce-sum-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "decode-ffn-allreduce-sum-lowered-contract",
+            "key": "lowered_contract",
+            "value": "TP4 all-reduce sum for FFN output: require ranks 0..3, same session, layer, token position, dtype, and hidden shape hash; exchange one partial per rank; sum in rank order 0,1,2,3; publish identical replicated hidden on all ranks.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-decode-ffn-allreduce-sum-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "decode-ffn-allreduce-sum-no-guide",
+            "key": "no_implementation_guide",
+            "value": "This child graph is a target-system contract; implementation planning lives outside the blueprint.",
+            "status": "supported"
+          }
+        ],
+        "input_ports": [
+          {
+            "port_id": "ffn-partial-in",
+            "node_id": "d-ffn-partial",
+            "type_ref": "blueprint.work.ds4_arch.hidden",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "layer-hidden-out",
+            "node_id": "d-hidden-layer-out",
+            "type_ref": "blueprint.work.ds4_arch.hidden",
+            "cardinality": "exactly_one"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "type_import",
+      "graph_id": "decode-ffn-allreduce-sum",
+      "params": {
+        "import_path": "decode.types.proto"
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "type_import",
+      "graph_id": "decode-ffn-allreduce-sum",
+      "params": {
+        "import_path": "serve.types.proto"
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "data",
+      "graph_id": "decode-ffn-allreduce-sum",
+      "params": {
+        "id": "d-ffn-partial",
+        "kind": "DATA",
+        "label": "FFN output partial input",
+        "data_type": "blueprint.work.ds4_arch.hidden",
+        "sources": [
+          {
+            "source_id": "src-decode-ffn-allreduce-sum-d-ffn-partial",
+            "kind": "graph_input",
+            "source_ref": "ffn-partial-in graph input",
+            "graph_input_port_id": "ffn-partial-in",
+            "meaning": "child graph boundary input"
+          }
+        ],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "decode-ffn-allreduce-sum-d-ffn-partial-data-role",
+            "key": "data_role",
+            "value": "child boundary or intermediate data",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-ffn-allreduce-sum-d-ffn-partial-identity",
+            "key": "identity",
+            "value": "d-ffn-partial is the named occurrence in this graph.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-ffn-allreduce-sum-d-ffn-partial-ordering",
+            "key": "no_ordering",
+            "value": "not a stream-ordered data item.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-ffn-allreduce-sum-d-ffn-partial-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-ffn-allreduce-sum-d-ffn-partial-provenance",
+            "key": "provenance",
+            "value": "enters through graph input",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "data",
+      "graph_id": "decode-ffn-allreduce-sum",
+      "params": {
+        "id": "d-hidden-layer-out",
+        "kind": "DATA",
+        "label": "FFN output replicated hidden output",
+        "data_type": "blueprint.work.ds4_arch.hidden",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "decode-ffn-allreduce-sum-d-hidden-layer-out-data-role",
+            "key": "data_role",
+            "value": "child boundary or intermediate data",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-ffn-allreduce-sum-d-hidden-layer-out-identity",
+            "key": "identity",
+            "value": "d-hidden-layer-out is the named occurrence in this graph.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-ffn-allreduce-sum-d-hidden-layer-out-ordering",
+            "key": "ordering",
+            "value": "ordered by layer index and token position",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-ffn-allreduce-sum-d-hidden-layer-out-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-ffn-allreduce-sum-d-hidden-layer-out-provenance",
+            "key": "provenance",
+            "value": "produced by child action",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "state",
+      "graph_id": "decode-ffn-allreduce-sum",
+      "params": {
+        "id": "s-tp",
+        "kind": "STATE",
+        "label": "same state s-tp",
+        "data_type": "blueprint.work.ds4_arch.distlink",
+        "sources": [],
+        "same_state_as": [
+          {
+            "graph_id": "decode",
+            "state_node_id": "s-tp",
+            "relation": "same logical state as decode graph",
+            "meaning": "child action reads or updates the same state occurrence declared by the parent action"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "decode-ffn-allreduce-sum-s-tp-data-role",
+            "key": "data_role",
+            "value": "child-visible parent state",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-ffn-allreduce-sum-s-tp-identity",
+            "key": "identity",
+            "value": "s-tp is the same logical state as the parent graph node.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-ffn-allreduce-sum-s-tp-ordering",
+            "key": "no_ordering",
+            "value": "not a stream-ordered data item.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-ffn-allreduce-sum-s-tp-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-ffn-allreduce-sum-s-tp-provenance",
+            "key": "provenance",
+            "value": "declared by same_state_as link.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "state",
+      "graph_id": "decode-ffn-allreduce-sum",
+      "params": {
+        "id": "s-rank-plan",
+        "kind": "STATE",
+        "label": "same state s-rank-plan",
+        "data_type": "blueprint.work.ds4_arch.rank_plan",
+        "sources": [],
+        "same_state_as": [
+          {
+            "graph_id": "decode",
+            "state_node_id": "s-rank-plan",
+            "relation": "same logical state as decode graph",
+            "meaning": "child action reads or updates the same state occurrence declared by the parent action"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "decode-ffn-allreduce-sum-s-rank-plan-data-role",
+            "key": "data_role",
+            "value": "child-visible parent state",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-ffn-allreduce-sum-s-rank-plan-identity",
+            "key": "identity",
+            "value": "s-rank-plan is the same logical state as the parent graph node.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-ffn-allreduce-sum-s-rank-plan-ordering",
+            "key": "no_ordering",
+            "value": "not a stream-ordered data item.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-ffn-allreduce-sum-s-rank-plan-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-ffn-allreduce-sum-s-rank-plan-provenance",
+            "key": "provenance",
+            "value": "declared by same_state_as link.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "action",
+      "graph_id": "decode-ffn-allreduce-sum",
+      "params": {
+        "id": "a-decode-ffn-allreduce-sum-collective",
+        "kind": "ACTION",
+        "label": "realize 06 TP4 FFN all-reduce sum",
+        "input_ports": [
+          {
+            "port_id": "k-ffn-partial-in",
+            "node_id": "d-ffn-partial",
+            "type_ref": "blueprint.work.ds4_arch.hidden",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "k-layer-hidden-out",
+            "node_id": "d-hidden-layer-out",
+            "type_ref": "blueprint.work.ds4_arch.hidden",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "a-decode-ffn-allreduce-sum-collective-ov",
+            "key": "overview",
+            "value": "TP4 all-reduce sum for FFN output: require ranks 0..3, same session, layer, token position, dtype, and hidden shape hash; exchange one partial per rank; sum in rank order 0,1,2,3; publish identical replicated hidden on all ranks.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "k-ffn-partial-in",
+            "key": "input_use",
+            "value": "Consumes d-ffn-partial.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-decode-ffn-allreduce-sum-collective"
+                  },
+                  "direction": "input",
+                  "port_id": "k-ffn-partial-in"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-ffn-partial"
+            }
+          },
+          {
+            "entry_id": "k-layer-hidden-out",
+            "key": "output",
+            "value": "Produces d-hidden-layer-out.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-decode-ffn-allreduce-sum-collective"
+                  },
+                  "direction": "output",
+                  "port_id": "k-layer-hidden-out"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-hidden-layer-out"
+            }
+          },
+          {
+            "entry_id": "a-decode-ffn-allreduce-sum-collective-effect",
+            "key": "effect",
+            "value": "TP4 all-reduce sum for FFN output: require ranks 0..3, same session, layer, token position, dtype, and hidden shape hash; exchange one partial per rank; sum in rank order 0,1,2,3; publish identical replicated hidden on all ranks.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-decode-ffn-allreduce-sum-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-decode-ffn-allreduce-sum-collective-exit",
+            "key": "exit",
+            "value": "a-decode-ffn-allreduce-sum-collective-done",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-decode-ffn-allreduce-sum-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-decode-ffn-allreduce-sum-collective-code",
+            "key": "code_unit",
+            "value": "realize 06 TP4 FFN all-reduce sum",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-decode-ffn-allreduce-sum-collective-fail",
+            "key": "failure_semantics",
+            "value": "Reject and produce no hidden output on missing rank, duplicate rank, seq/layer/position mismatch, dtype or shape-hash mismatch, non-finite partial policy violation, or collective timeout.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-decode-ffn-allreduce-sum-collective-impl",
+            "key": "implementation_choice",
+            "value": "fixed_by_child_contract_from_parent_action",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-decode-ffn-allreduce-sum-collective-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          }
+        ],
+        "state_set": [
+          {
+            "state_node_id": "s-tp",
+            "access": "update",
+            "meaning": "open a TP4 collective epoch and exchange all hidden partials"
+          },
+          {
+            "state_node_id": "s-rank-plan",
+            "access": "read",
+            "meaning": "validate rank ids 0..3 and TP degree 4"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode-ffn-allreduce-sum",
+      "params": {
+        "id": "e-decode-ffn-allreduce-sum-in",
+        "source_node_id": "d-ffn-partial",
+        "target_node_id": "a-decode-ffn-allreduce-sum-collective",
+        "family": "dataflow",
+        "kind": "input",
+        "label": "d-ffn-partial feeds a-decode-ffn-allreduce-sum-collective",
+        "semantics": [
+          {
+            "entry_id": "e-decode-ffn-allreduce-sum-in-r",
+            "key": "relationship",
+            "value": "d-ffn-partial feeds a-decode-ffn-allreduce-sum-collective",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode-ffn-allreduce-sum",
+      "params": {
+        "id": "e-decode-ffn-allreduce-sum-tp",
+        "source_node_id": "a-decode-ffn-allreduce-sum-collective",
+        "target_node_id": "s-tp",
+        "family": "state",
+        "kind": "state-access",
+        "label": "open TP4 all-reduce epoch and write received partial metadata",
+        "semantics": [
+          {
+            "entry_id": "e-decode-ffn-allreduce-sum-tp-r",
+            "key": "relationship",
+            "value": "open TP4 all-reduce epoch and write received partial metadata",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-decode-ffn-allreduce-sum-tp-s",
+            "key": "state_update",
+            "value": "open TP4 all-reduce epoch and write received partial metadata",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "s-tp"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode-ffn-allreduce-sum",
+      "params": {
+        "id": "e-decode-ffn-allreduce-sum-rank",
+        "source_node_id": "a-decode-ffn-allreduce-sum-collective",
+        "target_node_id": "s-rank-plan",
+        "family": "state",
+        "kind": "state-access",
+        "label": "read TP degree and rank identity mapping",
+        "semantics": [
+          {
+            "entry_id": "e-decode-ffn-allreduce-sum-rank-r",
+            "key": "relationship",
+            "value": "read TP degree and rank identity mapping",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-decode-ffn-allreduce-sum-rank-s",
+            "key": "state_read",
+            "value": "read TP degree and rank identity mapping",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "s-rank-plan"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode-ffn-allreduce-sum",
+      "params": {
+        "id": "e-decode-ffn-allreduce-sum-out",
+        "source_node_id": "a-decode-ffn-allreduce-sum-collective",
+        "target_node_id": "d-hidden-layer-out",
+        "family": "dataflow",
+        "kind": "output",
+        "label": "a-decode-ffn-allreduce-sum-collective produces d-hidden-layer-out",
+        "semantics": [
+          {
+            "entry_id": "e-decode-ffn-allreduce-sum-out-r",
+            "key": "relationship",
+            "value": "a-decode-ffn-allreduce-sum-collective produces d-hidden-layer-out",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "operation",
+      "graph_id": "decode-ffn-allreduce-sum",
+      "params": {
+        "operation_id": "op-decode-ffn-allreduce-sum",
+        "name": "realize 06 TP4 FFN all-reduce sum",
+        "overview": "TP4 all-reduce sum for FFN output: require ranks 0..3, same session, layer, token position, dtype, and hidden shape hash; exchange one partial per rank; sum in rank order 0,1,2,3; publish identical replicated hidden on all ranks.",
+        "members": [
+          {
+            "ref": {
+              "node_id": "d-ffn-partial"
+            },
+            "role": "input"
+          },
+          {
+            "ref": {
+              "node_id": "a-decode-ffn-allreduce-sum-collective"
+            },
+            "role": "collective"
+          },
+          {
+            "ref": {
+              "node_id": "s-tp"
+            },
+            "role": "same tp fabric"
+          },
+          {
+            "ref": {
+              "node_id": "s-rank-plan"
+            },
+            "role": "same rank plan"
+          },
+          {
+            "ref": {
+              "node_id": "d-hidden-layer-out"
+            },
+            "role": "output"
+          }
+        ],
+        "data_flow_ids": [],
+        "end_goals": [
+          {
+            "goal_id": "goal-decode-ffn-allreduce-sum",
+            "intent": "TP4 all-reduce sum for FFN output: require ranks 0..3, same session, layer, token position, dtype, and hidden shape hash; exchange one partial per rank; sum in rank order 0,1,2,3; publish identical replicated hidden on all ranks.",
+            "bindings": [
+              {
+                "ref": {
+                  "node_id": "d-hidden-layer-out"
+                },
+                "role": "produced_output",
+                "semantics": [
+                  {
+                    "entry_id": "goal-decode-ffn-allreduce-sum-out",
+                    "key": "target_state",
+                    "value": "d-hidden-layer-out is produced only after the lowered contract checks pass",
+                    "status": "supported"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "op-decode-ffn-allreduce-sum-ov",
+            "key": "overview",
+            "value": "TP4 all-reduce sum for FFN output: require ranks 0..3, same session, layer, token position, dtype, and hidden shape hash; exchange one partial per rank; sum in rank order 0,1,2,3; publish identical replicated hidden on all ranks.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "expansion",
+      "graph_id": "decode",
+      "entity_id": "a-ffn-allreduce",
+      "params": {
+        "child_graph_id": "decode-ffn-allreduce-sum"
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "graph",
+      "graph_id": "decode-logits-gather-topk",
+      "params": {
+        "display_name": "Lowered TP4 logits gather/top-k child",
+        "graph_version": "1.0",
+        "package": "blueprint.work.ds4_arch",
+        "overall_semantic": {
+          "overview": "Gather full logits or a distributed top-k/nucleus equivalent from rank-local vocab shards to rank0 for sampling.",
+          "support_refs": [
+            {
+              "node_id": "a-logits-gather-topk-collective"
+            }
+          ]
+        },
+        "architecture_rationale": {
+          "entry_id": "decode-logits-gather-topk-architecture-rationale",
+          "value": "The parent decode graph needs coordinator-visible logits; this child makes vocab coverage, candidate exchange, and deterministic top-k merge first-class contract obligations.",
+          "support_refs": [
+            {
+              "node_id": "a-logits-gather-topk-collective"
+            }
+          ]
+        },
+        "semantics": [
+          {
+            "entry_id": "gather-ov",
+            "key": "overview",
+            "value": "Gather full logits or a distributed top-k/nucleus equivalent from rank-local vocab shards to rank0 for sampling.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-logits-gather-topk-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "gather-logits-in",
+            "key": "input_use",
+            "value": "Consumes rank-local logits shards.",
+            "status": "supported",
+            "object_ref": {
+              "port": {
+                "owner": "graph",
+                "direction": "input",
+                "port_id": "gather-logits-in"
+              }
+            }
+          },
+          {
+            "entry_id": "gather-logits-out",
+            "key": "output",
+            "value": "Produces coordinator-visible logits/top-k result.",
+            "status": "supported",
+            "object_ref": {
+              "port": {
+                "owner": "graph",
+                "direction": "output",
+                "port_id": "gather-logits-out"
+              }
+            }
+          },
+          {
+            "entry_id": "gather-ef",
+            "key": "effect",
+            "value": "coordinator has sampling distribution",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-logits-gather-topk-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "gather-exit",
+            "key": "exit",
+            "value": "logits-gathered",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-logits-gather-topk-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "gather-cu",
+            "key": "code_unit",
+            "value": "TP logits gather/top-k",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-logits-gather-topk-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "gather-collective",
+            "key": "collective",
+            "value": "gather_or_distributed_topk",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-logits-gather-topk-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "gather-im",
+            "key": "implementation_choice",
+            "value": "requires_new_glm52_tp4_support",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-logits-gather-topk-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "gather-bird-ref",
+            "key": "implementation_reference",
+            "value": "Bird/vLLM vLLM serve output path is the reference for assembling logits/top-k for sampling after TP4 vocab shards.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-logits-gather-topk-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "gather-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-logits-gather-topk-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "decode-logits-gather-topk-lowered-contract",
+            "key": "lowered_contract",
+            "value": "TP4 logits gather/top-k: require four contiguous vocab shards covering the model vocabulary exactly once for the same token position; gather full logits or rank-local top-k candidates to rank 0; merge ties by descending score then ascending token id.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-logits-gather-topk-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "decode-logits-gather-topk-no-guide",
+            "key": "no_implementation_guide",
+            "value": "This child graph is a target-system contract; implementation planning lives outside the blueprint.",
+            "status": "supported"
+          }
+        ],
+        "input_ports": [
+          {
+            "port_id": "gather-logits-in",
+            "node_id": "d-logits-shard",
+            "type_ref": "blueprint.work.ds4_arch.logits_shard",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "gather-logits-out",
+            "node_id": "d-logits-coord",
+            "type_ref": "blueprint.work.ds4_arch.logits",
+            "cardinality": "exactly_one"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "type_import",
+      "graph_id": "decode-logits-gather-topk",
+      "params": {
+        "import_path": "decode.types.proto"
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "type_import",
+      "graph_id": "decode-logits-gather-topk",
+      "params": {
+        "import_path": "serve.types.proto"
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "data",
+      "graph_id": "decode-logits-gather-topk",
+      "params": {
+        "id": "d-logits-shard",
+        "kind": "DATA",
+        "label": "rank-local vocab logits shard",
+        "data_type": "blueprint.work.ds4_arch.logits_shard",
+        "sources": [
+          {
+            "source_id": "src-decode-logits-gather-topk-d-logits-shard",
+            "kind": "graph_input",
+            "source_ref": "gather-logits-in graph input",
+            "graph_input_port_id": "gather-logits-in",
+            "meaning": "child graph boundary input"
+          }
+        ],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "decode-logits-gather-topk-d-logits-shard-data-role",
+            "key": "data_role",
+            "value": "child boundary or intermediate data",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-logits-gather-topk-d-logits-shard-identity",
+            "key": "identity",
+            "value": "d-logits-shard is the named occurrence in this graph.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-logits-gather-topk-d-logits-shard-ordering",
+            "key": "ordering",
+            "value": "ordered by token position and vocab interval",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-logits-gather-topk-d-logits-shard-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-logits-gather-topk-d-logits-shard-provenance",
+            "key": "provenance",
+            "value": "enters through graph input",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "data",
+      "graph_id": "decode-logits-gather-topk",
+      "params": {
+        "id": "d-logits-coord",
+        "kind": "DATA",
+        "label": "coordinator-visible logits/top-k",
+        "data_type": "blueprint.work.ds4_arch.logits",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "decode-logits-gather-topk-d-logits-coord-data-role",
+            "key": "data_role",
+            "value": "child boundary or intermediate data",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-logits-gather-topk-d-logits-coord-identity",
+            "key": "identity",
+            "value": "d-logits-coord is the named occurrence in this graph.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-logits-gather-topk-d-logits-coord-ordering",
+            "key": "ordering",
+            "value": "ordered by token position",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-logits-gather-topk-d-logits-coord-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-logits-gather-topk-d-logits-coord-provenance",
+            "key": "provenance",
+            "value": "produced by child action",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "state",
+      "graph_id": "decode-logits-gather-topk",
+      "params": {
+        "id": "s-tp",
+        "kind": "STATE",
+        "label": "same state s-tp",
+        "data_type": "blueprint.work.ds4_arch.distlink",
+        "sources": [],
+        "same_state_as": [
+          {
+            "graph_id": "decode",
+            "state_node_id": "s-tp",
+            "relation": "same logical state as decode graph",
+            "meaning": "child action reads or updates the same state occurrence declared by the parent action"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "decode-logits-gather-topk-s-tp-data-role",
+            "key": "data_role",
+            "value": "child-visible parent state",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-logits-gather-topk-s-tp-identity",
+            "key": "identity",
+            "value": "s-tp is the same logical state as the parent graph node.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-logits-gather-topk-s-tp-ordering",
+            "key": "no_ordering",
+            "value": "not a stream-ordered data item.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-logits-gather-topk-s-tp-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-logits-gather-topk-s-tp-provenance",
+            "key": "provenance",
+            "value": "declared by same_state_as link.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "state",
+      "graph_id": "decode-logits-gather-topk",
+      "params": {
+        "id": "s-rank-plan",
+        "kind": "STATE",
+        "label": "same state s-rank-plan",
+        "data_type": "blueprint.work.ds4_arch.rank_plan",
+        "sources": [],
+        "same_state_as": [
+          {
+            "graph_id": "decode",
+            "state_node_id": "s-rank-plan",
+            "relation": "same logical state as decode graph",
+            "meaning": "child action reads or updates the same state occurrence declared by the parent action"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "decode-logits-gather-topk-s-rank-plan-data-role",
+            "key": "data_role",
+            "value": "child-visible parent state",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-logits-gather-topk-s-rank-plan-identity",
+            "key": "identity",
+            "value": "s-rank-plan is the same logical state as the parent graph node.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-logits-gather-topk-s-rank-plan-ordering",
+            "key": "no_ordering",
+            "value": "not a stream-ordered data item.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-logits-gather-topk-s-rank-plan-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-logits-gather-topk-s-rank-plan-provenance",
+            "key": "provenance",
+            "value": "declared by same_state_as link.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "action",
+      "graph_id": "decode-logits-gather-topk",
+      "params": {
+        "id": "a-logits-gather-topk-collective",
+        "kind": "ACTION",
+        "label": "realize 08 TP4 logits gather/top-k",
+        "input_ports": [
+          {
+            "port_id": "k-gather-logits-in",
+            "node_id": "d-logits-shard",
+            "type_ref": "blueprint.work.ds4_arch.logits_shard",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "k-gather-logits-out",
+            "node_id": "d-logits-coord",
+            "type_ref": "blueprint.work.ds4_arch.logits",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "a-logits-gather-topk-collective-ov",
+            "key": "overview",
+            "value": "TP4 logits gather/top-k: require four contiguous vocab shards covering the model vocabulary exactly once for the same token position; gather full logits or rank-local top-k candidates to rank 0; merge ties by descending score then ascending token id.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "k-gather-logits-in",
+            "key": "input_use",
+            "value": "Consumes d-logits-shard.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-logits-gather-topk-collective"
+                  },
+                  "direction": "input",
+                  "port_id": "k-gather-logits-in"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-logits-shard"
+            }
+          },
+          {
+            "entry_id": "k-gather-logits-out",
+            "key": "output",
+            "value": "Produces d-logits-coord.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-logits-gather-topk-collective"
+                  },
+                  "direction": "output",
+                  "port_id": "k-gather-logits-out"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-logits-coord"
+            }
+          },
+          {
+            "entry_id": "a-logits-gather-topk-collective-effect",
+            "key": "effect",
+            "value": "TP4 logits gather/top-k: require four contiguous vocab shards covering the model vocabulary exactly once for the same token position; gather full logits or rank-local top-k candidates to rank 0; merge ties by descending score then ascending token id.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-logits-gather-topk-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-logits-gather-topk-collective-exit",
+            "key": "exit",
+            "value": "a-logits-gather-topk-collective-done",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-logits-gather-topk-collective"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-logits-gather-topk-collective-code",
+            "key": "code_unit",
+            "value": "realize 08 TP4 logits gather/top-k",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-logits-gather-topk-collective-fail",
+            "key": "failure_semantics",
+            "value": "Reject and produce no coordinator logits on missing rank, duplicate vocab span, gap, overlap, out-of-range vocab id, position mismatch, dtype/shape mismatch, or inconsistent top-k.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-logits-gather-topk-collective-impl",
+            "key": "implementation_choice",
+            "value": "fixed_by_child_contract_from_parent_action",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-logits-gather-topk-collective-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          }
+        ],
+        "state_set": [
+          {
+            "state_node_id": "s-tp",
+            "access": "update",
+            "meaning": "gather vocab shards or top-k candidates to coordinator rank 0"
+          },
+          {
+            "state_node_id": "s-rank-plan",
+            "access": "read",
+            "meaning": "validate vocab_start/vocab_end ownership spans cover the model vocabulary exactly once"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode-logits-gather-topk",
+      "params": {
+        "id": "e-logits-in",
+        "source_node_id": "d-logits-shard",
+        "target_node_id": "a-logits-gather-topk-collective",
+        "family": "dataflow",
+        "kind": "input",
+        "label": "d-logits-shard feeds logits gather",
+        "semantics": [
+          {
+            "entry_id": "e-logits-in-r",
+            "key": "relationship",
+            "value": "d-logits-shard feeds logits gather",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode-logits-gather-topk",
+      "params": {
+        "id": "e-logits-tp",
+        "source_node_id": "a-logits-gather-topk-collective",
+        "target_node_id": "s-tp",
+        "family": "state",
+        "kind": "state-access",
+        "label": "write gathered logits or top-k candidates into TP gather epoch",
+        "semantics": [
+          {
+            "entry_id": "e-logits-tp-r",
+            "key": "relationship",
+            "value": "write gathered logits or top-k candidates into TP gather epoch",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-logits-tp-s",
+            "key": "state_update",
+            "value": "write gathered logits or top-k candidates into TP gather epoch",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "s-tp"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode-logits-gather-topk",
+      "params": {
+        "id": "e-logits-rank",
+        "source_node_id": "a-logits-gather-topk-collective",
+        "target_node_id": "s-rank-plan",
+        "family": "state",
+        "kind": "state-access",
+        "label": "read vocab_start/vocab_end rank ownership spans",
+        "semantics": [
+          {
+            "entry_id": "e-logits-rank-r",
+            "key": "relationship",
+            "value": "read vocab_start/vocab_end rank ownership spans",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-logits-rank-s",
+            "key": "state_read",
+            "value": "read vocab_start/vocab_end rank ownership spans",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "s-rank-plan"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode-logits-gather-topk",
+      "params": {
+        "id": "e-logits-out",
+        "source_node_id": "a-logits-gather-topk-collective",
+        "target_node_id": "d-logits-coord",
+        "family": "dataflow",
+        "kind": "output",
+        "label": "logits gather produces coordinator logits",
+        "semantics": [
+          {
+            "entry_id": "e-logits-out-r",
+            "key": "relationship",
+            "value": "logits gather produces coordinator logits",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "operation",
+      "graph_id": "decode-logits-gather-topk",
+      "params": {
+        "operation_id": "op-decode-logits-gather-topk",
+        "name": "realize TP4 logits gather/top-k",
+        "overview": "TP4 logits gather/top-k: require four contiguous vocab shards covering the model vocabulary exactly once for the same token position; gather full logits or rank-local top-k candidates to rank 0; merge ties by descending score then ascending token id.",
+        "members": [
+          {
+            "ref": {
+              "node_id": "d-logits-shard"
+            },
+            "role": "input"
+          },
+          {
+            "ref": {
+              "node_id": "a-logits-gather-topk-collective"
+            },
+            "role": "collective"
+          },
+          {
+            "ref": {
+              "node_id": "s-tp"
+            },
+            "role": "same tp fabric"
+          },
+          {
+            "ref": {
+              "node_id": "s-rank-plan"
+            },
+            "role": "same rank plan"
+          },
+          {
+            "ref": {
+              "node_id": "d-logits-coord"
+            },
+            "role": "output"
+          }
+        ],
+        "data_flow_ids": [],
+        "end_goals": [
+          {
+            "goal_id": "goal-decode-logits-gather-topk",
+            "intent": "TP4 logits gather/top-k: require four contiguous vocab shards covering the model vocabulary exactly once for the same token position; gather full logits or rank-local top-k candidates to rank 0; merge ties by descending score then ascending token id.",
+            "bindings": [
+              {
+                "ref": {
+                  "node_id": "d-logits-coord"
+                },
+                "role": "produced_output",
+                "semantics": [
+                  {
+                    "entry_id": "goal-decode-logits-gather-topk-out",
+                    "key": "target_state",
+                    "value": "d-logits-coord is produced only after the lowered contract checks pass",
+                    "status": "supported"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "op-decode-logits-gather-topk-ov",
+            "key": "overview",
+            "value": "TP4 logits gather/top-k: require four contiguous vocab shards covering the model vocabulary exactly once for the same token position; gather full logits or rank-local top-k candidates to rank 0; merge ties by descending score then ascending token id.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "expansion",
+      "graph_id": "decode",
+      "entity_id": "a-logits-gather",
+      "params": {
+        "child_graph_id": "decode-logits-gather-topk"
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "graph",
+      "graph_id": "decode-dcp-row-exchange",
+      "params": {
+        "display_name": "Lowered DCP4 selected-row exchange child",
+        "graph_version": "1.0",
+        "package": "blueprint.work.ds4_arch",
+        "overall_semantic": {
+          "overview": "Ranks merge sparse-index scores across DCP context shards so each rank obtains the selected cache rows needed for its owned query heads.",
+          "support_refs": [
+            {
+              "node_id": "a-dcp-row-exchange"
+            }
+          ]
+        },
+        "architecture_rationale": {
+          "entry_id": "decode-dcp-row-exchange-architecture-rationale",
+          "value": "The decode-dcp-topk parent names global sparse selection; this child lowers the owner mapping, row payload fetch, and validation rules needed before sparse attention can read selected prefix rows.",
+          "support_refs": [
+            {
+              "node_id": "a-dcp-row-exchange"
+            }
+          ]
+        },
+        "semantics": [
+          {
+            "entry_id": "a-dcp-topk-merge-ov",
+            "key": "overview",
+            "value": "Ranks merge sparse-index scores across DCP context shards so each rank obtains the selected cache rows needed for its owned query heads.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-dcp-row-exchange"
+              }
+            ]
+          },
+          {
+            "entry_id": "k-dcp-cache-row-in",
+            "key": "input_use",
+            "value": "Consumes d-mla-cache-row.",
+            "status": "supported",
+            "object_ref": {
+              "port": {
+                "owner": "graph",
+                "direction": "input",
+                "port_id": "k-dcp-cache-row-in"
+              }
+            }
+          },
+          {
+            "entry_id": "k-dcp-qkv-in",
+            "key": "input_use",
+            "value": "Consumes d-qkv-shard.",
+            "status": "supported",
+            "object_ref": {
+              "port": {
+                "owner": "graph",
+                "direction": "input",
+                "port_id": "k-dcp-qkv-in"
+              }
+            }
+          },
+          {
+            "entry_id": "k-dcp-selection-out",
+            "key": "output",
+            "value": "Produces d-dcp-selection.",
+            "status": "supported",
+            "object_ref": {
+              "port": {
+                "owner": "graph",
+                "direction": "output",
+                "port_id": "k-dcp-selection-out"
+              }
+            }
+          },
+          {
+            "entry_id": "a-dcp-topk-merge-ef",
+            "key": "effect",
+            "value": "Ranks merge sparse-index scores across DCP context shards so each rank obtains the selected cache rows needed for its owned query heads.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-dcp-row-exchange"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-dcp-topk-merge-exit",
+            "key": "exit",
+            "value": "a-dcp-topk-merge-done",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-dcp-row-exchange"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-dcp-topk-merge-cu",
+            "key": "code_unit",
+            "value": "DCP4 sparse indexer score/top-k merge",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-dcp-row-exchange"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-dcp-topk-merge-im",
+            "key": "implementation_choice",
+            "value": "fixed_by_child_contract_from_parent_action",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-dcp-row-exchange"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-dcp-topk-merge-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-dcp-row-exchange"
+              }
+            ]
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-lowered-contract",
+            "key": "lowered_contract",
+            "value": "DCP4 selected-row exchange: score owned MLA/index rows for current rank Q, allgather candidate descriptors, merge global top-k, fetch selected row payloads from owner ranks, and publish owner-mapped sparse selection before attention reads the prefix.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-dcp-row-exchange"
+              }
+            ]
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-no-guide",
+            "key": "no_implementation_guide",
+            "value": "This child graph is a target-system contract; implementation planning lives outside the blueprint.",
+            "status": "supported"
+          }
+        ],
+        "input_ports": [
+          {
+            "port_id": "k-dcp-cache-row-in",
+            "node_id": "d-mla-cache-row",
+            "type_ref": "blueprint.work.ds4_arch.mla_cache_row",
+            "cardinality": "exactly_one"
+          },
+          {
+            "port_id": "k-dcp-qkv-in",
+            "node_id": "d-qkv-shard",
+            "type_ref": "blueprint.work.ds4_arch.qkv_shard",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "k-dcp-selection-out",
+            "node_id": "d-dcp-selection",
+            "type_ref": "blueprint.work.ds4_arch.sparse_selection",
+            "cardinality": "exactly_one"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "type_import",
+      "graph_id": "decode-dcp-row-exchange",
+      "params": {
+        "import_path": "decode.types.proto"
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "type_import",
+      "graph_id": "decode-dcp-row-exchange",
+      "params": {
+        "import_path": "serve.types.proto"
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "data",
+      "graph_id": "decode-dcp-row-exchange",
+      "params": {
+        "id": "d-mla-cache-row",
+        "kind": "DATA",
+        "label": "DCP-owned MLA/index cache row",
+        "data_type": "blueprint.work.ds4_arch.mla_cache_row",
+        "sources": [
+          {
+            "source_id": "src-decode-dcp-row-exchange-d-mla-cache-row",
+            "kind": "graph_input",
+            "source_ref": "k-dcp-cache-row-in graph input",
+            "graph_input_port_id": "k-dcp-cache-row-in",
+            "meaning": "child graph boundary input"
+          }
+        ],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "decode-dcp-row-exchange-d-mla-cache-row-data-role",
+            "key": "data_role",
+            "value": "child boundary or intermediate data",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-d-mla-cache-row-identity",
+            "key": "identity",
+            "value": "d-mla-cache-row is the named occurrence in this graph.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-d-mla-cache-row-ordering",
+            "key": "ordering",
+            "value": "append-ordered by token position and DCP owner",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-d-mla-cache-row-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-d-mla-cache-row-provenance",
+            "key": "provenance",
+            "value": "enters through graph input",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "data",
+      "graph_id": "decode-dcp-row-exchange",
+      "params": {
+        "id": "d-qkv-shard",
+        "kind": "DATA",
+        "label": "rank-owned query/KV reconstruction shard",
+        "data_type": "blueprint.work.ds4_arch.qkv_shard",
+        "sources": [
+          {
+            "source_id": "src-decode-dcp-row-exchange-d-qkv-shard",
+            "kind": "graph_input",
+            "source_ref": "k-dcp-qkv-in graph input",
+            "graph_input_port_id": "k-dcp-qkv-in",
+            "meaning": "child graph boundary input"
+          }
+        ],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "decode-dcp-row-exchange-d-qkv-shard-data-role",
+            "key": "data_role",
+            "value": "child boundary or intermediate data",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-d-qkv-shard-identity",
+            "key": "identity",
+            "value": "d-qkv-shard is the named occurrence in this graph.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-d-qkv-shard-ordering",
+            "key": "ordering",
+            "value": "ordered by layer index and token position",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-d-qkv-shard-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-d-qkv-shard-provenance",
+            "key": "provenance",
+            "value": "enters through graph input",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "data",
+      "graph_id": "decode-dcp-row-exchange",
+      "params": {
+        "id": "d-dcp-selection",
+        "kind": "DATA",
+        "label": "global sparse row selection",
+        "data_type": "blueprint.work.ds4_arch.sparse_selection",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "decode-dcp-row-exchange-d-dcp-selection-data-role",
+            "key": "data_role",
+            "value": "child boundary or intermediate data",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-d-dcp-selection-identity",
+            "key": "identity",
+            "value": "d-dcp-selection is the named occurrence in this graph.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-d-dcp-selection-ordering",
+            "key": "ordering",
+            "value": "ordered by query layer and token position",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-d-dcp-selection-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-d-dcp-selection-provenance",
+            "key": "provenance",
+            "value": "produced by child action",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "state",
+      "graph_id": "decode-dcp-row-exchange",
+      "params": {
+        "id": "s-kv",
+        "kind": "STATE",
+        "label": "same state s-kv",
+        "data_type": "blueprint.work.ds4_arch.kv",
+        "sources": [],
+        "same_state_as": [
+          {
+            "graph_id": "decode-dcp-topk",
+            "state_node_id": "s-kv",
+            "relation": "same logical state as decode-dcp-topk graph",
+            "meaning": "child action reads or updates the same state occurrence declared by the parent action"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "decode-dcp-row-exchange-s-kv-data-role",
+            "key": "data_role",
+            "value": "child-visible parent state",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-s-kv-identity",
+            "key": "identity",
+            "value": "s-kv is the same logical state as the parent graph node.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-s-kv-ordering",
+            "key": "ordering",
+            "value": "append-ordered by prompt/decode token position; cursor state records monotonic length and current position.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-s-kv-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-s-kv-provenance",
+            "key": "provenance",
+            "value": "declared by same_state_as link.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "state",
+      "graph_id": "decode-dcp-row-exchange",
+      "params": {
+        "id": "s-tp",
+        "kind": "STATE",
+        "label": "same state s-tp",
+        "data_type": "blueprint.work.ds4_arch.distlink",
+        "sources": [],
+        "same_state_as": [
+          {
+            "graph_id": "decode-dcp-topk",
+            "state_node_id": "s-tp",
+            "relation": "same logical state as decode-dcp-topk graph",
+            "meaning": "child action reads or updates the same state occurrence declared by the parent action"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "decode-dcp-row-exchange-s-tp-data-role",
+            "key": "data_role",
+            "value": "child-visible parent state",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-s-tp-identity",
+            "key": "identity",
+            "value": "s-tp is the same logical state as the parent graph node.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-s-tp-ordering",
+            "key": "no_ordering",
+            "value": "not a stream-ordered data item.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-s-tp-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-s-tp-provenance",
+            "key": "provenance",
+            "value": "declared by same_state_as link.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "state",
+      "graph_id": "decode-dcp-row-exchange",
+      "params": {
+        "id": "s-rank-plan",
+        "kind": "STATE",
+        "label": "same state s-rank-plan",
+        "data_type": "blueprint.work.ds4_arch.rank_plan",
+        "sources": [],
+        "same_state_as": [
+          {
+            "graph_id": "decode-dcp-topk",
+            "state_node_id": "s-rank-plan",
+            "relation": "same logical state as decode-dcp-topk graph",
+            "meaning": "child action reads or updates the same state occurrence declared by the parent action"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "decode-dcp-row-exchange-s-rank-plan-data-role",
+            "key": "data_role",
+            "value": "child-visible parent state",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-s-rank-plan-identity",
+            "key": "identity",
+            "value": "s-rank-plan is the same logical state as the parent graph node.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-s-rank-plan-ordering",
+            "key": "no_ordering",
+            "value": "not a stream-ordered data item.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-s-rank-plan-presence",
+            "key": "presence",
+            "value": "required on the main operation path.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "decode-dcp-row-exchange-s-rank-plan-provenance",
+            "key": "provenance",
+            "value": "declared by same_state_as link.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "action",
+      "graph_id": "decode-dcp-row-exchange",
+      "params": {
+        "id": "a-dcp-row-exchange",
+        "kind": "ACTION",
+        "label": "realize 03 DCP4 selected-row exchange",
+        "input_ports": [
+          {
+            "port_id": "k-row-cache-row-in",
+            "node_id": "d-mla-cache-row",
+            "type_ref": "blueprint.work.ds4_arch.mla_cache_row",
+            "cardinality": "exactly_one"
+          },
+          {
+            "port_id": "k-row-qkv-in",
+            "node_id": "d-qkv-shard",
+            "type_ref": "blueprint.work.ds4_arch.qkv_shard",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "k-row-selection-out",
+            "node_id": "d-dcp-selection",
+            "type_ref": "blueprint.work.ds4_arch.sparse_selection",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "a-dcp-row-exchange-ov",
+            "key": "overview",
+            "value": "DCP4 selected-row exchange: score owned MLA/index rows for current rank Q, allgather candidate descriptors, merge global top-k, fetch selected row payloads from owner ranks, and publish owner-mapped sparse selection before attention reads the prefix.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "k-row-cache-row-in",
+            "key": "input_use",
+            "value": "Consumes d-mla-cache-row.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-dcp-row-exchange"
+                  },
+                  "direction": "input",
+                  "port_id": "k-row-cache-row-in"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-mla-cache-row"
+            }
+          },
+          {
+            "entry_id": "k-row-qkv-in",
+            "key": "input_use",
+            "value": "Consumes d-qkv-shard.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-dcp-row-exchange"
+                  },
+                  "direction": "input",
+                  "port_id": "k-row-qkv-in"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-qkv-shard"
+            }
+          },
+          {
+            "entry_id": "k-row-selection-out",
+            "key": "output",
+            "value": "Produces d-dcp-selection.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-dcp-row-exchange"
+                  },
+                  "direction": "output",
+                  "port_id": "k-row-selection-out"
+                }
+              }
+            ],
+            "object_ref": {
+              "node_id": "d-dcp-selection"
+            }
+          },
+          {
+            "entry_id": "a-dcp-row-exchange-effect",
+            "key": "effect",
+            "value": "DCP4 selected-row exchange: score owned MLA/index rows for current rank Q, allgather candidate descriptors, merge global top-k, fetch selected row payloads from owner ranks, and publish owner-mapped sparse selection before attention reads the prefix.",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-dcp-row-exchange"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-dcp-row-exchange-exit",
+            "key": "exit",
+            "value": "a-dcp-row-exchange-done",
+            "status": "supported",
+            "support_refs": [
+              {
+                "node_id": "a-dcp-row-exchange"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-dcp-row-exchange-code",
+            "key": "code_unit",
+            "value": "realize 03 DCP4 selected-row exchange",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-dcp-row-exchange-fail",
+            "key": "failure_semantics",
+            "value": "Reject and produce no sparse selection on stale cursor, missing row owner, duplicate owner, insufficient top-k, checksum/byte-range mismatch, layer/position mismatch, q shard mismatch, or row payload fetch timeout. Output records selected positions, selected DCP ranks, top_k, global_merge_done, and owner mapping sufficient for attention to read the prefix.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-dcp-row-exchange-impl",
+            "key": "implementation_choice",
+            "value": "fixed_by_child_contract_from_parent_action",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-dcp-row-exchange-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "status": "supported"
+          }
+        ],
+        "state_set": [
+          {
+            "state_node_id": "s-kv",
+            "access": "read",
+            "meaning": "read prefix rows and selected row payloads by DCP owner"
+          },
+          {
+            "state_node_id": "s-tp",
+            "access": "update",
+            "meaning": "allgather scores/descriptors and fetch selected rows across DCP ranks"
+          },
+          {
+            "state_node_id": "s-rank-plan",
+            "access": "read",
+            "meaning": "validate DCP shard ownership spans and row owner mapping"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode-dcp-row-exchange",
+      "params": {
+        "id": "e-dcp-cache-in",
+        "source_node_id": "d-mla-cache-row",
+        "target_node_id": "a-dcp-row-exchange",
+        "family": "dataflow",
+        "kind": "input",
+        "label": "d-mla-cache-row feeds DCP row exchange",
+        "semantics": [
+          {
+            "entry_id": "e-dcp-cache-in-r",
+            "key": "relationship",
+            "value": "d-mla-cache-row feeds DCP row exchange",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode-dcp-row-exchange",
+      "params": {
+        "id": "e-dcp-qkv-in",
+        "source_node_id": "d-qkv-shard",
+        "target_node_id": "a-dcp-row-exchange",
+        "family": "dataflow",
+        "kind": "input",
+        "label": "d-qkv-shard feeds DCP row exchange",
+        "semantics": [
+          {
+            "entry_id": "e-dcp-qkv-in-r",
+            "key": "relationship",
+            "value": "d-qkv-shard feeds DCP row exchange",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode-dcp-row-exchange",
+      "params": {
+        "id": "e-dcp-kv",
+        "source_node_id": "a-dcp-row-exchange",
+        "target_node_id": "s-kv",
+        "family": "state",
+        "kind": "state-access",
+        "label": "read prefix MLA/index rows and selected row payloads by owner",
+        "semantics": [
+          {
+            "entry_id": "e-dcp-kv-r",
+            "key": "relationship",
+            "value": "read prefix MLA/index rows and selected row payloads by owner",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-dcp-kv-s",
+            "key": "state_read",
+            "value": "read prefix MLA/index rows and selected row payloads by owner",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "s-kv"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode-dcp-row-exchange",
+      "params": {
+        "id": "e-dcp-tp",
+        "source_node_id": "a-dcp-row-exchange",
+        "target_node_id": "s-tp",
+        "family": "state",
+        "kind": "state-access",
+        "label": "write DCP allgather descriptors and selected-row fetch events",
+        "semantics": [
+          {
+            "entry_id": "e-dcp-tp-r",
+            "key": "relationship",
+            "value": "write DCP allgather descriptors and selected-row fetch events",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-dcp-tp-s",
+            "key": "state_update",
+            "value": "write DCP allgather descriptors and selected-row fetch events",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "s-tp"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode-dcp-row-exchange",
+      "params": {
+        "id": "e-dcp-rank",
+        "source_node_id": "a-dcp-row-exchange",
+        "target_node_id": "s-rank-plan",
+        "family": "state",
+        "kind": "state-access",
+        "label": "read DCP shard ownership and rank identity mapping",
+        "semantics": [
+          {
+            "entry_id": "e-dcp-rank-r",
+            "key": "relationship",
+            "value": "read DCP shard ownership and rank identity mapping",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-dcp-rank-s",
+            "key": "state_read",
+            "value": "read DCP shard ownership and rank identity mapping",
+            "status": "supported",
+            "object_ref": {
+              "node_id": "s-rank-plan"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "decode-dcp-row-exchange",
+      "params": {
+        "id": "e-dcp-out",
+        "source_node_id": "a-dcp-row-exchange",
+        "target_node_id": "d-dcp-selection",
+        "family": "dataflow",
+        "kind": "output",
+        "label": "DCP row exchange produces sparse selection",
+        "semantics": [
+          {
+            "entry_id": "e-dcp-out-r",
+            "key": "relationship",
+            "value": "DCP row exchange produces sparse selection",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "operation",
+      "graph_id": "decode-dcp-row-exchange",
+      "params": {
+        "operation_id": "op-decode-dcp-row-exchange",
+        "name": "realize DCP4 selected-row exchange",
+        "overview": "DCP4 selected-row exchange: score owned MLA/index rows for current rank Q, allgather candidate descriptors, merge global top-k, fetch selected row payloads from owner ranks, and publish owner-mapped sparse selection before attention reads the prefix.",
+        "members": [
+          {
+            "ref": {
+              "node_id": "d-mla-cache-row"
+            },
+            "role": "cache input"
+          },
+          {
+            "ref": {
+              "node_id": "d-qkv-shard"
+            },
+            "role": "query input"
+          },
+          {
+            "ref": {
+              "node_id": "a-dcp-row-exchange"
+            },
+            "role": "dcp exchange"
+          },
+          {
+            "ref": {
+              "node_id": "s-kv"
+            },
+            "role": "same kv state"
+          },
+          {
+            "ref": {
+              "node_id": "s-tp"
+            },
+            "role": "same fabric"
+          },
+          {
+            "ref": {
+              "node_id": "s-rank-plan"
+            },
+            "role": "same rank plan"
+          },
+          {
+            "ref": {
+              "node_id": "d-dcp-selection"
+            },
+            "role": "output"
+          }
+        ],
+        "data_flow_ids": [],
+        "end_goals": [
+          {
+            "goal_id": "goal-decode-dcp-row-exchange",
+            "intent": "DCP4 selected-row exchange: score owned MLA/index rows for current rank Q, allgather candidate descriptors, merge global top-k, fetch selected row payloads from owner ranks, and publish owner-mapped sparse selection before attention reads the prefix.",
+            "bindings": [
+              {
+                "ref": {
+                  "node_id": "d-dcp-selection"
+                },
+                "role": "produced_output",
+                "semantics": [
+                  {
+                    "entry_id": "goal-decode-dcp-row-exchange-out",
+                    "key": "target_state",
+                    "value": "d-dcp-selection is produced only after the lowered contract checks pass",
+                    "status": "supported"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "op-decode-dcp-row-exchange-ov",
+            "key": "overview",
+            "value": "DCP4 selected-row exchange: score owned MLA/index rows for current rank Q, allgather candidate descriptors, merge global top-k, fetch selected row payloads from owner ranks, and publish owner-mapped sparse selection before attention reads the prefix.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "expansion",
+      "graph_id": "decode-dcp-topk",
+      "entity_id": "a-dcp-topk-merge",
+      "params": {
+        "child_graph_id": "decode-dcp-row-exchange"
+      }
+    }
+  ],
+  "contract_validation": {
+    "profile": "composite",
+    "graph_ids": [
+      "decode",
+      "decode-dcp-topk"
+    ]
+  }
+}
