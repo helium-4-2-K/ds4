@@ -19,6 +19,7 @@
 #define DS4_GLM52_MOCK_N_EXPERT_USED 8
 #define DS4_GLM52_MOCK_N_NEXTN 1
 #define DS4_GLM52_MOCK_MAX_TENSORS 192
+#define DS4_GLM52_MOCK_MAX_GENERATED_TOKENS 64
 #define DS4_GLM52_MOCK_HIDDEN_DTYPE_F32 1
 #define DS4_GLM52_MOCK_DCP_TOPK 4
 #define DS4_GLM52_MOCK_DCP_MAX_ROWS \
@@ -193,7 +194,37 @@ typedef struct {
     bool prefill_replicated;
     bool decode_replicated;
     bool coordinator_token_rank_owned;
+    bool request_bound;
+    bool prefill_enqueued;
+    bool stopped_by_max_tokens;
+    bool stopped_by_stop_token;
+    bool failed_without_cursor_advance;
+    int generated_count;
+    int stream_event_count;
+    int failure_kind;
+    int failure_decode_index;
+    uint64_t failure_token_step_j;
+    uint64_t failure_kv_length;
+    int generated_tokens[DS4_GLM52_MOCK_MAX_GENERATED_TOKENS];
+    int generated_token_ranks[DS4_GLM52_MOCK_MAX_GENERATED_TOKENS];
 } ds4_glm52_mock_serve_observation;
+
+typedef enum {
+    DS4_GLM52_MOCK_SERVE_FAIL_NONE = 0,
+    DS4_GLM52_MOCK_SERVE_FAIL_WORKER_LOSS = 1,
+    DS4_GLM52_MOCK_SERVE_FAIL_BAD_CONTRIBUTION = 2,
+    DS4_GLM52_MOCK_SERVE_FAIL_CURSOR_DIVERGENCE = 3,
+    DS4_GLM52_MOCK_SERVE_FAIL_CANCEL = 4,
+} ds4_glm52_mock_serve_failure_kind;
+
+typedef struct {
+    const int *prompt_tokens;
+    size_t prompt_token_count;
+    size_t max_decode_tokens;
+    int stop_token;
+    ds4_glm52_mock_serve_failure_kind fail_kind;
+    size_t fail_decode_index;
+} ds4_glm52_mock_serve_request;
 
 bool ds4_glm52_mock_model_init(const ds4_glm52_l0_config *cfg,
                                ds4_glm52_mock_model *model,
@@ -233,6 +264,11 @@ bool ds4_glm52_mock_tp4_decode(
 bool ds4_glm52_mock_tp4_serve_request(
         const int *prompt_tokens,
         size_t prompt_token_count,
+        ds4_glm52_mock_serve_observation *obs,
+        char *err,
+        size_t err_size);
+bool ds4_glm52_mock_tp4_serve_request_ex(
+        const ds4_glm52_mock_serve_request *request,
         ds4_glm52_mock_serve_observation *obs,
         char *err,
         size_t err_size);

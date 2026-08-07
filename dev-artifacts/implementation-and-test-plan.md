@@ -308,19 +308,32 @@ Active in `tests/test_glm52_tp4_mock_serve.c`:
 
 - `ds4_glm52_mock_tp4_serve_request` initializes four full-shape mock rank
   descriptors and records one serving request observation;
+- `ds4_glm52_mock_tp4_serve_request_ex` models the first-version mock serving
+  cycle without checkpoint: request/session binding, prefill enqueue, prefill,
+  repeated decode, streamed token observation, stop/max-token policy, and
+  failure-before-commit behavior;
 - the observation proves TP4/DCP4/rank-count identity, shared model/session
   identity, Q-head tiling, global vocab tiling, rank-owned top-k selection,
   prefill cursor/KV advancement to prompt length, decode cursor/KV advancement
-  by exactly one token, replicated hidden/cursor state, and rank-local logits
-  summary publication for top-k gather;
-- invalid prompt/observation inputs are rejected before any request is claimed.
+  once per generated token, replicated hidden/cursor state, and rank-local
+  logits summary publication for top-k gather;
+- generated tokens are recorded as stream events and each generated token keeps
+  its winning rank-local vocab owner;
+- stop-token termination and max-token termination are distinct;
+- worker-loss, bad-contribution, cursor-divergence, and cancellation injections
+  fail before committing the failed decode token and preserve the last committed
+  KV/cursor state;
+- invalid prompt/observation/budget inputs are rejected before any request is
+  claimed.
 
 This proves TP4 mock orchestration, process/rank identity, local TCP command
 transport, shared command/cursor agreement, and rank-local output-gather
-semantics. It also now proves the executable mock serving-request seam through
-prefill plus one decode token. It still does not prove real QKV/MLA kernels,
-real DCP network row exchange, real all-reduce device tensor math,
-cross-GX10 deployment, or GX10 transport performance.
+semantics. It also now proves the executable first-version mock serving cycle:
+load mock ranks, bind request, prefill, decode loop, generated-token stream
+observation, clean stop policy, and server-style failure preservation. It still
+does not prove real QKV/MLA kernels, real DCP network row exchange, real
+all-reduce device tensor math, cross-GX10 deployment, GX10 transport
+performance, or the generic HTTP `ds4_server` parser/response loop.
 
 ### Rung 3: DS4-Native Shard-Layout Fixture Tests
 

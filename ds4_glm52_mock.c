@@ -1329,20 +1329,129 @@ static bool mock_tp4_sessions_replicated(
     return sessions[0].prefilled;
 }
 
-bool ds4_glm52_mock_tp4_serve_request(
-        const int *prompt_tokens,
-        size_t prompt_token_count,
+static bool mock_tp4_serve_token_rank_owned(
+        const ds4_glm52_mock_model models[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_mock_tp4_step *step) {
+    if (!models || !step ||
+        step->coordinator_rank < 0 ||
+        step->coordinator_rank >= DS4_GLM52_L0_RANK_COUNT) {
+        return false;
+    }
+    const ds4_glm52_mock_model *winner = &models[step->coordinator_rank];
+    return step->coordinator_token >= winner->vocab_start &&
+           step->coordinator_token < winner->vocab_end;
+}
+
+static bool mock_tp4_serve_failure_kind_valid(
+        ds4_glm52_mock_serve_failure_kind fail_kind) {
+    return fail_kind == DS4_GLM52_MOCK_SERVE_FAIL_NONE ||
+           fail_kind == DS4_GLM52_MOCK_SERVE_FAIL_WORKER_LOSS ||
+           fail_kind == DS4_GLM52_MOCK_SERVE_FAIL_BAD_CONTRIBUTION ||
+           fail_kind == DS4_GLM52_MOCK_SERVE_FAIL_CURSOR_DIVERGENCE ||
+           fail_kind == DS4_GLM52_MOCK_SERVE_FAIL_CANCEL;
+}
+
+static bool mock_tp4_collect_step_from_sessions(
+        const ds4_glm52_mock_model models[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_mock_session sessions[DS4_GLM52_L0_RANK_COUNT],
+        ds4_glm52_tp4_command command,
+        uint64_t seq,
+        ds4_glm52_mock_serve_failure_kind fail_kind,
+        ds4_glm52_mock_tp4_step *step,
+        char *err,
+        size_t err_size) {
+    if (!models || !sessions || !step) {
+        mock_error(err, err_size, "GLM 5.2 mock TP4 serve step requires models, sessions, and step output");
+        return false;
+    }
+    memset(step, 0, sizeof(*step));
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        if (fail_kind == DS4_GLM52_MOCK_SERVE_FAIL_WORKER_LOSS &&
+            rank == DS4_GLM52_L0_RANK_COUNT - 1) {
+            continue;
+        }
+        ds4_glm52_mock_rank_step rank_step;
+        if (!ds4_glm52_mock_make_rank_step(&models[rank],
+                                           &sessions[rank],
+                                           command,
+                                           seq,
+                                           &rank_step,
+                                           err,
+                                           err_size)) {
+            return false;
+        }
+        if (fail_kind == DS4_GLM52_MOCK_SERVE_FAIL_BAD_CONTRIBUTION &&
+            rank == 1) {
+            rank_step.candidate_token = rank_step.vocab_end;
+        }
+        if (fail_kind == DS4_GLM52_MOCK_SERVE_FAIL_CURSOR_DIVERGENCE &&
+            rank == 2) {
+            rank_step.kv_length++;
+        }
+        if (!ds4_glm52_mock_tp4_step_add_contribution(step,
+                                                      &rank_step,
+                                                      err,
+                                                      err_size)) {
+            return false;
+        }
+    }
+    if (!step->complete) {
+        mock_error(err, err_size, "GLM 5.2 mock TP4 serve rank contribution set is incomplete");
+        return false;
+    }
+    return true;
+}
+
+static bool mock_tp4_serve_record_failure(
+        ds4_glm52_mock_serve_observation *obs,
+        ds4_glm52_mock_serve_failure_kind fail_kind,
+        size_t decode_index,
+        const ds4_glm52_mock_session sessions[DS4_GLM52_L0_RANK_COUNT],
+        const char *message,
+        char *err,
+        size_t err_size) {
+    if (obs) {
+        obs->failure_kind = (int)fail_kind;
+        obs->failure_decode_index = (int)decode_index;
+        obs->failure_token_step_j = sessions ? sessions[0].token_step_j : 0;
+        obs->failure_kv_length = sessions ? sessions[0].kv_length : 0;
+        obs->failed_without_cursor_advance = true;
+    }
+    mock_error(err, err_size, message);
+    return false;
+}
+
+bool ds4_glm52_mock_tp4_serve_request_ex(
+        const ds4_glm52_mock_serve_request *request,
         ds4_glm52_mock_serve_observation *obs,
         char *err,
         size_t err_size) {
-    if (!prompt_tokens || prompt_token_count == 0 || !obs) {
+    if (!request || !request->prompt_tokens ||
+        request->prompt_token_count == 0 || !obs) {
         mock_error(err, err_size, "GLM 5.2 mock TP4 serve request requires prompt tokens and observation output");
         return false;
     }
+    if (request->max_decode_tokens == 0 ||
+        request->max_decode_tokens > DS4_GLM52_MOCK_MAX_GENERATED_TOKENS) {
+        mock_error(err, err_size, "GLM 5.2 mock TP4 serve request has invalid max decode token count");
+        return false;
+    }
+    if (!mock_tp4_serve_failure_kind_valid(request->fail_kind)) {
+        mock_error(err, err_size, "GLM 5.2 mock TP4 serve request has invalid failure injection kind");
+        return false;
+    }
+    if (request->fail_kind != DS4_GLM52_MOCK_SERVE_FAIL_NONE &&
+        request->fail_decode_index >= request->max_decode_tokens) {
+        mock_error(err, err_size, "GLM 5.2 mock TP4 serve failure injection is outside the decode loop");
+        return false;
+    }
     memset(obs, 0, sizeof(*obs));
+    obs->failure_kind = (int)DS4_GLM52_MOCK_SERVE_FAIL_NONE;
+    obs->failure_decode_index = -1;
 
     ds4_glm52_mock_model models[DS4_GLM52_L0_RANK_COUNT];
     ds4_glm52_mock_session sessions[DS4_GLM52_L0_RANK_COUNT];
+    memset(sessions, 0, sizeof(sessions));
     for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
         ds4_glm52_l0_config cfg = mock_tp4_rank_cfg(rank);
         if (!ds4_glm52_mock_model_init(&cfg,
@@ -1353,6 +1462,7 @@ bool ds4_glm52_mock_tp4_serve_request(
         }
     }
 
+    obs->request_bound = true;
     obs->tp_size = DS4_GLM52_L0_TP_SIZE;
     obs->dcp_size = DS4_GLM52_L0_DCP_SIZE;
     obs->rank_count = DS4_GLM52_L0_RANK_COUNT;
@@ -1364,27 +1474,23 @@ bool ds4_glm52_mock_tp4_serve_request(
     }
 
     if (!ds4_glm52_mock_tp4_prefill(models,
-                                    prompt_tokens,
-                                    prompt_token_count,
+                                    request->prompt_tokens,
+                                    request->prompt_token_count,
                                     sessions,
                                     err,
                                     err_size)) {
         return false;
     }
-    ds4_glm52_mock_tp4_step prefill_step = {0};
-    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
-        if (!ds4_glm52_mock_tp4_step_add_rank(&prefill_step,
-                                              &models[rank],
-                                              &sessions[rank],
-                                              DS4_GLM52_TP4_COMMAND_PREFILL,
-                                              UINT64_C(1),
-                                              err,
-                                              err_size)) {
-            return false;
-        }
-    }
-    if (!prefill_step.complete) {
-        mock_error(err, err_size, "GLM 5.2 mock TP4 serve prefill gather is incomplete");
+    obs->prefill_enqueued = true;
+    ds4_glm52_mock_tp4_step prefill_step;
+    if (!mock_tp4_collect_step_from_sessions(models,
+                                             sessions,
+                                             DS4_GLM52_TP4_COMMAND_PREFILL,
+                                             UINT64_C(1),
+                                             DS4_GLM52_MOCK_SERVE_FAIL_NONE,
+                                             &prefill_step,
+                                             err,
+                                             err_size)) {
         return false;
     }
     obs->session_hash = sessions[0].session_hash;
@@ -1394,60 +1500,115 @@ bool ds4_glm52_mock_tp4_serve_request(
     obs->prefill_candidate_token = prefill_step.coordinator_token;
     obs->prefill_candidate_rank = prefill_step.coordinator_rank;
     obs->prefill_replicated = mock_tp4_sessions_replicated(sessions);
+    obs->coordinator_token_rank_owned =
+        mock_tp4_serve_token_rank_owned(models, &prefill_step);
     if (!obs->prefill_replicated) {
         mock_error(err, err_size, "GLM 5.2 mock TP4 serve prefill state is not replicated");
         return false;
     }
-    if (prefill_step.coordinator_rank < 0 ||
-        prefill_step.coordinator_rank >= DS4_GLM52_L0_RANK_COUNT) {
-        mock_error(err, err_size, "GLM 5.2 mock TP4 serve prefill winner rank is invalid");
-        return false;
-    }
-    const ds4_glm52_mock_model *winner_model =
-        &models[prefill_step.coordinator_rank];
-    obs->coordinator_token_rank_owned =
-        prefill_step.coordinator_token >= winner_model->vocab_start &&
-        prefill_step.coordinator_token < winner_model->vocab_end;
     if (!obs->coordinator_token_rank_owned) {
         mock_error(err, err_size, "GLM 5.2 mock TP4 serve prefill token is outside winner vocab shard");
         return false;
     }
 
-    if (!ds4_glm52_mock_tp4_decode(models,
-                                   sessions,
-                                   prefill_step.coordinator_token,
-                                   err,
-                                   err_size)) {
-        return false;
-    }
-    ds4_glm52_mock_tp4_step decode_step = {0};
-    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
-        if (!ds4_glm52_mock_tp4_step_add_rank(&decode_step,
-                                              &models[rank],
-                                              &sessions[rank],
-                                              DS4_GLM52_TP4_COMMAND_DECODE,
-                                              UINT64_C(2),
-                                              err,
-                                              err_size)) {
+    int input_token = prefill_step.coordinator_token;
+    uint64_t seq = UINT64_C(2);
+    for (size_t i = 0; i < request->max_decode_tokens; i++, seq++) {
+        ds4_glm52_mock_serve_failure_kind step_fail =
+            (request->fail_kind != DS4_GLM52_MOCK_SERVE_FAIL_NONE &&
+             request->fail_decode_index == i)
+                ? request->fail_kind
+                : DS4_GLM52_MOCK_SERVE_FAIL_NONE;
+        if (step_fail == DS4_GLM52_MOCK_SERVE_FAIL_CANCEL) {
+            return mock_tp4_serve_record_failure(
+                obs, step_fail, i, sessions,
+                "GLM 5.2 mock TP4 serve request was cancelled before decode commit",
+                err, err_size);
+        }
+
+        ds4_glm52_mock_session staged[DS4_GLM52_L0_RANK_COUNT];
+        memcpy(staged, sessions, sizeof(staged));
+        if (!ds4_glm52_mock_tp4_decode(models,
+                                       staged,
+                                       input_token,
+                                       err,
+                                       err_size)) {
             return false;
         }
+
+        ds4_glm52_mock_tp4_step decode_step;
+        if (!mock_tp4_collect_step_from_sessions(models,
+                                                 staged,
+                                                 DS4_GLM52_TP4_COMMAND_DECODE,
+                                                 seq,
+                                                 step_fail,
+                                                 &decode_step,
+                                                 err,
+                                                 err_size)) {
+            char fail_message[192];
+            snprintf(fail_message, sizeof(fail_message), "%s",
+                     err && err[0] ? err :
+                     "GLM 5.2 mock TP4 serve decode step failed before commit");
+            return mock_tp4_serve_record_failure(
+                obs, step_fail, i, sessions, fail_message,
+                err, err_size);
+        }
+        if (!mock_tp4_serve_token_rank_owned(models, &decode_step)) {
+            return mock_tp4_serve_record_failure(
+                obs, step_fail, i, sessions,
+                "GLM 5.2 mock TP4 serve decode token is outside winner vocab shard",
+                err, err_size);
+        }
+
+        memcpy(sessions, staged, sizeof(sessions));
+        obs->decode_token_step_j = sessions[0].token_step_j;
+        obs->decode_kv_length = sessions[0].kv_length;
+        obs->decode_hidden_checksum = sessions[0].hidden_checksum;
+        obs->logits_checksum = sessions[0].logits_checksum;
+        obs->decode_candidate_token = decode_step.coordinator_token;
+        obs->decode_candidate_rank = decode_step.coordinator_rank;
+        obs->decode_replicated = mock_tp4_sessions_replicated(sessions);
+        if (!obs->decode_replicated) {
+            mock_error(err, err_size, "GLM 5.2 mock TP4 serve decode state is not replicated");
+            return false;
+        }
+
+        obs->generated_tokens[obs->generated_count] =
+            decode_step.coordinator_token;
+        obs->generated_token_ranks[obs->generated_count] =
+            decode_step.coordinator_rank;
+        obs->generated_count++;
+        obs->stream_event_count++;
+
+        if (request->stop_token >= 0 &&
+            decode_step.coordinator_token == request->stop_token) {
+            obs->stopped_by_stop_token = true;
+            break;
+        }
+        input_token = decode_step.coordinator_token;
     }
-    if (!decode_step.complete) {
-        mock_error(err, err_size, "GLM 5.2 mock TP4 serve decode gather is incomplete");
-        return false;
-    }
-    obs->decode_token_step_j = sessions[0].token_step_j;
-    obs->decode_kv_length = sessions[0].kv_length;
-    obs->decode_hidden_checksum = sessions[0].hidden_checksum;
-    obs->logits_checksum = sessions[0].logits_checksum;
-    obs->decode_candidate_token = decode_step.coordinator_token;
-    obs->decode_candidate_rank = decode_step.coordinator_rank;
-    obs->decode_replicated = mock_tp4_sessions_replicated(sessions);
-    if (!obs->decode_replicated) {
-        mock_error(err, err_size, "GLM 5.2 mock TP4 serve decode state is not replicated");
-        return false;
+    if (!obs->stopped_by_stop_token &&
+        obs->generated_count == (int)request->max_decode_tokens) {
+        obs->stopped_by_max_tokens = true;
     }
     return true;
+}
+
+bool ds4_glm52_mock_tp4_serve_request(
+        const int *prompt_tokens,
+        size_t prompt_token_count,
+        ds4_glm52_mock_serve_observation *obs,
+        char *err,
+        size_t err_size) {
+    ds4_glm52_mock_serve_request request = {
+        .prompt_tokens = prompt_tokens,
+        .prompt_token_count = prompt_token_count,
+        .max_decode_tokens = 1,
+        .stop_token = -1,
+        .fail_kind = DS4_GLM52_MOCK_SERVE_FAIL_NONE,
+        .fail_decode_index = 0,
+    };
+    return ds4_glm52_mock_tp4_serve_request_ex(&request, obs, err, err_size);
 }
 
 typedef struct {
