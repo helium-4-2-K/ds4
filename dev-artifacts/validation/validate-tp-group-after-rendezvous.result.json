@@ -1,0 +1,41 @@
+{
+  "action": "validate_contract",
+  "artifact_integrity": {
+    "blueprint_sha256": "fd90a32e376e3824cf35a1c1a6a8281067225eb8d09e0f826a8cfd6ae31b420a",
+    "semantic_sha256": "6063f389b518c4521c0caf9a2998c42431b3e0005b6edd9e1c0b7955733104eb"
+  },
+  "error_count": 0,
+  "errors": [],
+  "graph_ids": [
+    "tp-group"
+  ],
+  "profile": "leaf",
+  "request_id": "validate-tp-group-after-rendezvous",
+  "schema": "blueprint-contract-validation/v4",
+  "snapshot": {
+    "artifact_integrity": {
+      "blueprint_sha256": "fd90a32e376e3824cf35a1c1a6a8281067225eb8d09e0f826a8cfd6ae31b420a",
+      "semantic_sha256": "6063f389b518c4521c0caf9a2998c42431b3e0005b6edd9e1c0b7955733104eb"
+    },
+    "covered_graphs": [
+      {
+        "graph_contract_sha256": "e86e9e8efe3ad48fdda966be2e1723b862adfd62176e7a45defabfa67b50720a",
+        "graph_id": "serve",
+        "role": "ancestor",
+        "type_schema_sha256": "3f4be1b144e1cee44727789840835951678fede862e9ccde1a2c91d025010a46"
+      },
+      {
+        "graph_contract_sha256": "2b493ae8b3e3e5a3c732344f19f40be70b1db80d38680e89c4dca9c6335a5096",
+        "graph_id": "tp-group",
+        "role": "selected",
+        "type_schema_sha256": "439ecb1547e94993df1188fae5c6ea858c0a27402086c07d2c5f6f18d5d9f0f4"
+      }
+    ],
+    "selected_graph_ids": [
+      "tp-group"
+    ]
+  },
+  "status": "PASS",
+  "warning_count": 0,
+  "warnings": []
+}

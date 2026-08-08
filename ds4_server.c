@@ -13012,6 +13012,9 @@ static server_config parse_options(int argc, char **argv) {
         } else if (!strcmp(arg, "--glm52-tp4-fabric")) {
             c.engine.glm52_tp4_l0 = true;
             c.engine.glm52_tp4_fabric_addr = need_arg(&i, argc, argv, arg);
+        } else if (!strcmp(arg, "--glm52-tp4-rendezvous")) {
+            c.engine.glm52_tp4_l0 = true;
+            c.engine.glm52_tp4_rendezvous = need_arg(&i, argc, argv, arg);
         } else if (!strcmp(arg, "--backend")) {
             c.engine.backend = parse_backend_arg(need_arg(&i, argc, argv, arg), arg);
         } else if (!strcmp(arg, "--cpu")) {

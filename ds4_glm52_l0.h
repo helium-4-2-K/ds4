@@ -86,6 +86,7 @@ typedef struct {
     const char *rank_plan;
     const char *layout_path;
     const char *fabric_addr;
+    const char *tp_rendezvous;
     const struct ds4_glm52_gpu_tensor_runtime *gpu_runtime;
 } ds4_glm52_l0_config;
 

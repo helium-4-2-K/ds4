@@ -1990,6 +1990,9 @@ static cli_config parse_options(int argc, char **argv) {
         } else if (!strcmp(arg, "--glm52-tp4-fabric")) {
             c.engine.glm52_tp4_l0 = true;
             c.engine.glm52_tp4_fabric_addr = need_arg(&i, argc, argv, arg);
+        } else if (!strcmp(arg, "--glm52-tp4-rendezvous")) {
+            c.engine.glm52_tp4_l0 = true;
+            c.engine.glm52_tp4_rendezvous = need_arg(&i, argc, argv, arg);
         } else if (!strcmp(arg, "--dump-tokens")) {
             c.gen.dump_tokens = true;
         } else if (!strcmp(arg, "--dump-logits")) {

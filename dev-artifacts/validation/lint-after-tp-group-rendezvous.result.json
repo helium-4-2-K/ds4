@@ -1,0 +1,13 @@
+{
+  "action": "lint",
+  "blueprint_id": "ds4-arch",
+  "blueprint_sha256": "fd90a32e376e3824cf35a1c1a6a8281067225eb8d09e0f826a8cfd6ae31b420a",
+  "errors": [],
+  "graph_count": 18,
+  "request_id": "lint-after-tp-group-rendezvous",
+  "schema": "blueprint-lint-result/v3",
+  "semantic_sha256": "6063f389b518c4521c0caf9a2998c42431b3e0005b6edd9e1c0b7955733104eb",
+  "status": "PASS",
+  "validation_stage": "draft",
+  "warnings": []
+}

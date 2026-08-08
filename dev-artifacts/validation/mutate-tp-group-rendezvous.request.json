@@ -1,0 +1,75 @@
+{
+  "schema": "blueprint-write-request/v11",
+  "action": "mutate",
+  "request_id": "mutate-tp-group-rendezvous",
+  "root": "/Users/helium/src/ds4-gb10x4-bcd/bdev",
+  "record_dir": "/Users/helium/src/ds4-gb10x4-bcd/dev-artifacts/03_record",
+  "expected_blueprint_sha256": "0257314cbf4e1fbefb60eb4a840f40435bced1406fa2ebbea9c91dc3e64ce9b0",
+  "validation_stage": "draft",
+  "operations": [
+    {
+      "verb": "add",
+      "entity": "semantic",
+      "graph_id": "tp-group",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "a-establish-collective-fabric",
+        "entry": {
+          "entry_id": "a-establish-collective-fabric-rendezvous",
+          "key": "rendezvous_endpoint",
+          "value": "Rank 0 owns the rendezvous listener endpoint HOST:PORT on the CRS812 data plane; ranks 1..3 connect to that endpoint to enter the TP4/DCP4 fabric-ready handshake.",
+          "status": "supported"
+        }
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "semantic",
+      "graph_id": "tp-group",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "a-establish-collective-fabric",
+        "entry": {
+          "entry_id": "a-establish-collective-fabric-handshake",
+          "key": "protocol",
+          "value": "The transport setup exchanges validated hello frames for ranks 0..3, broadcasts a fabric-ready command, collects one ack from every rank, and only then permits TP fabric readiness to be published.",
+          "status": "supported"
+        }
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "semantic",
+      "graph_id": "tp-group",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "a-establish-collective-fabric",
+        "entry": {
+          "entry_id": "a-establish-collective-fabric-retry",
+          "key": "retry",
+          "value": "Worker ranks retry connection to the rank-0 rendezvous endpoint within a bounded startup timeout so rank-local model loading skew does not falsely fail group formation.",
+          "status": "supported"
+        }
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "semantic",
+      "graph_id": "tp-group",
+      "params": {
+        "owner_kind": "node",
+        "owner_id": "s-tp",
+        "entry": {
+          "entry_id": "s-tp-rendezvous",
+          "key": "rendezvous_endpoint",
+          "value": "The replicated TP fabric state records readiness established through the rank-0 CRS812 rendezvous endpoint; management-network endpoints are not valid fabric identity.",
+          "status": "supported"
+        }
+      }
+    }
+  ],
+  "contract_validation": {
+    "profile": "leaf",
+    "graph_ids": ["tp-group"]
+  }
+}

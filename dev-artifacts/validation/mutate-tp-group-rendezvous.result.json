@@ -1,0 +1,66 @@
+{
+  "action": "mutate",
+  "added_graph_ids": [],
+  "after_artifact_integrity": {
+    "blueprint_sha256": "fd90a32e376e3824cf35a1c1a6a8281067225eb8d09e0f826a8cfd6ae31b420a",
+    "semantic_sha256": "6063f389b518c4521c0caf9a2998c42431b3e0005b6edd9e1c0b7955733104eb"
+  },
+  "before_artifact_integrity": {
+    "blueprint_sha256": "0257314cbf4e1fbefb60eb4a840f40435bced1406fa2ebbea9c91dc3e64ce9b0",
+    "semantic_sha256": "6c989e7d5acb96dbf5a2f258c018de1527794dc23599eff85b0b8eaad6108a3d"
+  },
+  "changed_graph_ids": [
+    "tp-group"
+  ],
+  "contract_validation": {
+    "error_count": 0,
+    "errors": [],
+    "graph_ids": [
+      "tp-group"
+    ],
+    "profile": "leaf",
+    "schema": "blueprint-contract-validation/v4",
+    "snapshot": {
+      "artifact_integrity": {
+        "blueprint_sha256": "fd90a32e376e3824cf35a1c1a6a8281067225eb8d09e0f826a8cfd6ae31b420a",
+        "semantic_sha256": "6063f389b518c4521c0caf9a2998c42431b3e0005b6edd9e1c0b7955733104eb"
+      },
+      "covered_graphs": [
+        {
+          "graph_contract_sha256": "e86e9e8efe3ad48fdda966be2e1723b862adfd62176e7a45defabfa67b50720a",
+          "graph_id": "serve",
+          "role": "ancestor",
+          "type_schema_sha256": "3f4be1b144e1cee44727789840835951678fede862e9ccde1a2c91d025010a46"
+        },
+        {
+          "graph_contract_sha256": "2b493ae8b3e3e5a3c732344f19f40be70b1db80d38680e89c4dca9c6335a5096",
+          "graph_id": "tp-group",
+          "role": "selected",
+          "type_schema_sha256": "439ecb1547e94993df1188fae5c6ea858c0a27402086c07d2c5f6f18d5d9f0f4"
+        }
+      ],
+      "selected_graph_ids": [
+        "tp-group"
+      ]
+    },
+    "status": "PASS",
+    "warning_count": 0,
+    "warnings": []
+  },
+  "request_id": "mutate-tp-group-rendezvous",
+  "schema": "blueprint-write-result/v4",
+  "status": "PASS",
+  "validation": {
+    "blueprint_id": "ds4-arch",
+    "blueprint_sha256": "fd90a32e376e3824cf35a1c1a6a8281067225eb8d09e0f826a8cfd6ae31b420a",
+    "error_count": 0,
+    "errors": [],
+    "graph_count": 18,
+    "schema": "blueprint-artifact-validation@1",
+    "semantic_sha256": "6063f389b518c4521c0caf9a2998c42431b3e0005b6edd9e1c0b7955733104eb",
+    "stage": "draft",
+    "status": "PASS",
+    "warning_count": 0,
+    "warnings": []
+  }
+}

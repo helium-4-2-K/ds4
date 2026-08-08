@@ -164,6 +164,8 @@ static void print_model_runtime(FILE *fp, const help_colors *c,
         opt(fp, c, "--glm52-tp4-rank N", "Experimental GLM 5.2 TP4 rank id, 0..3. Also enables --glm52-tp4-l0.");
         opt(fp, c, "--glm52-tp4-rank-plan FILE", "Experimental GLM 5.2 TP4 rank-plan manifest path.");
         opt(fp, c, "--glm52-tp4-layout FILE", "Experimental GLM 5.2 TP4 DS4-native shard layout manifest path.");
+        opt(fp, c, "--glm52-tp4-fabric ADDR", "Experimental GLM 5.2 TP4 local CRS812 fabric address for this rank.");
+        opt(fp, c, "--glm52-tp4-rendezvous HOST:PORT", "Experimental GLM 5.2 TP4 rank-0 rendezvous endpoint for the fabric-ready handshake.");
     }
 #endif
     if (tool != DS4_HELP_BENCH) {

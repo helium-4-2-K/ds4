@@ -1,0 +1,381 @@
+{
+  "action": "simulate_contract",
+  "artifact_integrity": {
+    "blueprint_sha256": "fd90a32e376e3824cf35a1c1a6a8281067225eb8d09e0f826a8cfd6ae31b420a",
+    "semantic_sha256": "6063f389b518c4521c0caf9a2998c42431b3e0005b6edd9e1c0b7955733104eb"
+  },
+  "case_count": 1,
+  "cases": [
+    {
+      "active_edge_ids": [
+        "e-fabric-rank",
+        "e-fabric-ready",
+        "e-fabric-tp",
+        "e-hello-bind",
+        "e-hello-model",
+        "e-plan-fabric",
+        "e-plan-model",
+        "e-plan-rank",
+        "e-ready-rank",
+        "e-ready-tp"
+      ],
+      "active_node_ids": [
+        "a-bind-rank-plan",
+        "a-establish-collective-fabric",
+        "a-publish-tp-ready",
+        "a-validate-rank-hello",
+        "s-model-worker",
+        "s-rank-plan",
+        "s-tp"
+      ],
+      "assumption_entry_ids": [],
+      "case_id": "tp-group-rendezvous-success",
+      "cycle_node_ids": [],
+      "field_targets": [
+        "s-model-worker.bird_vllm_commit",
+        "s-model-worker.checkpoint_revision",
+        "s-model-worker.expert_shard_axis",
+        "s-model-worker.model_name",
+        "s-model-worker.n_embd",
+        "s-model-worker.n_expert",
+        "s-model-worker.n_expert_used",
+        "s-model-worker.n_head",
+        "s-model-worker.n_head_kv",
+        "s-model-worker.n_layer",
+        "s-model-worker.qkv_shard_axis",
+        "s-model-worker.rank_count",
+        "s-model-worker.reference_runtime",
+        "s-model-worker.served_model_name",
+        "s-model-worker.speculator",
+        "s-model-worker.tp_degree",
+        "s-model-worker.vocab_shard_axis",
+        "s-rank-plan.dcp_rank",
+        "s-rank-plan.expert_end",
+        "s-rank-plan.expert_start",
+        "s-rank-plan.q_head_end",
+        "s-rank-plan.q_head_start",
+        "s-rank-plan.rank",
+        "s-rank-plan.tp_size",
+        "s-rank-plan.vocab_end",
+        "s-rank-plan.vocab_start",
+        "s-tp.all_reduce_count_per_layer",
+        "s-tp.attention_backend",
+        "s-tp.broadcast_count_per_token",
+        "s-tp.collective_backend",
+        "s-tp.data_plane",
+        "s-tp.dcp_degree",
+        "s-tp.fabric_addrs",
+        "s-tp.fabric_switch",
+        "s-tp.gather_count_per_token",
+        "s-tp.kv_cache_dtype",
+        "s-tp.management_addrs",
+        "s-tp.nccl_channels",
+        "s-tp.nccl_version",
+        "s-tp.pp_degree",
+        "s-tp.roce_hcas",
+        "s-tp.tp_degree",
+        "s-tp.transport"
+      ],
+      "graph_id": "tp-group",
+      "initial_node_ids": [
+        "a-validate-rank-hello"
+      ],
+      "obligation_entry_ids": [
+        "a-bind-rank-plan-impl",
+        "a-bind-rank-plan-nd",
+        "a-bind-rank-plan-no-input",
+        "a-establish-collective-fabric-data-plane",
+        "a-establish-collective-fabric-handshake",
+        "a-establish-collective-fabric-impl",
+        "a-establish-collective-fabric-nd",
+        "a-establish-collective-fabric-no-input",
+        "a-establish-collective-fabric-rendezvous",
+        "a-establish-collective-fabric-retry",
+        "a-publish-tp-ready-impl",
+        "a-publish-tp-ready-nd",
+        "a-publish-tp-ready-no-input",
+        "a-validate-rank-hello-impl",
+        "a-validate-rank-hello-nd",
+        "a-validate-rank-hello-no-input",
+        "action-tp-group-no-input",
+        "e-fabric-rank-state",
+        "e-fabric-tp-state",
+        "e-hello-model-state",
+        "e-plan-model-state",
+        "e-plan-rank-state",
+        "e-ready-rank-state",
+        "e-ready-tp-state",
+        "s-model-worker-dist",
+        "s-rank-plan-dist",
+        "s-tp-dist",
+        "s-tp-rendezvous",
+        "tp-bird-ref",
+        "tp-im",
+        "tp-input",
+        "tp-nd",
+        "tp-output"
+      ],
+      "outcome_entry_ids": [
+        "a-bind-rank-plan-effect",
+        "a-bind-rank-plan-exit",
+        "a-bind-rank-plan-no-output",
+        "a-establish-collective-fabric-effect",
+        "a-establish-collective-fabric-exit",
+        "a-establish-collective-fabric-no-output",
+        "a-publish-tp-ready-effect",
+        "a-publish-tp-ready-exit",
+        "a-publish-tp-ready-no-output",
+        "a-validate-rank-hello-effect",
+        "a-validate-rank-hello-exit",
+        "a-validate-rank-hello-no-output",
+        "action-tp-group-no-output",
+        "tp-ef",
+        "tp-exit",
+        "tp-group-fabric-effect",
+        "tp-group-model-worker-read-no-effect",
+        "tp-group-rank-plan-effect"
+      ],
+      "property_target_entry_ids": [
+        "s-model-worker-identity",
+        "s-model-worker-presence",
+        "s-model-worker-provenance",
+        "s-rank-plan-identity",
+        "s-rank-plan-presence",
+        "s-rank-plan-provenance",
+        "s-tp-identity",
+        "s-tp-presence",
+        "s-tp-provenance"
+      ],
+      "terminal_node_ids": [
+        "s-model-worker",
+        "s-rank-plan",
+        "s-tp"
+      ]
+    }
+  ],
+  "contract_validation": {
+    "error_count": 0,
+    "errors": [],
+    "graph_ids": [
+      "tp-group"
+    ],
+    "profile": "leaf",
+    "schema": "blueprint-contract-validation/v4",
+    "snapshot": {
+      "artifact_integrity": {
+        "blueprint_sha256": "fd90a32e376e3824cf35a1c1a6a8281067225eb8d09e0f826a8cfd6ae31b420a",
+        "semantic_sha256": "6063f389b518c4521c0caf9a2998c42431b3e0005b6edd9e1c0b7955733104eb"
+      },
+      "covered_graphs": [
+        {
+          "graph_contract_sha256": "e86e9e8efe3ad48fdda966be2e1723b862adfd62176e7a45defabfa67b50720a",
+          "graph_id": "serve",
+          "role": "ancestor",
+          "type_schema_sha256": "3f4be1b144e1cee44727789840835951678fede862e9ccde1a2c91d025010a46"
+        },
+        {
+          "graph_contract_sha256": "2b493ae8b3e3e5a3c732344f19f40be70b1db80d38680e89c4dca9c6335a5096",
+          "graph_id": "tp-group",
+          "role": "selected",
+          "type_schema_sha256": "439ecb1547e94993df1188fae5c6ea858c0a27402086c07d2c5f6f18d5d9f0f4"
+        }
+      ],
+      "selected_graph_ids": [
+        "tp-group"
+      ]
+    },
+    "status": "PASS",
+    "warning_count": 0,
+    "warnings": []
+  },
+  "coverage": [
+    {
+      "case_ids": [
+        "tp-group-rendezvous-success"
+      ],
+      "conserved_parent_entry_ids": [
+        "action-tp-group-no-input",
+        "action-tp-group-no-output",
+        "tp-bird-ref",
+        "tp-ef",
+        "tp-exit",
+        "tp-im",
+        "tp-input",
+        "tp-nd",
+        "tp-output"
+      ],
+      "covered_edge_ids": [
+        "e-fabric-rank",
+        "e-fabric-ready",
+        "e-fabric-tp",
+        "e-hello-bind",
+        "e-hello-model",
+        "e-plan-fabric",
+        "e-plan-model",
+        "e-plan-rank",
+        "e-ready-rank",
+        "e-ready-tp"
+      ],
+      "covered_field_targets": [
+        "s-model-worker.bird_vllm_commit",
+        "s-model-worker.checkpoint_revision",
+        "s-model-worker.expert_shard_axis",
+        "s-model-worker.model_name",
+        "s-model-worker.n_embd",
+        "s-model-worker.n_expert",
+        "s-model-worker.n_expert_used",
+        "s-model-worker.n_head",
+        "s-model-worker.n_head_kv",
+        "s-model-worker.n_layer",
+        "s-model-worker.qkv_shard_axis",
+        "s-model-worker.rank_count",
+        "s-model-worker.reference_runtime",
+        "s-model-worker.served_model_name",
+        "s-model-worker.speculator",
+        "s-model-worker.tp_degree",
+        "s-model-worker.vocab_shard_axis",
+        "s-rank-plan.dcp_rank",
+        "s-rank-plan.expert_end",
+        "s-rank-plan.expert_start",
+        "s-rank-plan.q_head_end",
+        "s-rank-plan.q_head_start",
+        "s-rank-plan.rank",
+        "s-rank-plan.tp_size",
+        "s-rank-plan.vocab_end",
+        "s-rank-plan.vocab_start",
+        "s-tp.all_reduce_count_per_layer",
+        "s-tp.attention_backend",
+        "s-tp.broadcast_count_per_token",
+        "s-tp.collective_backend",
+        "s-tp.data_plane",
+        "s-tp.dcp_degree",
+        "s-tp.fabric_addrs",
+        "s-tp.fabric_switch",
+        "s-tp.gather_count_per_token",
+        "s-tp.kv_cache_dtype",
+        "s-tp.management_addrs",
+        "s-tp.nccl_channels",
+        "s-tp.nccl_version",
+        "s-tp.pp_degree",
+        "s-tp.roce_hcas",
+        "s-tp.tp_degree",
+        "s-tp.transport"
+      ],
+      "covered_node_ids": [
+        "a-bind-rank-plan",
+        "a-establish-collective-fabric",
+        "a-publish-tp-ready",
+        "a-validate-rank-hello",
+        "s-model-worker",
+        "s-rank-plan",
+        "s-tp"
+      ],
+      "covered_operating_scenario_entry_ids": [],
+      "covered_property_target_entry_ids": [
+        "s-model-worker-identity",
+        "s-model-worker-presence",
+        "s-model-worker-provenance",
+        "s-rank-plan-identity",
+        "s-rank-plan-presence",
+        "s-rank-plan-provenance",
+        "s-tp-identity",
+        "s-tp-presence",
+        "s-tp-provenance"
+      ],
+      "covered_semantic_entry_ids": [
+        "a-bind-rank-plan-effect",
+        "a-bind-rank-plan-exit",
+        "a-bind-rank-plan-impl",
+        "a-bind-rank-plan-nd",
+        "a-bind-rank-plan-no-input",
+        "a-bind-rank-plan-no-output",
+        "a-establish-collective-fabric-data-plane",
+        "a-establish-collective-fabric-effect",
+        "a-establish-collective-fabric-exit",
+        "a-establish-collective-fabric-handshake",
+        "a-establish-collective-fabric-impl",
+        "a-establish-collective-fabric-nd",
+        "a-establish-collective-fabric-no-input",
+        "a-establish-collective-fabric-no-output",
+        "a-establish-collective-fabric-rendezvous",
+        "a-establish-collective-fabric-retry",
+        "a-publish-tp-ready-effect",
+        "a-publish-tp-ready-exit",
+        "a-publish-tp-ready-impl",
+        "a-publish-tp-ready-nd",
+        "a-publish-tp-ready-no-input",
+        "a-publish-tp-ready-no-output",
+        "a-validate-rank-hello-effect",
+        "a-validate-rank-hello-exit",
+        "a-validate-rank-hello-impl",
+        "a-validate-rank-hello-nd",
+        "a-validate-rank-hello-no-input",
+        "a-validate-rank-hello-no-output",
+        "action-tp-group-no-input",
+        "action-tp-group-no-output",
+        "e-fabric-rank-state",
+        "e-fabric-tp-state",
+        "e-hello-model-state",
+        "e-plan-model-state",
+        "e-plan-rank-state",
+        "e-ready-rank-state",
+        "e-ready-tp-state",
+        "s-model-worker-dist",
+        "s-rank-plan-dist",
+        "s-tp-dist",
+        "s-tp-rendezvous",
+        "tp-bird-ref",
+        "tp-ef",
+        "tp-exit",
+        "tp-group-fabric-effect",
+        "tp-group-model-worker-read-no-effect",
+        "tp-group-rank-plan-effect",
+        "tp-im",
+        "tp-input",
+        "tp-nd",
+        "tp-output"
+      ],
+      "covered_terminal_node_ids": [
+        "s-model-worker",
+        "s-rank-plan",
+        "s-tp"
+      ],
+      "graph_id": "tp-group"
+    }
+  ],
+  "error_count": 0,
+  "errors": [],
+  "graph_ids": [
+    "tp-group"
+  ],
+  "profile": "leaf",
+  "request_id": "simulate-tp-group-after-rendezvous",
+  "schema": "blueprint-contract-simulation/v4",
+  "simulation_sha256": "5bd3e2fe020c9200ae33fed9035d2fb30529ffe571132917485f4410f63b27ea",
+  "snapshot": {
+    "artifact_integrity": {
+      "blueprint_sha256": "fd90a32e376e3824cf35a1c1a6a8281067225eb8d09e0f826a8cfd6ae31b420a",
+      "semantic_sha256": "6063f389b518c4521c0caf9a2998c42431b3e0005b6edd9e1c0b7955733104eb"
+    },
+    "covered_graphs": [
+      {
+        "graph_contract_sha256": "e86e9e8efe3ad48fdda966be2e1723b862adfd62176e7a45defabfa67b50720a",
+        "graph_id": "serve",
+        "role": "ancestor",
+        "type_schema_sha256": "3f4be1b144e1cee44727789840835951678fede862e9ccde1a2c91d025010a46"
+      },
+      {
+        "graph_contract_sha256": "2b493ae8b3e3e5a3c732344f19f40be70b1db80d38680e89c4dca9c6335a5096",
+        "graph_id": "tp-group",
+        "role": "selected",
+        "type_schema_sha256": "439ecb1547e94993df1188fae5c6ea858c0a27402086c07d2c5f6f18d5d9f0f4"
+      }
+    ],
+    "selected_graph_ids": [
+      "tp-group"
+    ]
+  },
+  "status": "PASS",
+  "warning_count": 0,
+  "warnings": []
+}

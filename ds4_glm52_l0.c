@@ -344,6 +344,57 @@ static bool fabric_data_plane_valid(const char *data_plane) {
            !strcmp(data_plane, DS4_GLM52_L0_FABRIC_DATA_PLANE);
 }
 
+static uint64_t l0_hash_bytes(uint64_t hash, const void *data, size_t n) {
+    const unsigned char *p = (const unsigned char *)data;
+    for (size_t i = 0; i < n; i++) {
+        hash ^= (uint64_t)p[i];
+        hash *= UINT64_C(1099511628211);
+    }
+    return hash ? hash : UINT64_C(1469598103934665603);
+}
+
+static uint64_t l0_hash_cstr(uint64_t hash, const char *s) {
+    return l0_hash_bytes(hash, s ? s : "", s ? strlen(s) : 0);
+}
+
+static uint64_t l0_hash_i64(uint64_t hash, int64_t v) {
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%lld", (long long)v);
+    return l0_hash_cstr(hash, buf);
+}
+
+static void l0_tp_group_identity_hashes(
+        const ds4_glm52_l0_config *cfg,
+        const ds4_glm52_l0_state *state,
+        uint64_t *model_hash,
+        uint64_t *config_hash,
+        uint64_t *plan_hash) {
+    const uint64_t seed = UINT64_C(1469598103934665603);
+    const char *model_name = state->launch_plan.model_name[0] ?
+        state->launch_plan.model_name : "glm-5.2";
+    const char *data_plane = state->launch_plan.fabric_data_plane[0] ?
+        state->launch_plan.fabric_data_plane : DS4_GLM52_L0_FABRIC_DATA_PLANE;
+
+    uint64_t h = l0_hash_cstr(seed, "glm52-model");
+    h = l0_hash_cstr(h, model_name);
+    *model_hash = h;
+
+    h = l0_hash_cstr(seed, "glm52-config");
+    h = l0_hash_cstr(h, model_name);
+    h = l0_hash_i64(h, cfg->tp_size);
+    h = l0_hash_i64(h, cfg->dcp_size);
+    h = l0_hash_i64(h, cfg->pp_size);
+    *config_hash = h;
+
+    h = l0_hash_cstr(seed, "glm52-tp4-rank-plan");
+    h = l0_hash_cstr(h, data_plane);
+    h = l0_hash_i64(h, DS4_GLM52_L0_RANK_COUNT);
+    h = l0_hash_i64(h, cfg->tp_size);
+    h = l0_hash_i64(h, cfg->dcp_size);
+    h = l0_hash_i64(h, cfg->pp_size);
+    *plan_hash = h;
+}
+
 static ds4_glm52_l0_status bind_tp_group(
         const ds4_glm52_l0_config *cfg,
         ds4_glm52_l0_state *state,
@@ -419,10 +470,84 @@ static ds4_glm52_l0_status bind_tp_group(
     state->tp_fabric.transport_ready = false;
     state->tp_fabric.group_ready = false;
 
+    if (cfg->tp_rendezvous && cfg->tp_rendezvous[0]) {
+        ds4_glm52_tp4_tcp_endpoint endpoint;
+        char err[160] = {0};
+        if (!ds4_glm52_tp4_tcp_parse_endpoint(
+                    cfg->tp_rendezvous, &endpoint, err, sizeof(err))) {
+            char msg[192];
+            snprintf(msg, sizeof(msg),
+                     "TP4/DCP4 rendezvous endpoint is invalid: %s",
+                     err[0] ? err : "parse failed");
+            set_result(result,
+                       DS4_GLM52_L0_STATUS_INVALID,
+                       DS4_GLM52_L0_ACTION_TP_GROUP,
+                       msg);
+            return DS4_GLM52_L0_STATUS_INVALID;
+        }
+        if (fabric_addr_is_management_network(endpoint.host)) {
+            set_result(result,
+                       DS4_GLM52_L0_STATUS_INVALID,
+                       DS4_GLM52_L0_ACTION_TP_GROUP,
+                       "TP4/DCP4 rendezvous endpoint must use the CRS812 fabric network, not the 192.168.0.x management network");
+            return DS4_GLM52_L0_STATUS_INVALID;
+        }
+
+        uint64_t model_hash = 0;
+        uint64_t config_hash = 0;
+        uint64_t plan_hash = 0;
+        l0_tp_group_identity_hashes(cfg,
+                                    state,
+                                    &model_hash,
+                                    &config_hash,
+                                    &plan_hash);
+        ds4_glm52_tp4_fabric_ready_config ready_cfg = {
+            .rank = cfg->rank,
+            .endpoint = cfg->tp_rendezvous,
+            .timeout_ms = 120000,
+            .model_hash = model_hash,
+            .config_hash = config_hash,
+            .plan_hash = plan_hash,
+            .command = DS4_GLM52_TP4_COMMAND_SHUTDOWN,
+        };
+        ds4_glm52_tp4_fabric_ready_result ready;
+        if (!ds4_glm52_tp4_fabric_ready_handshake(
+                    &ready_cfg, &ready, err, sizeof(err))) {
+            char msg[192];
+            snprintf(msg, sizeof(msg),
+                     "TP4/DCP4 fabric handshake failed: %s",
+                     err[0] ? err : "unknown transport error");
+            set_result(result,
+                       DS4_GLM52_L0_STATUS_NOT_READY,
+                       DS4_GLM52_L0_ACTION_TP_GROUP,
+                       msg);
+            return DS4_GLM52_L0_STATUS_NOT_READY;
+        }
+        if (!ready.fabric_ready ||
+            ready.state.tp_fabric.local_rank != cfg->rank) {
+            set_result(result,
+                       DS4_GLM52_L0_STATUS_INVALID,
+                       DS4_GLM52_L0_ACTION_TP_GROUP,
+                       "TP4/DCP4 fabric handshake did not publish matching local-rank readiness");
+            return DS4_GLM52_L0_STATUS_INVALID;
+        }
+
+        state->tp_fabric.topology_bound =
+            ready.state.tp_fabric.topology_bound;
+        state->tp_fabric.transport_ready =
+            ready.state.tp_fabric.transport_ready;
+        state->tp_fabric.group_ready = ready.state.tp_fabric.group_ready;
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_OK,
+                   DS4_GLM52_L0_ACTION_TP_GROUP,
+                   "TP4/DCP4 fabric handshake complete; rank group is ready");
+        return DS4_GLM52_L0_STATUS_OK;
+    }
+
     set_result(result,
                DS4_GLM52_L0_STATUS_NOT_READY,
                DS4_GLM52_L0_ACTION_TP_GROUP,
-               "TP4/DCP4 topology is bound; real four-rank collective transport handshake is not implemented");
+               "TP4/DCP4 topology is bound; provide --glm52-tp4-rendezvous HOST:PORT to run the four-rank fabric handshake");
     return DS4_GLM52_L0_STATUS_NOT_READY;
 }
 
@@ -643,6 +768,7 @@ bool ds4_glm52_l0_config_from_engine(const ds4_engine_options *opt,
     cfg->rank_plan = opt->glm52_tp4_rank_plan;
     cfg->layout_path = opt->glm52_tp4_layout_path;
     cfg->fabric_addr = opt->glm52_tp4_fabric_addr;
+    cfg->tp_rendezvous = opt->glm52_tp4_rendezvous;
     return true;
 }
 
@@ -5387,8 +5513,28 @@ static bool tp4_fabric_ready_worker(
         char *err,
         size_t err_size) {
     int fd = -1;
-    if (!ds4_glm52_tp4_tcp_connect(
-                endpoint, cfg->timeout_ms, &fd, err, err_size)) {
+    const int timeout_ms = cfg->timeout_ms > 0 ? cfg->timeout_ms : 1000;
+    const int step_ms = 100;
+    int waited_ms = 0;
+    char last_err[160] = {0};
+    while (!ds4_glm52_tp4_tcp_connect(
+                endpoint, step_ms, &fd, last_err, sizeof(last_err))) {
+        if (waited_ms >= timeout_ms) {
+            set_error(err,
+                      err_size,
+                      last_err[0] ? last_err :
+                          "TP4 fabric ready worker connect timed out");
+            return false;
+        }
+        usleep((useconds_t)step_ms * 1000u);
+        waited_ms += step_ms;
+        fd = -1;
+    }
+    if (err && err_size > 0) {
+        err[0] = '\0';
+    }
+    if (fd < 0) {
+        set_error(err, err_size, "TP4 fabric ready worker did not connect");
         return false;
     }
     ds4_glm52_tp4_transport_hello hello = {

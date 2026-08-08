@@ -1,10 +1,14 @@
 #include "ds4_glm52_l0.h"
 
 #include <limits.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #ifndef PATH_MAX
@@ -201,6 +205,18 @@ static ds4_glm52_l0_config valid_config(void) {
     return cfg;
 }
 
+static const char *fabric_addr_for_rank(int rank) {
+    static const char *const addrs[DS4_GLM52_L0_RANK_COUNT] = {
+        "10.100.185.3",
+        "10.100.185.1",
+        "10.100.185.2",
+        "10.100.185.4",
+    };
+    check(rank >= 0 && rank < DS4_GLM52_L0_RANK_COUNT,
+          "rank fabric lookup requires valid rank");
+    return addrs[rank];
+}
+
 static ds4_glm52_l0_config mock_config(void) {
     ds4_glm52_l0_config cfg = valid_config();
     cfg.mock_model = true;
@@ -208,10 +224,12 @@ static ds4_glm52_l0_config mock_config(void) {
     return cfg;
 }
 
-static void mark_resident_shards(ds4_glm52_l0_state *state) {
+static void mark_resident_shards_for_rank(ds4_glm52_l0_state *state,
+                                          int rank,
+                                          const char *fabric_addr) {
     state->model_plan.validated = true;
     state->shard_manifest.validated = true;
-    state->resident_shards.rank = 2;
+    state->resident_shards.rank = rank;
     state->resident_shards.base_shard_count =
         DS4_GLM52_L0_EXPECTED_BASE_SHARDS;
     state->resident_shards.mtp_shard_count =
@@ -223,6 +241,14 @@ static void mark_resident_shards(ds4_glm52_l0_state *state) {
              sizeof(state->launch_plan.fabric_data_plane),
              "%s",
              DS4_GLM52_L0_FABRIC_DATA_PLANE);
+    snprintf(state->launch_plan.fabric_addr,
+             sizeof(state->launch_plan.fabric_addr),
+             "%s",
+             fabric_addr ? fabric_addr : "");
+}
+
+static void mark_resident_shards(ds4_glm52_l0_state *state) {
+    mark_resident_shards_for_rank(state, 2, "10.100.185.2");
 }
 
 static void mark_tp_group(ds4_glm52_l0_state *state) {
@@ -517,6 +543,7 @@ static void test_tp_group_binding(void) {
     memset(&state, 0, sizeof(state));
     mark_resident_shards(&state);
     cfg.fabric_addr = "";
+    state.launch_plan.fabric_addr[0] = '\0';
     status = ds4_glm52_l0_stub_action(DS4_GLM52_L0_ACTION_TP_GROUP,
                                       &cfg,
                                       &state,
@@ -568,6 +595,89 @@ static void test_tp_group_binding(void) {
           "TP group should reject resident shard rank mismatch");
     check(strstr(result.message, "local resident shard rank") != NULL,
           "rank mismatch should name local shard ownership");
+}
+
+static int reserve_loopback_port(void) {
+    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    check(fd >= 0, "loopback port socket should open");
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr.sin_port = 0;
+    check(bind(fd, (struct sockaddr *)&addr, sizeof(addr)) == 0,
+          "loopback ephemeral bind should succeed");
+    socklen_t len = sizeof(addr);
+    check(getsockname(fd, (struct sockaddr *)&addr, &len) == 0,
+          "loopback ephemeral port should be visible");
+    int port = ntohs(addr.sin_port);
+    close(fd);
+    check(port > 0, "loopback ephemeral port should be nonzero");
+    return port;
+}
+
+static void tp_group_l0_rank_main(int rank, const char *endpoint) {
+    ds4_glm52_l0_config cfg = valid_config();
+    cfg.rank = rank;
+    cfg.fabric_addr = fabric_addr_for_rank(rank);
+    cfg.tp_rendezvous = endpoint;
+
+    ds4_glm52_l0_state state;
+    memset(&state, 0, sizeof(state));
+    mark_resident_shards_for_rank(&state, rank, cfg.fabric_addr);
+
+    ds4_glm52_l0_result result;
+    ds4_glm52_l0_status status =
+        ds4_glm52_l0_stub_action(DS4_GLM52_L0_ACTION_TP_GROUP,
+                                 &cfg,
+                                 &state,
+                                 &result);
+    if (status != DS4_GLM52_L0_STATUS_OK ||
+        !state.rank_plan.bound ||
+        !state.tp_fabric.topology_bound ||
+        !state.tp_fabric.transport_ready ||
+        !state.tp_fabric.group_ready ||
+        state.tp_fabric.local_rank != rank) {
+        fprintf(stderr,
+                "rank %d TP_GROUP failed: status=%s message=%s\n",
+                rank,
+                ds4_glm52_l0_status_name(status),
+                result.message);
+        _exit(1);
+    }
+    _exit(0);
+}
+
+static void test_tp_group_l0_rendezvous_publish_ready(void) {
+    char endpoint[64];
+    snprintf(endpoint,
+             sizeof(endpoint),
+             "127.0.0.1:%d",
+             reserve_loopback_port());
+
+    pid_t pids[DS4_GLM52_L0_RANK_COUNT] = {0};
+    pids[0] = fork();
+    check(pids[0] >= 0, "TP_GROUP coordinator fork should succeed");
+    if (pids[0] == 0) {
+        tp_group_l0_rank_main(0, endpoint);
+    }
+
+    usleep(100000);
+    for (int rank = 1; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        pids[rank] = fork();
+        check(pids[rank] >= 0, "TP_GROUP worker fork should succeed");
+        if (pids[rank] == 0) {
+            tp_group_l0_rank_main(rank, endpoint);
+        }
+    }
+
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        int status = 0;
+        check(waitpid(pids[rank], &status, 0) == pids[rank],
+              "TP_GROUP rank waitpid should succeed");
+        check(WIFEXITED(status) && WEXITSTATUS(status) == 0,
+              "TP_GROUP rank should publish fabric readiness");
+    }
 }
 
 static void test_model_load_child_validation(void) {
@@ -2265,6 +2375,7 @@ int main(void) {
     test_stub_does_not_mutate_cursor();
     test_orchestration_prerequisites();
     test_tp_group_binding();
+    test_tp_group_l0_rendezvous_publish_ready();
     test_model_load_child_validation();
     test_model_load_manifest_rejections();
     test_run_reaches_root_seam();

@@ -180,6 +180,7 @@ typedef struct {
     const char *glm52_tp4_rank_plan;
     const char *glm52_tp4_layout_path;
     const char *glm52_tp4_fabric_addr;
+    const char *glm52_tp4_rendezvous;
     ds4_distributed_options distributed;
     ds4_tp_options tp;
 } ds4_engine_options;
