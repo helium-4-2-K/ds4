@@ -123,11 +123,26 @@ work.
   PASS. The corresponding request explicitly records CRS812 `s-tp`
   `data_plane`, `fabric_addrs`, `fabric_switch`, and `management_addrs` field
   flows from the same TP state provenance used by the other `s-tp` fields.
-- Local portable-frame payload smoke and bad-frame rejection smoke: PASS.
-  Latest local positive run used four processes on `127.0.0.1:59556` with the
-  bound-host all-reduce executor and verified 16 payload floats on all worker
-  ranks. Latest local bad-frame run used `127.0.0.1:59453` and rejected rank 1
-  before reduction.
+- Real four-GX10 CRS812 portable-frame payload smoke and bad-frame rejection
+  smoke: PASS on commit `91bcec7`.
+  - Deployed the current committed tree to `/tmp/ds4-gx10-91bcec7` on all four
+    GX10s.
+  - Management SSH / fabric rank map used:
+    rank0 `192.168.0.40` / `10.100.185.3`,
+    rank1 `192.168.0.240` / `10.100.185.1`,
+    rank2 `192.168.0.99` / `10.100.185.2`,
+    rank3 `192.168.0.39` / `10.100.185.4`.
+  - Per-host build and unit checks passed on all four GX10s:
+    `tests/glm52_tp4_fabric_smoke`,
+    `tests/test_glm52_dcp_row_exchange`, and
+    `tests/test_glm52_tp4_allreduce`.
+  - Positive CRS812 run: rank0 listened on `10.100.185.3:49121`, workers
+    connected from ranks 1..3, the bound-host all-reduce executor verified 1024
+    payload floats on all worker ranks, and rank0 completed with
+    `ack_mask=0xf`.
+  - Bad-frame CRS812 run: rank0 listened on `10.100.185.3:49122`, rank1 sent a
+    corrupted typed collective frame, and rank0 rejected it before reduction
+    with the frame byte-count/dtype-size validation error.
 - `make cpu tests/test_tp4_rank_group tests/test_glm52_l0
   tests/test_glm52_mock tests/test_glm52_tp4_mock
   tests/test_glm52_tp4_mock_serve tests/test_glm52_tp4_allreduce
