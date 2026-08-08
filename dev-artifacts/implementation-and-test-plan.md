@@ -90,6 +90,10 @@ Completed implementation slices:
     `socketpair()`;
   - parses numeric TCP endpoints, binds a coordinator listener, accepts worker
     connections with timeout handling, and connects workers over loopback TCP;
+  - provides `tests/glm52_tp4_fabric_smoke` for a real four-host CRS812 smoke:
+    rank0 listens on `10.100.185.3`, ranks1-3 connect from their GX10 hosts,
+    rank0 publishes TP fabric readiness, broadcasts shutdown, and records all
+    acks;
   - clears group readiness when a rank transport failure is recorded;
   - publishes L0 fabric readiness only after the compatible four-rank group is
     complete.

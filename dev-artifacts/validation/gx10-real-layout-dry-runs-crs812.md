@@ -84,34 +84,35 @@ Interpretation: PASS through real rank-2 model-load/layout verification with
 the CRS812 fabric marker accepted; expected blocker is the unresolved real
 four-rank collective transport handshake.
 
-## Rank 3 Access Blocker
+## Rank 3
 
-- Expected host: `gx10-9c9a`
+- Host: `gx10-9c9a`
 - Management IP: `192.168.0.39`
-- Expected fabric IP: `10.100.185.4`
+- Fabric IP/interface: `10.100.185.4/24` on `enp1s0f0np0`
 - Model root: `/home/helium_gx/models/glm52-full-tp4-mtp-rank3`
-- Blocker: SSH from this shell with the available NVIDIA Sync identity failed
-  with `Permission denied (publickey,password)`.
+- Generated rank plan: `/tmp/ds4-glm52-rank3.plan`
+- Generated layout: `/tmp/ds4-glm52-rank3.layout`
+- Plan evidence: `fabric_addr=10.100.185.4`,
+  `fabric_data_plane=crs812-200g`
+- Representative roles:
+  - q_head: `model-rank-3-part-0.safetensors`
+  - expert: `model-rank-3-part-1.safetensors`
+  - vocab: `model-rank-3-part-19.safetensors`
+- Result:
 
-Rank 3 still needs the same command sequence once SSH access is restored:
-
-```bash
-cd /home/helium_gx/src/ds4-gb10x4-bcd-realtest
-./misc/glm52_bird_layout.py \
-  --model-root /home/helium_gx/models/glm52-full-tp4-mtp-rank3 \
-  --rank 3 \
-  --fabric-addr 10.100.185.4 \
-  --rank-plan-out /tmp/ds4-glm52-rank3.plan \
-  --layout-out /tmp/ds4-glm52-rank3.layout
-./ds4 \
-  -m /home/helium_gx/models/glm52-full-tp4-mtp-rank3 \
-  --glm52-tp4-l0 \
-  --glm52-tp4-rank 3 \
-  --glm52-tp4-rank-plan /tmp/ds4-glm52-rank3.plan \
-  --glm52-tp4-layout /tmp/ds4-glm52-rank3.layout \
-  --glm52-tp4-fabric 10.100.185.4 \
-  --inspect
+```text
+serve/action-serve-open status=ok
+serve/action-tp-group status=not_ready
+not_ready at serve/action-tp-group:
+TP4/DCP4 topology is bound; real four-rank collective transport handshake is not implemented
+real 520.15
+user 509.74
+sys 10.36
 ```
+
+Interpretation: PASS through real rank-3 model-load/layout verification with
+the CRS812 fabric marker accepted; expected blocker is the unresolved real
+four-rank collective transport handshake.
 
 ## Not Proven
 

@@ -4,9 +4,9 @@ Date: 2026-08-07
 
 Scope: no-model rank-group smoke for the GLM 5.2 TP4/DCP4 serving skeleton.
 This started as an in-memory compatibility and command-state seam and now also
-has forked local file-descriptor and loopback TCP transport smoke coverage. It
-does not initialize NCCL/RoCE, load real GX10 endpoint files, or execute GLM
-kernels.
+has forked local file-descriptor, loopback TCP, and real CRS812 four-GX10
+transport smoke coverage. It does not initialize NCCL/RoCE tensor collectives
+or execute GLM kernels.
 
 ## Contract Mapping
 
@@ -24,6 +24,9 @@ kernels.
   - Parses numeric TCP `host:port` endpoints, binds a coordinator listener,
     accepts worker connections with timeout handling, and connects workers to
     the coordinator.
+  - Provides `tests/glm52_tp4_fabric_smoke`, a coordinator/worker executable
+    that runs the same hello/register, readiness publication, command
+    broadcast, ack, and shutdown sequence against real CRS812 endpoints.
   - Clears topology/transport/group readiness when a rank transport failure is
     recorded.
   - Publishes TP fabric readiness into `ds4_glm52_l0_state` only after the full
@@ -37,6 +40,7 @@ kernels.
 - TCP endpoint API: `ds4_glm52_tp4_tcp_endpoint`,
   `ds4_glm52_tp4_tcp_parse_endpoint`, `ds4_glm52_tp4_tcp_listen`,
   `ds4_glm52_tp4_tcp_accept`, and `ds4_glm52_tp4_tcp_connect`.
+- CRS812 smoke tool: `tests/glm52_tp4_fabric_smoke.c`.
 - The group distinguishes topology/transport/group readiness from individual
   command acknowledgement.
 - The frame helpers are deliberately below the deployment policy layer. TCP
@@ -54,6 +58,14 @@ kernels.
 
 - `make tests/test_tp4_rank_group tests/test_glm52_l0 &&
   ./tests/test_tp4_rank_group && ./tests/test_glm52_l0`: PASS.
+- `make tests/glm52_tp4_fabric_smoke`: PASS.
+- Local four-process loopback smoke with `tests/glm52_tp4_fabric_smoke`: PASS.
+- Management endpoint rejection with `192.168.0.40`: PASS.
+- Real CRS812 four-GX10 smoke: PASS. Rank 0 listened on `10.100.185.3:49052`;
+  ranks 1, 2, and 3 connected from their GX10 hosts; rank 0 registered all
+  workers, published fabric readiness, sent shutdown, and collected
+  `ack_mask=0xf`. Evidence:
+  `dev-artifacts/validation/l1-tp-group-crs812-smoke-evidence.md`.
 - `make cpu`: PASS.
 - BCD lint at blueprint
   `a0d9cf6b17df5f544ab2d17930aaf58b6f2bf4a3c1ce4034d3f91f1ba202e30a`: PASS.
@@ -62,7 +74,8 @@ kernels.
 
 ## Remaining Frontier
 
-Wire the endpoint protocol to the real GX10 launch plan and CLI/server process
-roles, then add the collective backend used by prefill/decode. The FD and
-loopback TCP smoke APIs remain deterministic unit-test harnesses for the
-command-state protocol.
+Wire this CRS812 endpoint protocol into the normal DS4 CLI/server process
+roles, then add the collective payload backend used by prefill/decode. The
+remaining real frontier is tensor data movement and math: all-reduce payloads,
+logits gather/top-k payloads, DCP selected-row exchange payloads, and GPU/GLM
+kernels.
