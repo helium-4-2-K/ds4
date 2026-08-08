@@ -1,4 +1,5 @@
 #include "ds4.h"
+#include "ds4_gpu_mgpu.h"
 #include "ds4_glm52_mock.h"
 
 #include <stdbool.h>
@@ -175,6 +176,83 @@ static void test_l0_collective_tensor_bindings(void) {
           "L0 tensor binding should reject logits for all-reduce binding");
     check(strstr(err, "attention or FFN") != NULL,
           "L0 tensor binding kind rejection should name supported kinds");
+}
+
+static void test_l0_collective_gpu_tensor_bindings(void) {
+    const size_t n = DS4_GLM52_MOCK_N_EMBD;
+    ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT];
+    ds4_gpu_tensor partial_tensors[DS4_GLM52_L0_RANK_COUNT];
+    ds4_gpu_tensor output_tensors[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_tp4_gpu_tensor_binding partials[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_tp4_gpu_tensor_binding outputs[DS4_GLM52_L0_RANK_COUNT];
+    int expected_devices[DS4_GLM52_L0_RANK_COUNT];
+    int partial_storage[DS4_GLM52_L0_RANK_COUNT];
+    int output_storage[DS4_GLM52_L0_RANK_COUNT];
+    char err[192] = "";
+
+    make_l0_requests(requests, DS4_GLM52_TP4_COLLECTIVE_ATTN, 49, 31, n);
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        expected_devices[rank] = rank;
+        partial_tensors[rank].ptr = &partial_storage[rank];
+        partial_tensors[rank].bytes = requests[rank].byte_count;
+        partial_tensors[rank].owner = 1;
+        partial_tensors[rank].device_id = rank;
+        output_tensors[rank].ptr = &output_storage[rank];
+        output_tensors[rank].bytes = requests[rank].byte_count;
+        output_tensors[rank].owner = 1;
+        output_tensors[rank].device_id = rank;
+        partials[rank].rank = rank;
+        partials[rank].tensor = &partial_tensors[rank];
+        partials[rank].byte_offset = 0;
+        partials[rank].byte_count = requests[rank].byte_count;
+        partials[rank].dtype = requests[rank].dtype;
+        partials[rank].shape_hash = requests[rank].shape_hash;
+        partials[rank].ready = true;
+        outputs[rank].rank = rank;
+        outputs[rank].tensor = &output_tensors[rank];
+        outputs[rank].byte_offset = 0;
+        outputs[rank].byte_count = requests[rank].byte_count;
+        outputs[rank].dtype = requests[rank].dtype;
+        outputs[rank].shape_hash = requests[rank].shape_hash;
+        outputs[rank].ready = true;
+    }
+    check(ds4_glm52_tp4_collective_bind_gpu_tensors(
+              requests,
+              partials,
+              outputs,
+              expected_devices,
+              n,
+              err,
+              sizeof(err)),
+          "L0 GPU tensor binding should accept rank-owned device tensors");
+
+    output_tensors[2].device_id = 0;
+    check(!ds4_glm52_tp4_collective_bind_gpu_tensors(
+              requests,
+              partials,
+              outputs,
+              expected_devices,
+              n,
+              err,
+              sizeof(err)),
+          "L0 GPU tensor binding should reject wrong-rank device ownership");
+    check(strstr(err, "device") != NULL,
+          "L0 GPU tensor binding device rejection should name device");
+    output_tensors[2].device_id = 2;
+
+    partial_tensors[1].bytes = requests[1].byte_count + 2;
+    partials[1].byte_offset = 2;
+    check(!ds4_glm52_tp4_collective_bind_gpu_tensors(
+              requests,
+              partials,
+              outputs,
+              expected_devices,
+              n,
+              err,
+              sizeof(err)),
+          "L0 GPU tensor binding should reject unaligned byte ranges");
+    check(strstr(err, "aligned") != NULL,
+          "L0 GPU tensor binding alignment rejection should name alignment");
 }
 
 static void test_l0_bound_host_allreduce(void) {
@@ -962,6 +1040,7 @@ static void test_allreduce_rejects_shape_dtype_and_nonfinite(void) {
 int main(void) {
     test_l0_host_allreduce_buffers();
     test_l0_collective_tensor_bindings();
+    test_l0_collective_gpu_tensor_bindings();
     test_l0_bound_host_allreduce();
     test_l0_decode_bound_collective_allreduce();
     test_l0_logits_gather_topk();

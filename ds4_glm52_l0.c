@@ -1,4 +1,5 @@
 #include "ds4_glm52_l0.h"
+#include "ds4_gpu_mgpu.h"
 
 #include <arpa/inet.h>
 #include <ctype.h>
@@ -1501,6 +1502,140 @@ bool ds4_glm52_tp4_collective_bind_tensor_buffers(
                                          req->byte_count,
                                          err,
                                          err_size)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool validate_tp4_gpu_tensor_binding(
+        const char *name,
+        const ds4_glm52_tp4_gpu_tensor_binding *binding,
+        int rank,
+        int expected_device,
+        ds4_glm52_tp4_tensor_dtype dtype,
+        uint64_t shape_hash,
+        size_t byte_count,
+        char *err,
+        size_t err_size) {
+    const size_t dtype_size = ds4_glm52_tp4_tensor_dtype_size(dtype);
+    if (!binding || !binding->tensor || !binding->tensor->ptr ||
+        !binding->ready) {
+        char msg[192];
+        snprintf(msg, sizeof(msg),
+                 "%s GPU tensor binding requires a non-null ready device tensor",
+                 name ? name : "TP4");
+        set_error(err, err_size, msg);
+        return false;
+    }
+    if (binding->rank != rank) {
+        char msg[192];
+        snprintf(msg, sizeof(msg),
+                 "%s GPU tensor binding must be indexed by rank",
+                 name ? name : "TP4");
+        set_error(err, err_size, msg);
+        return false;
+    }
+    if (binding->tensor->device_id != expected_device) {
+        char msg[192];
+        snprintf(msg, sizeof(msg),
+                 "%s GPU tensor binding device does not match rank ownership",
+                 name ? name : "TP4");
+        set_error(err, err_size, msg);
+        return false;
+    }
+    if (binding->dtype != dtype ||
+        binding->shape_hash != shape_hash ||
+        binding->byte_count != byte_count) {
+        char msg[192];
+        snprintf(msg, sizeof(msg),
+                 "%s GPU tensor binding dtype, shape, or byte count does not match collective metadata",
+                 name ? name : "TP4");
+        set_error(err, err_size, msg);
+        return false;
+    }
+    if (dtype_size == 0 ||
+        binding->byte_offset > binding->tensor->bytes ||
+        binding->byte_count > binding->tensor->bytes - binding->byte_offset ||
+        (binding->byte_offset % dtype_size) != 0 ||
+        (binding->byte_count % dtype_size) != 0) {
+        char msg[192];
+        snprintf(msg, sizeof(msg),
+                 "%s GPU tensor binding byte range exceeds device tensor capacity or is not dtype-aligned",
+                 name ? name : "TP4");
+        set_error(err, err_size, msg);
+        return false;
+    }
+    return true;
+}
+
+bool ds4_glm52_tp4_collective_bind_gpu_tensors(
+        const ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_tp4_gpu_tensor_binding partials[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_tp4_gpu_tensor_binding outputs[DS4_GLM52_L0_RANK_COUNT],
+        const int expected_devices[DS4_GLM52_L0_RANK_COUNT],
+        size_t element_count,
+        char *err,
+        size_t err_size) {
+    if (!requests || !partials || !outputs || !expected_devices ||
+        element_count == 0) {
+        set_error(err, err_size,
+                  "TP4 GPU tensor binding requires frames, device tensors, rank devices, and nonzero elements");
+        return false;
+    }
+
+    const ds4_glm52_tp4_collective_request *ref = &requests[0];
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        const ds4_glm52_tp4_collective_request *req = &requests[rank];
+        if (!ds4_glm52_tp4_collective_frame_validate(
+                    req, err, err_size)) {
+            return false;
+        }
+        if (req->rank != rank) {
+            set_error(err, err_size,
+                      "TP4 GPU tensor binding request array must be indexed by rank");
+            return false;
+        }
+        if (!collective_f32_allreduce_kind(req->kind)) {
+            set_error(err, err_size,
+                      "TP4 GPU tensor binding only accepts attention or FFN collectives");
+            return false;
+        }
+        if (req->dtype != DS4_GLM52_TP4_TENSOR_DTYPE_F32) {
+            set_error(err, err_size,
+                      "TP4 GPU tensor binding currently requires f32 collective tensors");
+            return false;
+        }
+        if (req->element_count != element_count) {
+            set_error(err, err_size,
+                      "TP4 GPU tensor binding element count does not match frame metadata");
+            return false;
+        }
+        if (rank != 0 && !same_collective_identity(ref, req)) {
+            set_error(err, err_size,
+                      "TP4 GPU tensor binding rank frames disagree on collective identity");
+            return false;
+        }
+        if (!validate_tp4_gpu_tensor_binding("TP4 GPU rank-local partial",
+                                             &partials[rank],
+                                             rank,
+                                             expected_devices[rank],
+                                             req->dtype,
+                                             req->shape_hash,
+                                             req->byte_count,
+                                             err,
+                                             err_size)) {
+            return false;
+        }
+        if (!validate_tp4_gpu_tensor_binding("TP4 GPU replicated output",
+                                             &outputs[rank],
+                                             rank,
+                                             expected_devices[rank],
+                                             req->dtype,
+                                             req->shape_hash,
+                                             req->byte_count,
+                                             err,
+                                             err_size)) {
             return false;
         }
     }

@@ -214,6 +214,33 @@ work.
     KV/K-rope row payloads, produced complete selected-row replies for all
     four requester ranks, and completed decode command sequence `1` with
     `ack_mask=0xf`; every worker sent its DCP payload and acked.
+- GPU-resident TP4 binding frontier and real GX10 CUDA device check: PARTIAL
+  PASS on working tree after `bd8a535`.
+  - Production GPU binding type added:
+    `ds4_glm52_tp4_gpu_tensor_binding`.
+  - Production validator added:
+    `ds4_glm52_tp4_collective_bind_gpu_tensors`.
+  - The validator upgrades the previous opaque-handle check for TP4
+    ATTN/FFN collectives: every rank-local partial and replicated output must
+    name a ready `ds4_gpu_tensor`, non-null device pointer, rank-indexed
+    binding, expected logical device ownership, matching dtype/shape/byte
+    metadata, and dtype-aligned byte range within the device tensor capacity.
+  - Local unit gate: `tests/test_glm52_tp4_allreduce` covers accepted
+    rank-owned GPU tensor descriptors, wrong-device rejection, and unaligned
+    range rejection.
+  - Deployed the working tree to
+    `/tmp/ds4-gx10-gpu-binding-20260807222117` on all four GX10s.
+  - Per-host GLM52 binding gate passed:
+    `make tests/test_glm52_tp4_allreduce && ./tests/test_glm52_tp4_allreduce`.
+  - Rank0 real CUDA gate passed:
+    `make tests/test_gpu_xdev && ./tests/test_gpu_xdev` on `192.168.0.40`.
+    The test saw one NVIDIA GB10 CUDA device (`sm_121`) and passed existing
+    allocation/copy/top-k/attention/MoE/Q8/F16/attention-output-TP CUDA checks.
+  - Limitation: this does not yet replace the host reference collective with
+    inter-machine GPU-resident execution. `tests/test_gpu_xdev` skipped
+    multi-GPU paths because a single GX10 exposes one CUDA device, and DS4 has
+    no GLM5.2 TP4 CRS812 GPU collective backend or GLM5.2 real kernel seam
+    wired behind `ds4_glm52_decode_real_step` yet.
 - `make cpu tests/test_tp4_rank_group tests/test_glm52_l0
   tests/test_glm52_mock tests/test_glm52_tp4_mock
   tests/test_glm52_tp4_mock_serve tests/test_glm52_tp4_allreduce

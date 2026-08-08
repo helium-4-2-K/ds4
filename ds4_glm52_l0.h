@@ -384,6 +384,16 @@ typedef struct {
 } ds4_glm52_tp4_logits_tensor_shard;
 
 typedef struct {
+    int rank;
+    const struct ds4_gpu_tensor *tensor;
+    size_t byte_offset;
+    size_t byte_count;
+    ds4_glm52_tp4_tensor_dtype dtype;
+    uint64_t shape_hash;
+    bool ready;
+} ds4_glm52_tp4_gpu_tensor_binding;
+
+typedef struct {
     int token_id;
     float score;
     int owner_rank;
@@ -524,6 +534,14 @@ bool ds4_glm52_tp4_collective_bind_tensor_buffers(
         const ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT],
         const ds4_glm52_tp4_tensor_binding partials[DS4_GLM52_L0_RANK_COUNT],
         const ds4_glm52_tp4_tensor_binding outputs[DS4_GLM52_L0_RANK_COUNT],
+        size_t element_count,
+        char *err,
+        size_t err_size);
+bool ds4_glm52_tp4_collective_bind_gpu_tensors(
+        const ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_tp4_gpu_tensor_binding partials[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_tp4_gpu_tensor_binding outputs[DS4_GLM52_L0_RANK_COUNT],
+        const int expected_devices[DS4_GLM52_L0_RANK_COUNT],
         size_t element_count,
         char *err,
         size_t err_size);
