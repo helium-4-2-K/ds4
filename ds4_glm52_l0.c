@@ -1047,54 +1047,41 @@ static bool collective_byte_count_ok(size_t element_count,
     return byte_count == element_count * dtype_size;
 }
 
-ds4_glm52_l0_status ds4_glm52_tp4_real_collective_allreduce(
+bool ds4_glm52_tp4_collective_frame_validate(
         const ds4_glm52_tp4_collective_request *request,
-        ds4_glm52_l0_result *result) {
+        char *err,
+        size_t err_size) {
     if (!request) {
-        set_result(result,
-                   DS4_GLM52_L0_STATUS_INVALID,
-                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
-                   "real TP4 collective request is missing");
-        return DS4_GLM52_L0_STATUS_INVALID;
+        set_error(err, err_size, "real TP4 collective request is missing");
+        return false;
     }
     if (request->frame_version != DS4_GLM52_TP4_COLLECTIVE_FRAME_VERSION) {
-        set_result(result,
-                   DS4_GLM52_L0_STATUS_INVALID,
-                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
-                   "real TP4 collective requires collective frame version 1");
-        return DS4_GLM52_L0_STATUS_INVALID;
+        set_error(err, err_size,
+                  "real TP4 collective requires collective frame version 1");
+        return false;
     }
     if (!valid_collective_kind(request->kind)) {
-        set_result(result,
-                   DS4_GLM52_L0_STATUS_INVALID,
-                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
-                   "real TP4 collective kind is invalid");
-        return DS4_GLM52_L0_STATUS_INVALID;
+        set_error(err, err_size, "real TP4 collective kind is invalid");
+        return false;
     }
     if (request->rank < 0 ||
         request->rank >= DS4_GLM52_L0_RANK_COUNT ||
         request->tp_size != DS4_GLM52_L0_TP_SIZE ||
         request->dcp_size != DS4_GLM52_L0_DCP_SIZE ||
         request->rank_count != DS4_GLM52_L0_RANK_COUNT) {
-        set_result(result,
-                   DS4_GLM52_L0_STATUS_INVALID,
-                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
-                   "real TP4 collective requires rank in [0,4) with TP4/DCP4/rank_count=4");
-        return DS4_GLM52_L0_STATUS_INVALID;
+        set_error(err, err_size,
+                  "real TP4 collective requires rank in [0,4) with TP4/DCP4/rank_count=4");
+        return false;
     }
     if (!valid_tensor_dtype(request->dtype)) {
-        set_result(result,
-                   DS4_GLM52_L0_STATUS_INVALID,
-                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
-                   "real TP4 collective requires a supported tensor dtype");
-        return DS4_GLM52_L0_STATUS_INVALID;
+        set_error(err, err_size,
+                  "real TP4 collective requires a supported tensor dtype");
+        return false;
     }
     if (request->participant_mask != l0_full_rank_mask()) {
-        set_result(result,
-                   DS4_GLM52_L0_STATUS_INVALID,
-                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
-                   "real TP4 collective requires all four rank participants");
-        return DS4_GLM52_L0_STATUS_INVALID;
+        set_error(err, err_size,
+                  "real TP4 collective requires all four rank participants");
+        return false;
     }
     if (request->seq == 0 ||
         request->model_hash == 0 ||
@@ -1106,10 +1093,23 @@ ds4_glm52_l0_status ds4_glm52_tp4_real_collective_allreduce(
         !collective_byte_count_ok(request->element_count,
                                   request->dtype,
                                   request->byte_count)) {
+        set_error(err, err_size,
+                  "real TP4 collective requires nonzero identity, layer, shape hash, element count, and matching dtype byte count");
+        return false;
+    }
+    return true;
+}
+
+ds4_glm52_l0_status ds4_glm52_tp4_real_collective_allreduce(
+        const ds4_glm52_tp4_collective_request *request,
+        ds4_glm52_l0_result *result) {
+    char err[192];
+    if (!ds4_glm52_tp4_collective_frame_validate(
+                request, err, sizeof(err))) {
         set_result(result,
                    DS4_GLM52_L0_STATUS_INVALID,
                    DS4_GLM52_L0_ACTION_DECODE_TOKEN,
-                   "real TP4 collective requires nonzero identity, layer, shape hash, element count, and matching dtype byte count");
+                   err);
         return DS4_GLM52_L0_STATUS_INVALID;
     }
     if (!request->topology_ready || !request->transport_ready) {

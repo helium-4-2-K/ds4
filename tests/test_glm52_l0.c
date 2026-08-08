@@ -1724,6 +1724,7 @@ static void test_real_collective_frontier_fails_closed(void) {
     ds4_glm52_l0_result result;
     ds4_glm52_tp4_collective_request req =
         valid_real_collective_request();
+    char err[192] = "";
 
     check(strcmp(ds4_glm52_tp4_tensor_dtype_name(
                      DS4_GLM52_TP4_TENSOR_DTYPE_BF16), "bf16") == 0,
@@ -1731,6 +1732,9 @@ static void test_real_collective_frontier_fails_closed(void) {
     check(ds4_glm52_tp4_tensor_dtype_size(
               DS4_GLM52_TP4_TENSOR_DTYPE_FP8_E4M3) == 1,
           "tensor dtype byte sizes should be stable");
+    check(ds4_glm52_tp4_collective_frame_validate(
+              &req, err, sizeof(err)),
+          "valid collective frame metadata should pass standalone validation");
 
     req.frame_version = 99;
     ds4_glm52_l0_status status =

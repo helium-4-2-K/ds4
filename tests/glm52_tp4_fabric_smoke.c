@@ -21,10 +21,31 @@ typedef struct {
     const char *connect;
     int timeout_ms;
     int payload_floats;
+    bool bad_payload_frame;
     uint64_t model_hash;
     uint64_t config_hash;
     uint64_t plan_hash;
 } smoke_config;
+
+typedef struct {
+    uint32_t frame_version;
+    int32_t kind;
+    int32_t rank;
+    int32_t tp_size;
+    int32_t dcp_size;
+    int32_t rank_count;
+    int32_t layer_index;
+    int32_t dtype;
+    uint64_t seq;
+    uint64_t model_hash;
+    uint64_t session_hash;
+    uint64_t token_step_j;
+    uint64_t element_count;
+    uint64_t shape_hash;
+    uint64_t byte_count;
+    uint32_t participant_mask;
+    uint32_t flags;
+} smoke_collective_wire_frame;
 
 static void usage(FILE *fp, const char *prog) {
     fprintf(fp,
@@ -39,6 +60,7 @@ static void usage(FILE *fp, const char *prog) {
             "  --connect HOST:PORT      worker connect endpoint\n"
             "  --timeout-ms N           default 10000\n"
             "  --payload-floats N       optional fixed-size all-reduce payload\n"
+            "  --bad-payload-frame      send a mismatched typed payload frame\n"
             "  --model-hash U64         default 11\n"
             "  --config-hash U64        default 22\n"
             "  --plan-hash U64          default 33\n",
@@ -109,22 +131,196 @@ static float reduced_value(int index) {
     return sum;
 }
 
+static uint32_t full_rank_mask_local(void) {
+    return (UINT32_C(1) << DS4_GLM52_L0_RANK_COUNT) - UINT32_C(1);
+}
+
+static uint64_t shape_hash_for_payload(int n) {
+    uint64_t h = 1469598103934665603ull;
+    h ^= (uint64_t)DS4_GLM52_TP4_COLLECTIVE_ATTN;
+    h *= 1099511628211ull;
+    h ^= (uint64_t)DS4_GLM52_TP4_TENSOR_DTYPE_F32;
+    h *= 1099511628211ull;
+    h ^= (uint64_t)(uint32_t)n;
+    h *= 1099511628211ull;
+    return h;
+}
+
+static uint64_t session_hash_for_smoke(const smoke_config *cfg) {
+    return cfg->config_hash ^ (cfg->plan_hash << 1) ^ UINT64_C(0x9e3779b97f4a7c15);
+}
+
+static ds4_glm52_tp4_collective_request make_collective_request(
+        const smoke_config *cfg,
+        int rank,
+        uint64_t seq) {
+    ds4_glm52_tp4_collective_request req;
+    memset(&req, 0, sizeof(req));
+    req.frame_version = DS4_GLM52_TP4_COLLECTIVE_FRAME_VERSION;
+    req.kind = DS4_GLM52_TP4_COLLECTIVE_ATTN;
+    req.rank = rank;
+    req.tp_size = DS4_GLM52_L0_TP_SIZE;
+    req.dcp_size = DS4_GLM52_L0_DCP_SIZE;
+    req.rank_count = DS4_GLM52_L0_RANK_COUNT;
+    req.layer_index = 0;
+    req.dtype = DS4_GLM52_TP4_TENSOR_DTYPE_F32;
+    req.seq = seq;
+    req.model_hash = cfg->model_hash;
+    req.session_hash = session_hash_for_smoke(cfg);
+    req.token_step_j = seq;
+    req.element_count = (size_t)cfg->payload_floats;
+    req.shape_hash = shape_hash_for_payload(cfg->payload_floats);
+    req.byte_count =
+        req.element_count * ds4_glm52_tp4_tensor_dtype_size(req.dtype);
+    req.participant_mask = full_rank_mask_local();
+    req.topology_ready = true;
+    req.transport_ready = true;
+    req.rank_local_partial_ready = true;
+    req.replicated_output_ready = true;
+    return req;
+}
+
+static bool collective_frames_match(
+        const ds4_glm52_tp4_collective_request *a,
+        const ds4_glm52_tp4_collective_request *b) {
+    return a && b &&
+           a->frame_version == b->frame_version &&
+           a->kind == b->kind &&
+           a->tp_size == b->tp_size &&
+           a->dcp_size == b->dcp_size &&
+           a->rank_count == b->rank_count &&
+           a->layer_index == b->layer_index &&
+           a->dtype == b->dtype &&
+           a->seq == b->seq &&
+           a->model_hash == b->model_hash &&
+           a->session_hash == b->session_hash &&
+           a->token_step_j == b->token_step_j &&
+           a->element_count == b->element_count &&
+           a->shape_hash == b->shape_hash &&
+           a->byte_count == b->byte_count &&
+           a->participant_mask == b->participant_mask &&
+           a->topology_ready == b->topology_ready &&
+           a->transport_ready == b->transport_ready &&
+           a->rank_local_partial_ready == b->rank_local_partial_ready &&
+           a->replicated_output_ready == b->replicated_output_ready;
+}
+
+static smoke_collective_wire_frame request_to_wire(
+        const ds4_glm52_tp4_collective_request *req) {
+    smoke_collective_wire_frame wire;
+    memset(&wire, 0, sizeof(wire));
+    wire.frame_version = req->frame_version;
+    wire.kind = (int32_t)req->kind;
+    wire.rank = (int32_t)req->rank;
+    wire.tp_size = (int32_t)req->tp_size;
+    wire.dcp_size = (int32_t)req->dcp_size;
+    wire.rank_count = (int32_t)req->rank_count;
+    wire.layer_index = (int32_t)req->layer_index;
+    wire.dtype = (int32_t)req->dtype;
+    wire.seq = req->seq;
+    wire.model_hash = req->model_hash;
+    wire.session_hash = req->session_hash;
+    wire.token_step_j = req->token_step_j;
+    wire.element_count = (uint64_t)req->element_count;
+    wire.shape_hash = req->shape_hash;
+    wire.byte_count = (uint64_t)req->byte_count;
+    wire.participant_mask = req->participant_mask;
+    if (req->topology_ready) wire.flags |= UINT32_C(1) << 0;
+    if (req->transport_ready) wire.flags |= UINT32_C(1) << 1;
+    if (req->rank_local_partial_ready) wire.flags |= UINT32_C(1) << 2;
+    if (req->replicated_output_ready) wire.flags |= UINT32_C(1) << 3;
+    return wire;
+}
+
+static bool wire_to_request(
+        const smoke_collective_wire_frame *wire,
+        ds4_glm52_tp4_collective_request *req,
+        char *err,
+        size_t err_size) {
+    if (!wire || !req) {
+        snprintf(err, err_size, "collective wire frame is missing");
+        return false;
+    }
+    memset(req, 0, sizeof(*req));
+    req->frame_version = wire->frame_version;
+    req->kind = (ds4_glm52_tp4_collective_kind)wire->kind;
+    req->rank = (int)wire->rank;
+    req->tp_size = (int)wire->tp_size;
+    req->dcp_size = (int)wire->dcp_size;
+    req->rank_count = (int)wire->rank_count;
+    req->layer_index = (int)wire->layer_index;
+    req->dtype = (ds4_glm52_tp4_tensor_dtype)wire->dtype;
+    req->seq = wire->seq;
+    req->model_hash = wire->model_hash;
+    req->session_hash = wire->session_hash;
+    req->token_step_j = wire->token_step_j;
+    if (wire->element_count > (uint64_t)SIZE_MAX ||
+        wire->byte_count > (uint64_t)SIZE_MAX) {
+        snprintf(err, err_size, "collective wire size exceeds local size_t");
+        return false;
+    }
+    req->element_count = (size_t)wire->element_count;
+    req->shape_hash = wire->shape_hash;
+    req->byte_count = (size_t)wire->byte_count;
+    req->participant_mask = wire->participant_mask;
+    req->topology_ready = (wire->flags & (UINT32_C(1) << 0)) != 0;
+    req->transport_ready = (wire->flags & (UINT32_C(1) << 1)) != 0;
+    req->rank_local_partial_ready = (wire->flags & (UINT32_C(1) << 2)) != 0;
+    req->replicated_output_ready = (wire->flags & (UINT32_C(1) << 3)) != 0;
+    return true;
+}
+
+static bool send_collective_frame(
+        int fd,
+        const ds4_glm52_tp4_collective_request *req,
+        bool validate_before_send,
+        char *err,
+        size_t err_size) {
+    if (validate_before_send &&
+        !ds4_glm52_tp4_collective_frame_validate(req, err, err_size)) {
+        return false;
+    }
+    smoke_collective_wire_frame wire = request_to_wire(req);
+    if (!write_exact_local(fd, &wire, sizeof(wire))) {
+        snprintf(err, err_size, "collective frame write failed");
+        return false;
+    }
+    return true;
+}
+
+static bool recv_collective_frame(
+        int fd,
+        ds4_glm52_tp4_collective_request *req,
+        char *err,
+        size_t err_size) {
+    smoke_collective_wire_frame wire;
+    if (!read_exact_local(fd, &wire, sizeof(wire))) {
+        snprintf(err, err_size, "collective frame read failed");
+        return false;
+    }
+    if (!wire_to_request(&wire, req, err, err_size)) return false;
+    return ds4_glm52_tp4_collective_frame_validate(req, err, err_size);
+}
+
 static bool payload_count_valid(int n) {
     return n >= 0 && n <= 4096;
 }
 
-static bool send_payload(int fd, int rank, int n, char *err, size_t err_size) {
+static bool send_payload(int fd,
+                         const ds4_glm52_tp4_collective_request *req,
+                         int n,
+                         bool validate_frame,
+                         char *err,
+                         size_t err_size) {
     if (!payload_count_valid(n)) {
         snprintf(err, err_size, "invalid payload float count");
         return false;
     }
-    int32_t header[2] = {(int32_t)rank, (int32_t)n};
-    if (!write_exact_local(fd, header, sizeof(header))) {
-        snprintf(err, err_size, "payload header write failed");
+    if (!send_collective_frame(fd, req, validate_frame, err, err_size)) {
         return false;
     }
     for (int i = 0; i < n; i++) {
-        float value = partial_value(rank, i);
+        float value = partial_value(req->rank, i);
         if (!write_exact_local(fd, &value, sizeof(value))) {
             snprintf(err, err_size, "payload body write failed");
             return false;
@@ -135,19 +331,19 @@ static bool send_payload(int fd, int rank, int n, char *err, size_t err_size) {
 
 static bool recv_payload_sum(int fd,
                              int expected_rank,
-                             int n,
+                             const ds4_glm52_tp4_collective_request *expected,
                              float *sum,
                              char *err,
                              size_t err_size) {
-    int32_t header[2] = {0, 0};
-    if (!read_exact_local(fd, header, sizeof(header))) {
-        snprintf(err, err_size, "payload header read failed");
+    ds4_glm52_tp4_collective_request actual;
+    if (!recv_collective_frame(fd, &actual, err, err_size)) return false;
+    if (actual.rank != expected_rank ||
+        actual.element_count != expected->element_count ||
+        !collective_frames_match(&actual, expected)) {
+        snprintf(err, err_size, "payload collective frame mismatch");
         return false;
     }
-    if (header[0] != expected_rank || header[1] != n) {
-        snprintf(err, err_size, "payload identity mismatch");
-        return false;
-    }
+    const int n = (int)actual.element_count;
     for (int i = 0; i < n; i++) {
         float value = 0.0f;
         if (!read_exact_local(fd, &value, sizeof(value))) {
@@ -164,15 +360,12 @@ static bool recv_payload_sum(int fd,
 }
 
 static bool send_reduced_payload(int fd,
-                                 int n,
+                                 const ds4_glm52_tp4_collective_request *req,
                                  const float *sum,
                                  char *err,
                                  size_t err_size) {
-    int32_t count = (int32_t)n;
-    if (!write_exact_local(fd, &count, sizeof(count))) {
-        snprintf(err, err_size, "reduced payload header write failed");
-        return false;
-    }
+    const int n = (int)req->element_count;
+    if (!send_collective_frame(fd, req, true, err, err_size)) return false;
     if (n > 0 && !write_exact_local(fd, sum, (size_t)n * sizeof(sum[0]))) {
         snprintf(err, err_size, "reduced payload body write failed");
         return false;
@@ -181,18 +374,16 @@ static bool send_reduced_payload(int fd,
 }
 
 static bool recv_and_validate_reduced_payload(int fd,
-                                              int n,
+                                              const ds4_glm52_tp4_collective_request *expected,
                                               char *err,
                                               size_t err_size) {
-    int32_t count = 0;
-    if (!read_exact_local(fd, &count, sizeof(count))) {
-        snprintf(err, err_size, "reduced payload header read failed");
+    ds4_glm52_tp4_collective_request actual;
+    if (!recv_collective_frame(fd, &actual, err, err_size)) return false;
+    if (actual.rank != 0 || !collective_frames_match(&actual, expected)) {
+        snprintf(err, err_size, "reduced collective frame mismatch");
         return false;
     }
-    if (count != n) {
-        snprintf(err, err_size, "reduced payload count mismatch");
-        return false;
-    }
+    const int n = (int)actual.element_count;
     for (int i = 0; i < n; i++) {
         float value = 0.0f;
         if (!read_exact_local(fd, &value, sizeof(value))) {
@@ -213,6 +404,7 @@ static bool parse_args(int argc, char **argv, smoke_config *cfg) {
     cfg->rank = -1;
     cfg->timeout_ms = 10000;
     cfg->payload_floats = 0;
+    cfg->bad_payload_frame = false;
     cfg->model_hash = 11;
     cfg->config_hash = 22;
     cfg->plan_hash = 33;
@@ -220,6 +412,10 @@ static bool parse_args(int argc, char **argv, smoke_config *cfg) {
     for (int i = 1; i < argc; i++) {
         const char *arg = argv[i];
         const char *value = NULL;
+        if (!strcmp(arg, "--bad-payload-frame")) {
+            cfg->bad_payload_frame = true;
+            continue;
+        }
         if (!strcmp(arg, "--role") ||
             !strcmp(arg, "--rank") ||
             !strcmp(arg, "--listen") ||
@@ -374,6 +570,7 @@ static int run_coordinator(const smoke_config *cfg) {
            state.tp_fabric.tp_size,
            state.tp_fabric.dcp_size,
            state.tp_fabric.rank_count);
+    fflush(stdout);
 
     ds4_glm52_tp4_command command = cfg->payload_floats > 0 ?
         DS4_GLM52_TP4_COMMAND_DECODE : DS4_GLM52_TP4_COMMAND_SHUTDOWN;
@@ -415,9 +612,11 @@ static int run_coordinator(const smoke_config *cfg) {
             sum[i] = partial_value(0, i);
         }
         for (int rank = 1; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+            ds4_glm52_tp4_collective_request expected =
+                make_collective_request(cfg, rank, seq);
             if (!recv_payload_sum(fds[rank],
                                   rank,
-                                  cfg->payload_floats,
+                                  &expected,
                                   sum,
                                   err,
                                   sizeof(err))) {
@@ -438,8 +637,10 @@ static int run_coordinator(const smoke_config *cfg) {
             }
         }
         for (int rank = 1; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+            ds4_glm52_tp4_collective_request result_frame =
+                make_collective_request(cfg, 0, seq);
             if (!send_reduced_payload(fds[rank],
-                                      cfg->payload_floats,
+                                      &result_frame,
                                       sum,
                                       err,
                                       sizeof(err))) {
@@ -550,9 +751,16 @@ static int run_worker(const smoke_config *cfg) {
             close(fd);
             return 6;
         }
+        ds4_glm52_tp4_collective_request req =
+            make_collective_request(cfg, cfg->rank, seq);
+        bool corrupt_frame = cfg->bad_payload_frame && cfg->rank == 1;
+        if (corrupt_frame && req.byte_count > 0) {
+            req.byte_count--;
+        }
         if (!send_payload(fd,
-                          cfg->rank,
+                          &req,
                           cfg->payload_floats,
+                          !corrupt_frame,
                           err,
                           sizeof(err))) {
             fprintf(stderr, "worker%d: send payload failed: %s\n",
@@ -560,8 +768,10 @@ static int run_worker(const smoke_config *cfg) {
             close(fd);
             return 7;
         }
+        ds4_glm52_tp4_collective_request expected =
+            make_collective_request(cfg, 0, seq);
         if (!recv_and_validate_reduced_payload(fd,
-                                               cfg->payload_floats,
+                                               &expected,
                                                err,
                                                sizeof(err))) {
             fprintf(stderr, "worker%d: reduced payload failed: %s\n",

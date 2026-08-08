@@ -388,6 +388,10 @@ const char *ds4_glm52_tp4_tensor_dtype_name(
         ds4_glm52_tp4_tensor_dtype dtype);
 size_t ds4_glm52_tp4_tensor_dtype_size(
         ds4_glm52_tp4_tensor_dtype dtype);
+bool ds4_glm52_tp4_collective_frame_validate(
+        const ds4_glm52_tp4_collective_request *request,
+        char *err,
+        size_t err_size);
 ds4_glm52_l0_status ds4_glm52_tp4_real_collective_allreduce(
         const ds4_glm52_tp4_collective_request *request,
         ds4_glm52_l0_result *result);
