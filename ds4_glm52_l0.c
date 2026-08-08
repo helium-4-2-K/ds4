@@ -1047,6 +1047,48 @@ static bool collective_byte_count_ok(size_t element_count,
     return byte_count == element_count * dtype_size;
 }
 
+static void write_be32(unsigned char *dst, uint32_t v) {
+    dst[0] = (unsigned char)((v >> 24) & 0xffu);
+    dst[1] = (unsigned char)((v >> 16) & 0xffu);
+    dst[2] = (unsigned char)((v >> 8) & 0xffu);
+    dst[3] = (unsigned char)(v & 0xffu);
+}
+
+static uint32_t read_be32(const unsigned char *src) {
+    return ((uint32_t)src[0] << 24) |
+           ((uint32_t)src[1] << 16) |
+           ((uint32_t)src[2] << 8) |
+           (uint32_t)src[3];
+}
+
+static void write_be64(unsigned char *dst, uint64_t v) {
+    for (int i = 7; i >= 0; i--) {
+        dst[7 - i] = (unsigned char)((v >> (i * 8)) & 0xffu);
+    }
+}
+
+static uint64_t read_be64(const unsigned char *src) {
+    uint64_t v = 0;
+    for (int i = 0; i < 8; i++) {
+        v = (v << 8) | (uint64_t)src[i];
+    }
+    return v;
+}
+
+static bool size_t_to_u64(size_t v, uint64_t *out) {
+    if (!out) return false;
+    if (v > (size_t)UINT64_MAX) return false;
+    *out = (uint64_t)v;
+    return true;
+}
+
+static bool u64_to_size_t(uint64_t v, size_t *out) {
+    if (!out) return false;
+    if (v > (uint64_t)SIZE_MAX) return false;
+    *out = (size_t)v;
+    return true;
+}
+
 bool ds4_glm52_tp4_collective_frame_validate(
         const ds4_glm52_tp4_collective_request *request,
         char *err,
@@ -1098,6 +1140,118 @@ bool ds4_glm52_tp4_collective_frame_validate(
         return false;
     }
     return true;
+}
+
+bool ds4_glm52_tp4_collective_frame_encode(
+        const ds4_glm52_tp4_collective_request *request,
+        unsigned char *wire,
+        size_t wire_size,
+        char *err,
+        size_t err_size) {
+    if (!wire || wire_size != DS4_GLM52_TP4_COLLECTIVE_WIRE_SIZE) {
+        set_error(err, err_size,
+                  "real TP4 collective wire buffer must be exactly 96 bytes");
+        return false;
+    }
+    if (!ds4_glm52_tp4_collective_frame_validate(
+                request, err, err_size)) {
+        return false;
+    }
+
+    uint64_t element_count = 0;
+    uint64_t byte_count = 0;
+    if (!size_t_to_u64(request->element_count, &element_count) ||
+        !size_t_to_u64(request->byte_count, &byte_count)) {
+        set_error(err, err_size,
+                  "real TP4 collective wire frame cannot represent size_t fields");
+        return false;
+    }
+
+    memset(wire, 0, wire_size);
+    size_t off = 0;
+    write_be32(wire + off, request->frame_version); off += 4;
+    write_be32(wire + off, (uint32_t)request->kind); off += 4;
+    write_be32(wire + off, (uint32_t)(int32_t)request->rank); off += 4;
+    write_be32(wire + off, (uint32_t)(int32_t)request->tp_size); off += 4;
+    write_be32(wire + off, (uint32_t)(int32_t)request->dcp_size); off += 4;
+    write_be32(wire + off, (uint32_t)(int32_t)request->rank_count); off += 4;
+    write_be32(wire + off, (uint32_t)(int32_t)request->layer_index); off += 4;
+    write_be32(wire + off, (uint32_t)request->dtype); off += 4;
+    write_be64(wire + off, request->seq); off += 8;
+    write_be64(wire + off, request->model_hash); off += 8;
+    write_be64(wire + off, request->session_hash); off += 8;
+    write_be64(wire + off, request->token_step_j); off += 8;
+    write_be64(wire + off, element_count); off += 8;
+    write_be64(wire + off, request->shape_hash); off += 8;
+    write_be64(wire + off, byte_count); off += 8;
+    write_be32(wire + off, request->participant_mask); off += 4;
+    uint32_t flags = 0;
+    if (request->topology_ready) flags |= UINT32_C(1) << 0;
+    if (request->transport_ready) flags |= UINT32_C(1) << 1;
+    if (request->rank_local_partial_ready) flags |= UINT32_C(1) << 2;
+    if (request->replicated_output_ready) flags |= UINT32_C(1) << 3;
+    write_be32(wire + off, flags); off += 4;
+    if (off != DS4_GLM52_TP4_COLLECTIVE_WIRE_SIZE) {
+        set_error(err, err_size,
+                  "real TP4 collective wire frame size accounting failed");
+        return false;
+    }
+    return true;
+}
+
+bool ds4_glm52_tp4_collective_frame_decode(
+        const unsigned char *wire,
+        size_t wire_size,
+        ds4_glm52_tp4_collective_request *request,
+        char *err,
+        size_t err_size) {
+    if (!wire || !request || wire_size != DS4_GLM52_TP4_COLLECTIVE_WIRE_SIZE) {
+        set_error(err, err_size,
+                  "real TP4 collective wire buffer must be exactly 96 bytes");
+        return false;
+    }
+
+    memset(request, 0, sizeof(*request));
+    size_t off = 0;
+    request->frame_version = read_be32(wire + off); off += 4;
+    request->kind = (ds4_glm52_tp4_collective_kind)read_be32(wire + off); off += 4;
+    request->rank = (int)(int32_t)read_be32(wire + off); off += 4;
+    request->tp_size = (int)(int32_t)read_be32(wire + off); off += 4;
+    request->dcp_size = (int)(int32_t)read_be32(wire + off); off += 4;
+    request->rank_count = (int)(int32_t)read_be32(wire + off); off += 4;
+    request->layer_index = (int)(int32_t)read_be32(wire + off); off += 4;
+    request->dtype = (ds4_glm52_tp4_tensor_dtype)read_be32(wire + off); off += 4;
+    request->seq = read_be64(wire + off); off += 8;
+    request->model_hash = read_be64(wire + off); off += 8;
+    request->session_hash = read_be64(wire + off); off += 8;
+    request->token_step_j = read_be64(wire + off); off += 8;
+    uint64_t element_count = read_be64(wire + off); off += 8;
+    request->shape_hash = read_be64(wire + off); off += 8;
+    uint64_t byte_count = read_be64(wire + off); off += 8;
+    request->participant_mask = read_be32(wire + off); off += 4;
+    uint32_t flags = read_be32(wire + off); off += 4;
+    if (off != DS4_GLM52_TP4_COLLECTIVE_WIRE_SIZE) {
+        set_error(err, err_size,
+                  "real TP4 collective wire frame size accounting failed");
+        return false;
+    }
+    if ((flags & ~UINT32_C(0xf)) != 0) {
+        set_error(err, err_size,
+                  "real TP4 collective wire frame contains unknown flags");
+        return false;
+    }
+    if (!u64_to_size_t(element_count, &request->element_count) ||
+        !u64_to_size_t(byte_count, &request->byte_count)) {
+        set_error(err, err_size,
+                  "real TP4 collective wire frame size exceeds this process");
+        return false;
+    }
+    request->topology_ready = (flags & (UINT32_C(1) << 0)) != 0;
+    request->transport_ready = (flags & (UINT32_C(1) << 1)) != 0;
+    request->rank_local_partial_ready = (flags & (UINT32_C(1) << 2)) != 0;
+    request->replicated_output_ready = (flags & (UINT32_C(1) << 3)) != 0;
+    return ds4_glm52_tp4_collective_frame_validate(
+            request, err, err_size);
 }
 
 ds4_glm52_l0_status ds4_glm52_tp4_real_collective_allreduce(

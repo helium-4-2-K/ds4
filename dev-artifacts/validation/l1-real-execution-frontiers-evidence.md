@@ -27,7 +27,10 @@ work.
 - TP4 collective real boundary
   - Code: `ds4_glm52_tp4_real_collective_allreduce`.
   - Shared frame validator: `ds4_glm52_tp4_collective_frame_validate`.
+  - Shared frame wire codec:
+    `ds4_glm52_tp4_collective_frame_encode/decode`.
   - Type: `ds4_glm52_tp4_collective_request`.
+  - Wire contract: portable 96-byte big-endian collective metadata frame.
   - Validates collective frame version, collective kind, rank in `[0,4)`,
     TP4/DCP4/rank_count=4, supported tensor dtype, full participant mask,
     nonzero sequence/model/session identity, layer, shape hash, element count,
@@ -71,8 +74,9 @@ work.
 
 - `make -B tests/test_glm52_l0 && ./tests/test_glm52_l0`: PASS.
 - `make -B tests/glm52_tp4_fabric_smoke`: PASS.
-- Local and CRS812 typed-frame payload smoke and bad-frame rejection smoke:
-  PASS.
+- Local and CRS812 portable-frame payload smoke and bad-frame rejection smoke:
+  PASS. Positive CRS812 run used `10.100.185.3:49057`; bad-frame CRS812 run
+  used `10.100.185.3:49058` and rejected rank 1 before reduction.
 - New `tests/test_glm52_l0.c` coverage:
   - `test_model_load_layout_reaches_ready_rank_engines`;
   - `test_real_collective_frontier_fails_closed`, including frame-version,

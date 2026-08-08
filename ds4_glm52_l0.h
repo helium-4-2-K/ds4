@@ -33,6 +33,7 @@
 #define DS4_GLM52_LAYOUT_FIELD_MAX 256
 #define DS4_GLM52_L0_FABRIC_DATA_PLANE "crs812-200g"
 #define DS4_GLM52_TP4_COLLECTIVE_FRAME_VERSION 1u
+#define DS4_GLM52_TP4_COLLECTIVE_WIRE_SIZE 96u
 
 typedef enum {
     DS4_GLM52_L0_STATUS_OK = 0,
@@ -390,6 +391,18 @@ size_t ds4_glm52_tp4_tensor_dtype_size(
         ds4_glm52_tp4_tensor_dtype dtype);
 bool ds4_glm52_tp4_collective_frame_validate(
         const ds4_glm52_tp4_collective_request *request,
+        char *err,
+        size_t err_size);
+bool ds4_glm52_tp4_collective_frame_encode(
+        const ds4_glm52_tp4_collective_request *request,
+        unsigned char *wire,
+        size_t wire_size,
+        char *err,
+        size_t err_size);
+bool ds4_glm52_tp4_collective_frame_decode(
+        const unsigned char *wire,
+        size_t wire_size,
+        ds4_glm52_tp4_collective_request *request,
         char *err,
         size_t err_size);
 ds4_glm52_l0_status ds4_glm52_tp4_real_collective_allreduce(

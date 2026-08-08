@@ -1735,6 +1735,36 @@ static void test_real_collective_frontier_fails_closed(void) {
     check(ds4_glm52_tp4_collective_frame_validate(
               &req, err, sizeof(err)),
           "valid collective frame metadata should pass standalone validation");
+    check(DS4_GLM52_TP4_COLLECTIVE_WIRE_SIZE == 96u,
+          "collective wire frame size should be stable");
+    unsigned char wire[DS4_GLM52_TP4_COLLECTIVE_WIRE_SIZE];
+    check(ds4_glm52_tp4_collective_frame_encode(
+              &req, wire, sizeof(wire), err, sizeof(err)),
+          "valid collective frame should encode");
+    check(wire[0] == 0 && wire[1] == 0 && wire[2] == 0 && wire[3] == 1,
+          "collective frame version should be big-endian on the wire");
+    ds4_glm52_tp4_collective_request decoded;
+    check(ds4_glm52_tp4_collective_frame_decode(
+              wire, sizeof(wire), &decoded, err, sizeof(err)),
+          "valid collective frame should decode");
+    check(decoded.kind == req.kind &&
+          decoded.rank == req.rank &&
+          decoded.dtype == req.dtype &&
+          decoded.seq == req.seq &&
+          decoded.model_hash == req.model_hash &&
+          decoded.session_hash == req.session_hash &&
+          decoded.token_step_j == req.token_step_j &&
+          decoded.element_count == req.element_count &&
+          decoded.shape_hash == req.shape_hash &&
+          decoded.byte_count == req.byte_count &&
+          decoded.participant_mask == req.participant_mask,
+          "decoded collective frame should preserve metadata identity");
+    wire[87] ^= 1u;
+    check(!ds4_glm52_tp4_collective_frame_decode(
+              wire, sizeof(wire), &decoded, err, sizeof(err)),
+          "corrupted collective frame byte count should be rejected");
+    check(strstr(err, "byte count") != NULL,
+          "wire byte-count rejection should name byte count");
 
     req.frame_version = 99;
     ds4_glm52_l0_status status =

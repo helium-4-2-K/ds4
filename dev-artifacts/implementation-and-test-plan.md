@@ -98,9 +98,10 @@ Completed implementation slices:
     float all-reduce payload: workers send deterministic partials, rank0 sums
     them, workers verify the reduced vector, and all ranks ack the decode
     command;
-  - the payload smoke now carries typed TP4 collective metadata frames validated
-    by `ds4_glm52_tp4_collective_frame_validate`; positive and bad-frame local
-    loopback and CRS812 smokes pass;
+  - the payload smoke now carries portable 96-byte big-endian TP4 collective
+    metadata frames via `ds4_glm52_tp4_collective_frame_encode/decode`, with
+    decoded semantics validated by `ds4_glm52_tp4_collective_frame_validate`;
+    positive and bad-frame local loopback and CRS812 smokes pass;
   - clears group readiness when a rank transport failure is recorded;
   - publishes L0 fabric readiness only after the compatible four-rank group is
     complete.
@@ -679,12 +680,14 @@ Implementation:
 - Bind collectives to real GLM dimensions: hidden `6144`, `64` heads,
   `16` Q heads per rank, `kv_lora = 512`, and GLM sparse indexer top-k.
 - Add per-collective sequence numbers tied to layer id and token cursor.
-- Preserve the typed collective frame contract: version, kind, rank topology,
-  dtype, element count, byte count, shape hash, model/session identity, layer,
-  token cursor, participant mask, and readiness bits must validate before any
-  payload execution.
-- Before binding real buffers, preserve the typed-frame payload smoke as a
-  regression gate for any production wire encoding or backend replacement.
+- Preserve the typed collective frame contract and its portable 96-byte
+  big-endian metadata wire encoding: version, kind, rank topology, dtype,
+  element count, byte count, shape hash, model/session identity, layer, token
+  cursor, participant mask, and readiness bits must decode and validate before
+  any payload execution. Hello/command/ack frames remain the smoke transport
+  control format, not a versioned multi-release protocol.
+- Before binding real buffers, preserve the portable-frame payload smoke as a
+  regression gate for backend replacement and collective integration.
 
 Tests:
 
