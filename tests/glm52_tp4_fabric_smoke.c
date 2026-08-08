@@ -422,6 +422,34 @@ static int rank_from_new_mask(uint32_t before, uint32_t after) {
 
 static int run_coordinator(const smoke_config *cfg) {
     char err[256] = {0};
+    if (cfg->payload_floats == 0) {
+        ds4_glm52_tp4_fabric_ready_config ready_cfg = {
+            .rank = cfg->rank,
+            .endpoint = cfg->listen,
+            .timeout_ms = cfg->timeout_ms,
+            .model_hash = cfg->model_hash,
+            .config_hash = cfg->config_hash,
+            .plan_hash = cfg->plan_hash,
+            .command = DS4_GLM52_TP4_COMMAND_SHUTDOWN,
+        };
+        ds4_glm52_tp4_fabric_ready_result ready;
+        if (!ds4_glm52_tp4_fabric_ready_handshake(
+                    &ready_cfg, &ready, err, sizeof(err))) {
+            fprintf(stderr, "coordinator: fabric ready handshake failed: %s\n",
+                    err);
+            return 3;
+        }
+        printf("coordinator: fabric ready tp=%d dcp=%d ranks=%d\n",
+               ready.state.tp_fabric.tp_size,
+               ready.state.tp_fabric.dcp_size,
+               ready.state.tp_fabric.rank_count);
+        printf("coordinator: command %s complete seq=%llu ack_mask=0x%x\n",
+               ds4_glm52_tp4_command_name(ready.command),
+               (unsigned long long)ready.command_seq,
+               ready.ack_mask);
+        return 0;
+    }
+
     ds4_glm52_tp4_tcp_endpoint endpoint;
     if (!ds4_glm52_tp4_tcp_parse_endpoint(
                 cfg->listen, &endpoint, err, sizeof(err))) {
@@ -677,6 +705,30 @@ static int run_coordinator(const smoke_config *cfg) {
 
 static int run_worker(const smoke_config *cfg) {
     char err[256] = {0};
+    if (cfg->payload_floats == 0) {
+        ds4_glm52_tp4_fabric_ready_config ready_cfg = {
+            .rank = cfg->rank,
+            .endpoint = cfg->connect,
+            .timeout_ms = cfg->timeout_ms,
+            .model_hash = cfg->model_hash,
+            .config_hash = cfg->config_hash,
+            .plan_hash = cfg->plan_hash,
+            .command = DS4_GLM52_TP4_COMMAND_SHUTDOWN,
+        };
+        ds4_glm52_tp4_fabric_ready_result ready;
+        if (!ds4_glm52_tp4_fabric_ready_handshake(
+                    &ready_cfg, &ready, err, sizeof(err))) {
+            fprintf(stderr, "worker%d: fabric ready handshake failed: %s\n",
+                    cfg->rank, err);
+            return 3;
+        }
+        printf("worker%d: command %s seq=%llu\n",
+               cfg->rank,
+               ds4_glm52_tp4_command_name(ready.command),
+               (unsigned long long)ready.command_seq);
+        return 0;
+    }
+
     ds4_glm52_tp4_tcp_endpoint endpoint;
     if (!ds4_glm52_tp4_tcp_parse_endpoint(
                 cfg->connect, &endpoint, err, sizeof(err))) {

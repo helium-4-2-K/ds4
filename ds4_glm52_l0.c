@@ -4029,6 +4029,30 @@ static bool endpoint_to_sockaddr(const ds4_glm52_tp4_tcp_endpoint *endpoint,
     return true;
 }
 
+static bool tp4_endpoint_is_management_network(
+        const ds4_glm52_tp4_tcp_endpoint *endpoint) {
+    return endpoint &&
+           !strncmp(endpoint->host, "192.168.0.", strlen("192.168.0."));
+}
+
+static void tp4_close_rank_fds(int fds[DS4_GLM52_L0_RANK_COUNT]) {
+    if (!fds) return;
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        if (fds[rank] >= 0) {
+            close(fds[rank]);
+            fds[rank] = -1;
+        }
+    }
+}
+
+static int tp4_rank_from_new_mask(uint32_t before, uint32_t after) {
+    uint32_t diff = after & ~before;
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        if (diff == (UINT32_C(1) << rank)) return rank;
+    }
+    return -1;
+}
+
 bool ds4_glm52_tp4_tcp_listen(
         const ds4_glm52_tp4_tcp_endpoint *endpoint,
         int *listen_fd,
@@ -4193,6 +4217,252 @@ bool ds4_glm52_tp4_tcp_connect(
     }
     *connected_fd = fd;
     return true;
+}
+
+static bool tp4_fabric_publish_local_ready(
+        int local_rank,
+        ds4_glm52_tp4_fabric_ready_result *result,
+        char *err,
+        size_t err_size) {
+    ds4_glm52_l0_state state;
+    memset(&state, 0, sizeof(state));
+    state.tp_fabric.tp_size = DS4_GLM52_L0_TP_SIZE;
+    state.tp_fabric.dcp_size = DS4_GLM52_L0_DCP_SIZE;
+    state.tp_fabric.pp_size = DS4_GLM52_L0_PP_SIZE;
+    state.tp_fabric.rank_count = DS4_GLM52_L0_RANK_COUNT;
+    state.tp_fabric.local_rank = local_rank;
+    state.tp_fabric.topology_bound = true;
+    state.tp_fabric.transport_ready = true;
+    state.tp_fabric.group_ready = true;
+
+    if (!result) {
+        set_error(err, err_size, "TP4 fabric ready result is missing");
+        return false;
+    }
+    result->state = state;
+    result->fabric_ready = true;
+    return true;
+}
+
+static bool tp4_fabric_ready_config_valid(
+        const ds4_glm52_tp4_fabric_ready_config *cfg,
+        ds4_glm52_tp4_tcp_endpoint *endpoint,
+        char *err,
+        size_t err_size) {
+    if (!cfg || !endpoint) {
+        set_error(err, err_size, "TP4 fabric ready config is missing");
+        return false;
+    }
+    if (!rank_group_valid_rank(cfg->rank)) {
+        set_error(err, err_size, "TP4 fabric ready rank must be in [0,4)");
+        return false;
+    }
+    if (!valid_command(cfg->command)) {
+        set_error(err, err_size, "TP4 fabric ready command is invalid");
+        return false;
+    }
+    if (cfg->model_hash == 0 || cfg->config_hash == 0 ||
+        cfg->plan_hash == 0) {
+        set_error(err, err_size, "TP4 fabric ready hashes must be nonzero");
+        return false;
+    }
+    if (!ds4_glm52_tp4_tcp_parse_endpoint(
+                cfg->endpoint, endpoint, err, err_size)) {
+        return false;
+    }
+    if (tp4_endpoint_is_management_network(endpoint)) {
+        set_error(err, err_size,
+                  "TP4 fabric ready endpoint must use the CRS812 fabric network");
+        return false;
+    }
+    return true;
+}
+
+static bool tp4_fabric_ready_coordinator(
+        const ds4_glm52_tp4_fabric_ready_config *cfg,
+        const ds4_glm52_tp4_tcp_endpoint *endpoint,
+        ds4_glm52_tp4_fabric_ready_result *result,
+        char *err,
+        size_t err_size) {
+    int listen_fd = -1;
+    uint16_t bound_port = 0;
+    if (!ds4_glm52_tp4_tcp_listen(
+                endpoint, &listen_fd, &bound_port, err, err_size)) {
+        return false;
+    }
+
+    int fds[DS4_GLM52_L0_RANK_COUNT];
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        fds[rank] = -1;
+    }
+
+    ds4_glm52_tp4_rank_group group;
+    ds4_glm52_tp4_rank_group_init(
+            &group, cfg->model_hash, cfg->config_hash, cfg->plan_hash);
+    if (!ds4_glm52_tp4_rank_group_register(
+                &group,
+                0,
+                DS4_GLM52_L0_TP_SIZE,
+                DS4_GLM52_L0_DCP_SIZE,
+                cfg->model_hash,
+                cfg->config_hash,
+                cfg->plan_hash,
+                err,
+                err_size)) {
+        close(listen_fd);
+        return false;
+    }
+
+    for (int i = 1; i < DS4_GLM52_L0_RANK_COUNT; i++) {
+        int fd = -1;
+        if (!ds4_glm52_tp4_tcp_accept(
+                    listen_fd, cfg->timeout_ms, &fd, err, err_size)) {
+            tp4_close_rank_fds(fds);
+            close(listen_fd);
+            return false;
+        }
+        uint32_t before = group.registered_mask;
+        if (!ds4_glm52_tp4_transport_recv_hello_and_register(
+                    fd, &group, err, err_size)) {
+            close(fd);
+            tp4_close_rank_fds(fds);
+            close(listen_fd);
+            return false;
+        }
+        int rank = tp4_rank_from_new_mask(before, group.registered_mask);
+        if (rank <= 0 || rank >= DS4_GLM52_L0_RANK_COUNT || fds[rank] >= 0) {
+            close(fd);
+            tp4_close_rank_fds(fds);
+            close(listen_fd);
+            set_error(err, err_size, "TP4 fabric ready rank registration is invalid");
+            return false;
+        }
+        fds[rank] = fd;
+    }
+
+    if (!ds4_glm52_tp4_rank_group_ready(&group)) {
+        tp4_close_rank_fds(fds);
+        close(listen_fd);
+        set_error(err, err_size, "TP4 fabric ready group did not become ready");
+        return false;
+    }
+
+    uint64_t seq = 0;
+    if (!ds4_glm52_tp4_rank_group_broadcast(
+                &group, 0, cfg->command, &seq, err, err_size)) {
+        tp4_close_rank_fds(fds);
+        close(listen_fd);
+        return false;
+    }
+    for (int rank = 1; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        if (!ds4_glm52_tp4_transport_send_command(
+                    fds[rank], cfg->command, seq, err, err_size)) {
+            tp4_close_rank_fds(fds);
+            close(listen_fd);
+            return false;
+        }
+    }
+    if (!ds4_glm52_tp4_rank_group_ack(
+                &group, 0, cfg->command, seq, err, err_size)) {
+        tp4_close_rank_fds(fds);
+        close(listen_fd);
+        return false;
+    }
+    for (int rank = 1; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        if (!ds4_glm52_tp4_transport_recv_ack_and_record(
+                    fds[rank], &group, err, err_size)) {
+            tp4_close_rank_fds(fds);
+            close(listen_fd);
+            return false;
+        }
+    }
+    tp4_close_rank_fds(fds);
+    close(listen_fd);
+
+    if (!ds4_glm52_tp4_rank_group_command_done(&group)) {
+        set_error(err, err_size, "TP4 fabric ready command did not complete");
+        return false;
+    }
+    result->group = group;
+    result->command = cfg->command;
+    result->command_seq = seq;
+    result->ack_mask = group.ack_mask;
+    return tp4_fabric_publish_local_ready(0, result, err, err_size);
+}
+
+static bool tp4_fabric_ready_worker(
+        const ds4_glm52_tp4_fabric_ready_config *cfg,
+        const ds4_glm52_tp4_tcp_endpoint *endpoint,
+        ds4_glm52_tp4_fabric_ready_result *result,
+        char *err,
+        size_t err_size) {
+    int fd = -1;
+    if (!ds4_glm52_tp4_tcp_connect(
+                endpoint, cfg->timeout_ms, &fd, err, err_size)) {
+        return false;
+    }
+    ds4_glm52_tp4_transport_hello hello = {
+        .rank = cfg->rank,
+        .tp_size = DS4_GLM52_L0_TP_SIZE,
+        .dcp_size = DS4_GLM52_L0_DCP_SIZE,
+        .model_hash = cfg->model_hash,
+        .config_hash = cfg->config_hash,
+        .plan_hash = cfg->plan_hash,
+    };
+    if (!ds4_glm52_tp4_transport_send_hello(fd, &hello, err, err_size)) {
+        close(fd);
+        return false;
+    }
+
+    ds4_glm52_tp4_command command = DS4_GLM52_TP4_COMMAND_NONE;
+    uint64_t seq = 0;
+    if (!ds4_glm52_tp4_transport_recv_command(
+                fd, &command, &seq, err, err_size)) {
+        close(fd);
+        return false;
+    }
+    if (command != cfg->command) {
+        close(fd);
+        set_error(err, err_size, "TP4 fabric ready command mismatch");
+        return false;
+    }
+    if (!ds4_glm52_tp4_transport_send_ack(
+                fd, cfg->rank, command, seq, err, err_size)) {
+        close(fd);
+        return false;
+    }
+    close(fd);
+
+    ds4_glm52_tp4_rank_group_init(&result->group,
+                                  cfg->model_hash,
+                                  cfg->config_hash,
+                                  cfg->plan_hash);
+    result->command = command;
+    result->command_seq = seq;
+    result->ack_mask = UINT32_C(1) << cfg->rank;
+    return tp4_fabric_publish_local_ready(cfg->rank, result, err, err_size);
+}
+
+bool ds4_glm52_tp4_fabric_ready_handshake(
+        const ds4_glm52_tp4_fabric_ready_config *cfg,
+        ds4_glm52_tp4_fabric_ready_result *result,
+        char *err,
+        size_t err_size) {
+    if (!result) {
+        set_error(err, err_size, "TP4 fabric ready result is missing");
+        return false;
+    }
+    memset(result, 0, sizeof(*result));
+
+    ds4_glm52_tp4_tcp_endpoint endpoint;
+    if (!tp4_fabric_ready_config_valid(cfg, &endpoint, err, err_size)) {
+        return false;
+    }
+    if (cfg->rank == 0) {
+        return tp4_fabric_ready_coordinator(
+                cfg, &endpoint, result, err, err_size);
+    }
+    return tp4_fabric_ready_worker(cfg, &endpoint, result, err, err_size);
 }
 
 bool ds4_glm52_tp4_transport_send_hello(

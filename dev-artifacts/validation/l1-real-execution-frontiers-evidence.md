@@ -143,6 +143,22 @@ work.
   - Bad-frame CRS812 run: rank0 listened on `10.100.185.3:49122`, rank1 sent a
     corrupted typed collective frame, and rank0 rejected it before reduction
     with the frame byte-count/dtype-size validation error.
+- Real four-GX10 CRS812 fabric-ready runtime handshake: PASS on working tree
+  after `0e3ac0b`.
+  - Production API added:
+    `ds4_glm52_tp4_fabric_ready_handshake`.
+  - The no-payload `tests/glm52_tp4_fabric_smoke` path now calls that API
+    directly instead of duplicating coordinator/worker hello-command-ack logic.
+  - Deployed the working tree to
+    `/tmp/ds4-gx10-ready-handshake-20260807220545` on all four GX10s.
+  - Per-host target build passed:
+    `make tests/glm52_tp4_fabric_smoke tests/test_tp4_rank_group`.
+  - CRS812 run: rank0 `192.168.0.40` listened on `10.100.185.3:49131`;
+    ranks 1..3 connected from `192.168.0.240`, `192.168.0.99`, and
+    `192.168.0.39`.
+  - Rank0 published local TP4/DCP4 fabric-ready state and completed shutdown
+    command sequence `1` with `ack_mask=0xf`; all workers received shutdown
+    sequence `1` and acked cleanly.
 - `make cpu tests/test_tp4_rank_group tests/test_glm52_l0
   tests/test_glm52_mock tests/test_glm52_tp4_mock
   tests/test_glm52_tp4_mock_serve tests/test_glm52_tp4_allreduce

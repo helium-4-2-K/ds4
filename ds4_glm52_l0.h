@@ -649,6 +649,31 @@ typedef struct {
     uint16_t port;
 } ds4_glm52_tp4_tcp_endpoint;
 
+typedef struct {
+    int rank;
+    const char *endpoint;
+    int timeout_ms;
+    uint64_t model_hash;
+    uint64_t config_hash;
+    uint64_t plan_hash;
+    ds4_glm52_tp4_command command;
+} ds4_glm52_tp4_fabric_ready_config;
+
+typedef struct {
+    ds4_glm52_tp4_rank_group group;
+    ds4_glm52_l0_state state;
+    ds4_glm52_tp4_command command;
+    uint64_t command_seq;
+    uint32_t ack_mask;
+    bool fabric_ready;
+} ds4_glm52_tp4_fabric_ready_result;
+
+bool ds4_glm52_tp4_fabric_ready_handshake(
+        const ds4_glm52_tp4_fabric_ready_config *cfg,
+        ds4_glm52_tp4_fabric_ready_result *result,
+        char *err,
+        size_t err_size);
+
 bool ds4_glm52_tp4_transport_send_hello(
         int fd,
         const ds4_glm52_tp4_transport_hello *hello,
