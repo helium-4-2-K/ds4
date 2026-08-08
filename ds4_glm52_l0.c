@@ -3208,6 +3208,151 @@ static bool parse_u64_value(const char *s, uint64_t *out) {
     return true;
 }
 
+static ds4_glm52_tp4_tensor_dtype parse_layout_dtype(const char *s) {
+    if (!s) return DS4_GLM52_TP4_TENSOR_DTYPE_INVALID;
+    if (!strcmp(s, "f32")) return DS4_GLM52_TP4_TENSOR_DTYPE_F32;
+    if (!strcmp(s, "bf16")) return DS4_GLM52_TP4_TENSOR_DTYPE_BF16;
+    if (!strcmp(s, "fp8_e4m3") || !strcmp(s, "fp8")) {
+        return DS4_GLM52_TP4_TENSOR_DTYPE_FP8_E4M3;
+    }
+    return DS4_GLM52_TP4_TENSOR_DTYPE_INVALID;
+}
+
+static bool parse_shape_value(const char *s,
+                              uint64_t shape[DS4_GLM52_LAYOUT_MAX_SHAPE_DIMS],
+                              int *shape_count,
+                              uint64_t *element_count) {
+    if (!s || !shape || !shape_count || !element_count) return false;
+    char buf[DS4_GLM52_LAYOUT_FIELD_MAX];
+    copy_string(buf, sizeof(buf), s);
+    char *p = trim_ws(buf);
+    if (p[0] == '[') p++;
+    size_t len = strlen(p);
+    if (len > 0 && p[len - 1] == ']') p[len - 1] = '\0';
+    for (char *q = p; *q; q++) {
+        if (*q == 'x' || *q == 'X' || *q == ',' || *q == ';') {
+            *q = ' ';
+        }
+    }
+
+    int count = 0;
+    uint64_t product = 1;
+    while (*p) {
+        while (*p && isspace((unsigned char)*p)) p++;
+        if (!*p) break;
+        if (count >= DS4_GLM52_LAYOUT_MAX_SHAPE_DIMS) return false;
+        errno = 0;
+        char *end = NULL;
+        unsigned long long dim = strtoull(p, &end, 10);
+        if (errno || end == p || dim == 0) return false;
+        if (product > UINT64_MAX / (uint64_t)dim) return false;
+        shape[count++] = (uint64_t)dim;
+        product *= (uint64_t)dim;
+        p = end;
+        if (*p && !isspace((unsigned char)*p)) return false;
+    }
+    if (count == 0) return false;
+    for (int i = count; i < DS4_GLM52_LAYOUT_MAX_SHAPE_DIMS; i++) {
+        shape[i] = 0;
+    }
+    *shape_count = count;
+    *element_count = product;
+    return true;
+}
+
+static uint64_t layout_shape_hash(ds4_glm52_tp4_tensor_dtype dtype,
+                                  const uint64_t *shape,
+                                  int shape_count) {
+    uint64_t h = UINT64_C(1469598103934665603);
+    const uint64_t prime = UINT64_C(1099511628211);
+    h ^= (uint64_t)dtype;
+    h *= prime;
+    h ^= (uint64_t)shape_count;
+    h *= prime;
+    for (int i = 0; i < shape_count; i++) {
+        uint64_t v = shape[i];
+        for (int b = 0; b < 8; b++) {
+            h ^= (v >> (b * 8)) & UINT64_C(0xff);
+            h *= prime;
+        }
+    }
+    return h ? h : UINT64_C(1);
+}
+
+static bool validate_layout_entry_metadata(ds4_glm52_layout_entry *entry,
+                                           char *err,
+                                           size_t err_size) {
+    if (!entry) {
+        set_error(err, err_size, "layout entry is missing");
+        return false;
+    }
+    if (!valid_tensor_dtype(entry->dtype)) {
+        char msg[192];
+        snprintf(msg, sizeof(msg),
+                 "entry '%s' is missing a supported dtype",
+                 entry->tensor_name[0] ? entry->tensor_name : "(unnamed)");
+        set_error(err, err_size, msg);
+        return false;
+    }
+    if (entry->shape_count <= 0) {
+        char msg[192];
+        snprintf(msg, sizeof(msg),
+                 "entry '%s' is missing tensor shape metadata",
+                 entry->tensor_name[0] ? entry->tensor_name : "(unnamed)");
+        set_error(err, err_size, msg);
+        return false;
+    }
+
+    uint64_t product = 1;
+    for (int i = 0; i < entry->shape_count; i++) {
+        if (entry->shape[i] == 0 ||
+            product > UINT64_MAX / entry->shape[i]) {
+            char msg[192];
+            snprintf(msg, sizeof(msg),
+                     "entry '%s' has invalid tensor shape metadata",
+                     entry->tensor_name[0] ? entry->tensor_name : "(unnamed)");
+            set_error(err, err_size, msg);
+            return false;
+        }
+        product *= entry->shape[i];
+    }
+    if (entry->element_count == 0) {
+        entry->element_count = product;
+    } else if (entry->element_count != product) {
+        char msg[192];
+        snprintf(msg, sizeof(msg),
+                 "entry '%s' element_count does not match tensor shape",
+                 entry->tensor_name[0] ? entry->tensor_name : "(unnamed)");
+        set_error(err, err_size, msg);
+        return false;
+    }
+
+    const size_t dtype_size = ds4_glm52_tp4_tensor_dtype_size(entry->dtype);
+    if (entry->element_count > UINT64_MAX / (uint64_t)dtype_size ||
+        entry->byte_length != entry->element_count * (uint64_t)dtype_size) {
+        char msg[192];
+        snprintf(msg, sizeof(msg),
+                 "entry '%s' byte_length does not match dtype and shape",
+                 entry->tensor_name[0] ? entry->tensor_name : "(unnamed)");
+        set_error(err, err_size, msg);
+        return false;
+    }
+
+    uint64_t derived_hash =
+        layout_shape_hash(entry->dtype, entry->shape, entry->shape_count);
+    if (entry->shape_hash == 0) {
+        entry->shape_hash = derived_hash;
+    } else if (entry->shape_hash != derived_hash) {
+        char msg[192];
+        snprintf(msg, sizeof(msg),
+                 "entry '%s' shape_hash does not match dtype and shape",
+                 entry->tensor_name[0] ? entry->tensor_name : "(unnamed)");
+        set_error(err, err_size, msg);
+        return false;
+    }
+    return true;
+}
+
 static bool parse_kv_line(const char *line, int line_no,
                           const char **key_out, const char **val_out,
                           char *err, size_t err_size) {
@@ -3515,6 +3660,11 @@ static bool mmap_layout_entry(const char *path,
     out->role = (int)entry->role;
     out->scope = (int)entry->scope;
     out->rank = entry->rank;
+    out->dtype = entry->dtype;
+    out->shape_count = entry->shape_count;
+    memcpy(out->shape, entry->shape, sizeof(out->shape));
+    out->element_count = entry->element_count;
+    out->shape_hash = entry->shape_hash;
     out->replicated = entry->replicated;
     out->mapped = true;
     return true;
@@ -3665,6 +3815,42 @@ ds4_glm52_l0_status ds4_glm52_layout_read_manifest(
                     return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
                                        "entry vocab_end must be an integer");
                 }
+            } else if (!strcmp(key, "dtype")) {
+                entry.dtype = parse_layout_dtype(val);
+                if (!valid_tensor_dtype(entry.dtype)) {
+                    fclose(fp);
+                    return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                                       "entry dtype is unsupported");
+                }
+            } else if (!strcmp(key, "shape")) {
+                uint64_t derived_elements = 0;
+                if (!parse_shape_value(val,
+                                       entry.shape,
+                                       &entry.shape_count,
+                                       &derived_elements)) {
+                    fclose(fp);
+                    return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                                       "entry shape is invalid");
+                }
+                if (entry.element_count == 0) {
+                    entry.element_count = derived_elements;
+                } else if (entry.element_count != derived_elements) {
+                    fclose(fp);
+                    return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                                       "entry element_count does not match shape");
+                }
+            } else if (!strcmp(key, "element_count")) {
+                if (!parse_u64_value(val, &entry.element_count)) {
+                    fclose(fp);
+                    return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                                       "entry element_count must be a non-negative integer");
+                }
+            } else if (!strcmp(key, "shape_hash")) {
+                if (!parse_u64_value(val, &entry.shape_hash)) {
+                    fclose(fp);
+                    return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
+                                       "entry shape_hash must be a non-negative integer");
+                }
             }
             continue;
         }
@@ -3752,6 +3938,14 @@ ds4_glm52_l0_status ds4_glm52_layout_read_manifest(
     if (!spec->model_config_sha256[0]) {
         return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0,
                            "model_config_sha256 is required");
+    }
+    for (int i = 0; i < spec->entry_count; i++) {
+        char msg[192] = "";
+        if (!validate_layout_entry_metadata(&spec->entries[i],
+                                            msg,
+                                            sizeof(msg))) {
+            return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0, msg);
+        }
     }
     spec->validated = true;
     return DS4_GLM52_L0_STATUS_OK;

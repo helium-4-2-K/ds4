@@ -32,6 +32,10 @@ message tensor_shard_entry {
   int32 expert_end = 13 [(blueprint.v1.field_contract) = { meaning: "exclusive end routed expert id present in this rank-local expert tensor shard, or -1; Bird GLM 5.2 TP4 uses [0,256) on every rank" }];
   int32 vocab_start = 14 [(blueprint.v1.field_contract) = { meaning: "first owned vocab/output row or -1" }];
   int32 vocab_end = 15 [(blueprint.v1.field_contract) = { meaning: "exclusive end vocab/output row or -1" }];
+  string dtype = 16 [(blueprint.v1.field_contract) = { meaning: "storage dtype declared for this tensor slice, such as bf16, f32, or fp8_e4m3" }];
+  repeated uint64 shape = 17 [(blueprint.v1.field_contract) = { meaning: "rank-local logical tensor shape dimensions for this slice" }];
+  uint64 element_count = 18 [(blueprint.v1.field_contract) = { meaning: "product of shape dimensions; must match byte_length divided by dtype size" }];
+  uint64 shape_hash = 19 [(blueprint.v1.field_contract) = { meaning: "stable runtime hash derived from dtype and shape, or a manifest-provided value matching that derivation" }];
 }
 
 message ds4_shard_layout {
@@ -75,6 +79,28 @@ message tensor_ownership_plan {
   repeated blueprint.work.ds4_arch.tensor_shard_entry entries = 7 [(blueprint.v1.field_contract) = { meaning: "validated current-rank and replicated entries" }];
 }
 
+
+message mapped_tensor_metadata {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.mapped_tensor_metadata"
+    represents: "Runtime tensor metadata published beside a validated mmap handle."
+    semantics {
+      entry_id: "t-mapped-tensor-metadata"
+      key: "meaning"
+      value: "Runtime tensor metadata published beside a validated mmap handle."
+      status: SUPPORTED
+    }
+  };
+  string tensor_name = 1 [(blueprint.v1.field_contract) = { meaning: "canonical DS4 tensor name copied from the accepted layout entry" }];
+  string tensor_role = 2 [(blueprint.v1.field_contract) = { meaning: "accepted tensor role such as q_head, mla_kv, expert, vocab, output, or replicated" }];
+  string distribution_scope = 3 [(blueprint.v1.field_contract) = { meaning: "rank_local_shard or replicated scope of the mapped tensor" }];
+  string dtype = 4 [(blueprint.v1.field_contract) = { meaning: "validated storage dtype for the mapped bytes" }];
+  repeated uint64 shape = 5 [(blueprint.v1.field_contract) = { meaning: "validated tensor shape dimensions for the mapped bytes" }];
+  uint64 element_count = 6 [(blueprint.v1.field_contract) = { meaning: "validated element count derived from shape" }];
+  uint64 shape_hash = 7 [(blueprint.v1.field_contract) = { meaning: "stable hash binding dtype and shape for collective/kernel identity checks" }];
+  uint64 byte_length = 8 [(blueprint.v1.field_contract) = { meaning: "mapped byte length that must equal element_count times dtype size" }];
+}
+
 message mapped_tensor_slices {
   option (blueprint.v1.type_contract) = {
     type_id: "blueprint.work.ds4_arch.mapped_tensor_slices"
@@ -91,4 +117,5 @@ message mapped_tensor_slices {
   uint64 mapped_bytes = 3 [(blueprint.v1.field_contract) = { meaning: "total mapped bytes" }];
   string source_layout_sha256 = 4 [(blueprint.v1.field_contract) = { meaning: "hash of accepted ds4_shard_layout" }];
   bool no_foreign_rank_shard = 5 [(blueprint.v1.field_contract) = { meaning: "true only when no foreign-rank slice was mapped" }];
+  repeated blueprint.work.ds4_arch.mapped_tensor_metadata tensors = 6 [(blueprint.v1.field_contract) = { meaning: "per-mapped-slice dtype, shape, element count, and shape hash metadata retained with the runtime mmap handles" }];
 }

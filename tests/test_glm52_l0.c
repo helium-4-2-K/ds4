@@ -651,6 +651,8 @@ static char g_layout_missing_qhead_path[PATH_MAX];
 static char g_layout_overlap_qhead_path[PATH_MAX];
 static char g_layout_missing_file_path[PATH_MAX];
 static char g_layout_bad_sha_path[PATH_MAX];
+static char g_layout_missing_metadata_path[PATH_MAX];
+static char g_layout_bad_metadata_bytes_path[PATH_MAX];
 static bool g_layout_fixture_ready;
 
 static const char *k_sha256_x32 =
@@ -684,6 +686,9 @@ static void write_layout_entry(FILE *fp, const char *name, const char *role,
     fprintf(fp, "byte_length=%llu\n", (unsigned long long)length);
     fprintf(fp, "sha256=%s\n", sha);
     fprintf(fp, "replicated=%s\n", (rank < 0) ? "true" : "false");
+    fprintf(fp, "dtype=bf16\n");
+    fprintf(fp, "shape=16\n");
+    fprintf(fp, "element_count=16\n");
     if (qhs >= 0) fprintf(fp, "q_head_start=%d\n", qhs);
     if (qhe >= 0) fprintf(fp, "q_head_end=%d\n", qhe);
     if (es >= 0) fprintf(fp, "expert_start=%d\n", es);
@@ -855,6 +860,43 @@ static void ensure_layout_fixture(void) {
         fclose(fp);
     }
 
+    /* Missing tensor metadata: read_manifest must reject before ownership. */
+    snprintf(g_layout_missing_metadata_path,
+             sizeof(g_layout_missing_metadata_path),
+             "%s/missing_metadata.layout", g_layout_dir);
+    {
+        FILE *fp = fopen(g_layout_missing_metadata_path, "w");
+        check(fp != NULL, "missing_metadata layout open failed");
+        write_layout_header(fp);
+        fprintf(fp, "[entry]\n");
+        fprintf(fp, "tensor_name=q_proj_b\n");
+        fprintf(fp, "role=q_head\n");
+        fprintf(fp, "distribution_scope=rank_local_shard\n");
+        fprintf(fp, "rank=2\n");
+        fprintf(fp, "file_path=rank2/shard-00.bin\n");
+        fprintf(fp, "byte_offset=0\n");
+        fprintf(fp, "byte_length=32\n");
+        fprintf(fp, "sha256=%s\n", k_sha256_x32);
+        fprintf(fp, "replicated=false\n");
+        fprintf(fp, "q_head_start=32\n");
+        fprintf(fp, "q_head_end=48\n");
+        fclose(fp);
+    }
+
+    /* Bad tensor metadata: bf16 shape=16 requires 32 bytes, not 30. */
+    snprintf(g_layout_bad_metadata_bytes_path,
+             sizeof(g_layout_bad_metadata_bytes_path),
+             "%s/bad_metadata_bytes.layout", g_layout_dir);
+    {
+        FILE *fp = fopen(g_layout_bad_metadata_bytes_path, "w");
+        check(fp != NULL, "bad_metadata_bytes layout open failed");
+        write_layout_header(fp);
+        write_layout_entry(fp, "q_proj_b", "q_head", "rank_local_shard",
+                           2, "rank2/shard-00.bin", 0, 30, k_sha256_x32,
+                           32, 48, -1, -1, -1, -1);
+        fclose(fp);
+    }
+
     g_layout_fixture_ready = true;
 }
 
@@ -869,6 +911,12 @@ static void test_layout_valid_manifest_passes(void) {
     check(spec.validated, "valid layout spec should be validated");
     check(spec.tp_size == 4, "valid layout tp_size should be 4");
     check(spec.entry_count == 5, "valid layout should have 5 entries");
+    check(spec.entries[0].dtype == DS4_GLM52_TP4_TENSOR_DTYPE_BF16 &&
+              spec.entries[0].shape_count == 1 &&
+              spec.entries[0].shape[0] == 16 &&
+              spec.entries[0].element_count == 16 &&
+              spec.entries[0].shape_hash != 0,
+          "valid layout should derive typed tensor metadata");
 
     ds4_glm52_layout_ownership_plan plan;
     st = ds4_glm52_layout_validate_ownership(&spec, 2, &plan, &result);
@@ -903,6 +951,12 @@ static void test_layout_valid_manifest_passes(void) {
               mapped.tensors[0].data_bytes == 32 &&
               mapped.tensors[0].byte_offset == 16,
           "valid layout should publish a real mmap handle for each tensor");
+    check(mapped.tensors[0].dtype == DS4_GLM52_TP4_TENSOR_DTYPE_BF16 &&
+              mapped.tensors[0].shape_count == 1 &&
+              mapped.tensors[0].shape[0] == 16 &&
+              mapped.tensors[0].element_count == 16 &&
+              mapped.tensors[0].shape_hash == spec.entries[0].shape_hash,
+          "mapped tensor should retain validated dtype and shape metadata");
     check(mapped.tensors[0].data[0] == 'x' &&
               mapped.tensors[0].data[31] == 'x',
           "mapped tensor data should be readable at the declared slice");
@@ -932,8 +986,12 @@ static void test_layout_valid_manifest_passes(void) {
           "resident state should retain mapped tensor records");
     check(state.resident_shards.tensors[0].mapped &&
               state.resident_shards.tensors[0].data != NULL &&
-              state.resident_shards.tensors[0].data[0] == 'x',
-          "resident mapped tensor should remain readable after publish");
+              state.resident_shards.tensors[0].data[0] == 'x' &&
+              state.resident_shards.tensors[0].dtype ==
+                  DS4_GLM52_TP4_TENSOR_DTYPE_BF16 &&
+              state.resident_shards.tensors[0].shape_hash ==
+                  spec.entries[0].shape_hash,
+          "resident mapped tensor should retain readable bytes and metadata");
     ds4_glm52_l0_unmap_resident_rank_shards(&state);
     check(!state.resident_shards.mapped &&
               state.resident_shards.tensor_count == 0,
@@ -1222,6 +1280,35 @@ static void test_layout_sha256_mismatch_fails(void) {
     check(!mapped.mapped, "sha256 mismatch must not claim mapped tensors");
     check(!mapped.hash_verified,
           "sha256 mismatch must not claim hash verification");
+}
+
+static void test_layout_missing_metadata_fails(void) {
+    ensure_layout_fixture();
+    ds4_glm52_layout_spec spec;
+    ds4_glm52_l0_result result;
+    ds4_glm52_l0_status st =
+        ds4_glm52_layout_read_manifest(g_layout_missing_metadata_path,
+                                       &spec,
+                                       &result);
+    check(st == DS4_GLM52_L0_STATUS_INVALID,
+          "layout with missing dtype/shape metadata should fail");
+    check(strstr(result.message, "metadata") != NULL ||
+              strstr(result.message, "dtype") != NULL,
+          "missing metadata failure should name metadata or dtype");
+}
+
+static void test_layout_metadata_byte_count_mismatch_fails(void) {
+    ensure_layout_fixture();
+    ds4_glm52_layout_spec spec;
+    ds4_glm52_l0_result result;
+    ds4_glm52_l0_status st =
+        ds4_glm52_layout_read_manifest(g_layout_bad_metadata_bytes_path,
+                                       &spec,
+                                       &result);
+    check(st == DS4_GLM52_L0_STATUS_INVALID,
+          "layout with dtype/shape byte mismatch should fail");
+    check(strstr(result.message, "byte_length") != NULL,
+          "metadata byte mismatch should name byte_length");
 }
 
 /* ---- prefill child graph tests ---- */
@@ -1994,6 +2081,8 @@ int main(void) {
     test_layout_sharded_only_on_owning_rank();
     test_layout_missing_shard_file_fails();
     test_layout_sha256_mismatch_fails();
+    test_layout_missing_metadata_fails();
+    test_layout_metadata_byte_count_mismatch_fails();
     /* prefill child graph tests */
     test_prefill_action_order_and_phase_names();
     test_prefill_set_prompt_validation();

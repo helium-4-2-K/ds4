@@ -1,6 +1,6 @@
 # L1 model-shard-layout Implementation Evidence
 
-Date: 2026-08-07
+Date: 2026-08-08
 
 Scope: first L1 realization of the `model-shard-layout` child graph, which
 expands `model-load/a-map-rank-shards`. This implements the DS4-native GLM 5.2
@@ -19,7 +19,12 @@ code unit function in `ds4_glm52_l0.c`:
   model_config_sha256 present, at least one tensor entry.
 - Produces a `ds4_glm52_layout_spec` with typed entries carrying tensor_name,
   role, distribution_scope, rank, file_path, byte_offset, byte_length, sha256,
-  replicated flag, and q_head/expert/vocab spans.
+  replicated flag, q_head/expert/vocab spans, storage dtype, logical tensor
+  shape, element count, and stable dtype/shape hash.
+- Validates tensor metadata before ownership: dtype must be supported, shape
+  must be non-empty, element_count must match the shape product, byte_length
+  must equal element_count times dtype size, and any manifest shape_hash must
+  match the runtime derivation.
 
 ### a-validate-tensor-ownership -> `ds4_glm52_layout_validate_ownership`
 
@@ -48,7 +53,9 @@ code unit function in `ds4_glm52_l0.c`:
 - Produces a `ds4_glm52_layout_mapped_slices` with tensor_count, mapped_bytes,
   no_foreign_rank_shard, hash_verified=true, and one
   `ds4_glm52_layout_mapped_tensor` per accepted visible tensor after all mapped
-  slices match their manifest sha256 values.
+  slices match their manifest sha256 values. Each mapped tensor record retains
+  the validated dtype, shape dimensions, element count, and shape hash required
+  by later collective/kernel identity checks.
 - Creates real read-only `mmap()` handles for the exact validated file slices.
   Non-page-aligned byte offsets are page-aligned for the OS map while the
   published tensor record points at the declared slice. File descriptors are
@@ -131,7 +138,7 @@ gate is TP4/DCP4 fabric readiness, not model-load readiness.
   `dev-artifacts/validation/gx10-real-layout-dry-runs-crs812.md`.
 - `git diff --check`: PASS.
 
-### Test cases (10 required scenarios)
+### Test cases (12 required scenarios)
 
 | Test | Scenario |
 | --- | --- |
@@ -144,40 +151,42 @@ gate is TP4/DCP4 fabric readiness, not model-load readiness.
 | `test_layout_sharded_only_on_owning_rank` | Sharded tensor visible on rank 2, invisible on rank 0 |
 | `test_layout_missing_shard_file_fails` | Nonexistent file_path fails at mmap |
 | `test_layout_sha256_mismatch_fails` | Existing file with wrong slice sha256 fails before publish |
+| `test_layout_missing_metadata_fails` | Missing dtype/shape metadata fails at read_manifest |
+| `test_layout_metadata_byte_count_mismatch_fails` | dtype/shape element bytes must match byte_length |
 | `test_model_load_layout_reaches_ready_rank_engines` | Valid layout lets serve-open publish ready rank-local model engines |
 
 Additional assertion coverage in `test_layout_valid_manifest_passes` now proves
 the mapped result contains real readable mmap slice handles, including a
-non-page-aligned declared byte offset, and that publication transfers those
-handles to resident state before resident cleanup unmaps them.
+non-page-aligned declared byte offset, retains validated dtype/shape metadata,
+and transfers both handles and metadata to resident state before resident
+cleanup unmaps them.
 
 GX10 target run: deployed current source to
-`/tmp/ds4-gx10-real-mmap-20260808032926` on rank0 `192.168.0.40`,
+`/tmp/ds4-gx10-runtime-metadata-20260808062450` on rank0 `192.168.0.40`,
 rank1 `192.168.0.240`, rank2 `192.168.0.99`, and rank3 `192.168.0.39`.
 `make tests/test_glm52_l0 && ./tests/test_glm52_l0` passed on all four Linux
-GX10 hosts; a host-labeled rerun of `./tests/test_glm52_l0` also passed on all
-four ranks.
+GX10 hosts.
 
 ### BCD mechanical validation
 
 - Lint (complete): PASS, 18 graphs, 0 errors, 0 warnings
-  (`dev-artifacts/validation/lint-after-real-mmap-handles.result.json`).
+  (`dev-artifacts/validation/lint-after-runtime-tensor-metadata.result.json`).
 - model-shard-layout leaf validation: PASS, 0 errors, 0 warnings
-  (`dev-artifacts/validation/validate-model-shard-layout-after-real-mmap-handles.result.json`).
+  (`dev-artifacts/validation/validate-model-shard-layout-after-runtime-tensor-metadata.result.json`).
 - serve L0 validation: PASS, 0 errors, 0 warnings
   (`dev-artifacts/validation/validate-serve-after-crs812-fabric.result.json`).
 - model-shard-layout simulation (map-rank-local-ds4-layout-success): PASS,
-  simulation_sha256 `7623d73ff1f026ef87a7c56a2bcb89396fc01e6731c438076df210a8ebf826e3`
-  (`dev-artifacts/validation/simulate-model-shard-layout-after-real-mmap-handles.result.json`).
+  simulation_sha256 `0d62c846706f3a5061058c22314313e5503cecbf3689813833267e0bd0e3024e`
+  (`dev-artifacts/validation/simulate-model-shard-layout-after-runtime-tensor-metadata.result.json`).
 
 ### Current digests
 
-- blueprint_sha256: `8ec5da05227296565218f7972ebddb4425bcd39236be31574468543b12a70b60`
-- semantic_sha256: `7a2383c123331d59637c8128cdbb5fa40e7ed667b8d2045c1882536c9befaf04`
+- blueprint_sha256: `35a59fbba4347862df3f2f50f269a1f6a8e951d5aecb3210c6403a83352f0ee1`
+- semantic_sha256: `3bfdecba885bd5f0bb442195112d5bc5106f663b2933edc2faae689d2098a954`
 - model-load graph_contract_sha256: `083ff1b8ab754f0fe11170f32c449b6777b2944c9156de43a105f0836d89b2d5`
 - model-load type_schema_sha256: `0aa0c0c7dfc43caabc5f745e1e1d6c0a82aae418e40a141221cb94ffe2b1696f`
-- model-shard-layout graph_contract_sha256: `b426dd592e67a1784cbf09253ec0e8c450dc58a97ee922907445b17c6da15154`
-- model-shard-layout type_schema_sha256: `4f68b4a96f18a59411e0dd7cc6ac4725c60f4f2ce354be997d2867ad29772a44`
+- model-shard-layout graph_contract_sha256: `02eac4c71742fc979fd644e595afd791b49dc6c6a50e7faff20da038f61ff9ca`
+- model-shard-layout type_schema_sha256: `aa33ec3ae3a40ac468691f0fb786c052d10c1ece1e28b8ab04a80fadc728b2c6`
 - serve graph_contract_sha256: `e86e9e8efe3ad48fdda966be2e1723b862adfd62176e7a45defabfa67b50720a`
 - serve type_schema_sha256: `3f4be1b144e1cee44727789840835951678fede862e9ccde1a2c91d025010a46`
 
@@ -189,7 +198,12 @@ four ranks.
    `resident_shards_ready` check but should be derived from the ownership
    plan's actual entry roles.
 
-2. **Decoded tensor metadata objects and GPU upload are still deferred.** The
-   parent-visible ready state now retains real mmap slice handles for validated
-   rank-local and replicated files. It still does not decode tensor dtype/shape
-   metadata from a full production checkpoint format or upload weights to GPU.
+2. **GPU upload is still deferred.** The parent-visible ready state now retains
+   real mmap slice handles plus DS4-native manifest-derived dtype/shape
+   metadata for validated rank-local and replicated files. It still does not
+   upload those tensors to GPU or bind them to real GLM 5.2 kernels.
+
+3. **Production checkpoint header decode is still deferred.** The runtime trusts
+   the DS4-native layout manifest for dtype/shape metadata after validating it
+   against byte_length and dtype size. It does not yet parse a full safetensors
+   or GGUF-style tensor header directly from the mapped file bytes.

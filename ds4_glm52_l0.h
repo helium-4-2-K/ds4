@@ -30,6 +30,7 @@
 #define DS4_GLM52_LAYOUT_FORMAT_VERSION "ds4-shard-layout/v1"
 #define DS4_GLM52_LAYOUT_MAX_ENTRIES 512
 #define DS4_GLM52_LAYOUT_MAX_MAPPED_TENSORS DS4_GLM52_LAYOUT_MAX_ENTRIES
+#define DS4_GLM52_LAYOUT_MAX_SHAPE_DIMS 8
 #define DS4_GLM52_LAYOUT_MAX_LINE 1024
 #define DS4_GLM52_LAYOUT_FIELD_MAX 256
 #define DS4_GLM52_L0_FABRIC_DATA_PLANE "crs812-200g"
@@ -110,6 +111,13 @@ typedef struct {
     bool validated;
 } ds4_glm52_l0_model_plan;
 
+typedef enum {
+    DS4_GLM52_TP4_TENSOR_DTYPE_INVALID = 0,
+    DS4_GLM52_TP4_TENSOR_DTYPE_F32 = 1,
+    DS4_GLM52_TP4_TENSOR_DTYPE_BF16 = 2,
+    DS4_GLM52_TP4_TENSOR_DTYPE_FP8_E4M3 = 3,
+} ds4_glm52_tp4_tensor_dtype;
+
 typedef struct {
     char tensor_name[DS4_GLM52_LAYOUT_FIELD_MAX];
     char file_path[DS4_GLM52_LAYOUT_FIELD_MAX];
@@ -121,6 +129,11 @@ typedef struct {
     int role;
     int scope;
     int rank;
+    ds4_glm52_tp4_tensor_dtype dtype;
+    int shape_count;
+    uint64_t shape[DS4_GLM52_LAYOUT_MAX_SHAPE_DIMS];
+    uint64_t element_count;
+    uint64_t shape_hash;
     bool replicated;
     bool mapped;
 } ds4_glm52_layout_mapped_tensor;
@@ -342,13 +355,6 @@ typedef enum {
     DS4_GLM52_TP4_COLLECTIVE_FFN = 2,
     DS4_GLM52_TP4_COLLECTIVE_LOGITS = 3,
 } ds4_glm52_tp4_collective_kind;
-
-typedef enum {
-    DS4_GLM52_TP4_TENSOR_DTYPE_INVALID = 0,
-    DS4_GLM52_TP4_TENSOR_DTYPE_F32 = 1,
-    DS4_GLM52_TP4_TENSOR_DTYPE_BF16 = 2,
-    DS4_GLM52_TP4_TENSOR_DTYPE_FP8_E4M3 = 3,
-} ds4_glm52_tp4_tensor_dtype;
 
 typedef struct {
     uint32_t frame_version;
@@ -922,6 +928,11 @@ typedef struct {
     int expert_end;
     int vocab_start;
     int vocab_end;
+    ds4_glm52_tp4_tensor_dtype dtype;
+    int shape_count;
+    uint64_t shape[DS4_GLM52_LAYOUT_MAX_SHAPE_DIMS];
+    uint64_t element_count;
+    uint64_t shape_hash;
 } ds4_glm52_layout_entry;
 
 typedef struct {

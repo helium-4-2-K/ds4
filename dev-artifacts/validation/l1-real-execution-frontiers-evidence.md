@@ -312,8 +312,10 @@ frontier.
 
 ## Remaining Work
 
-- Decoded tensor dtype/shape metadata objects and GPU upload from the retained
-  model-load mmap handles.
+- GPU upload from retained model-load mmap handles and DS4-native runtime
+  tensor metadata.
+- Optional direct production checkpoint header decode for dtype/shape metadata
+  instead of relying on the DS4-native layout manifest.
 - Real GPU-resident GLM 5.2 QKV/MLA/MoE/logits kernels.
 - Optional replacement of the staged host-memory CRS812 collective with
   direct device collective transport if the deployment requires lower latency

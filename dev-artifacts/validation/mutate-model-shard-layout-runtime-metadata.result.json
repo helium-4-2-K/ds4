@@ -1,0 +1,72 @@
+{
+  "action": "mutate",
+  "added_graph_ids": [],
+  "after_artifact_integrity": {
+    "blueprint_sha256": "35a59fbba4347862df3f2f50f269a1f6a8e951d5aecb3210c6403a83352f0ee1",
+    "semantic_sha256": "3bfdecba885bd5f0bb442195112d5bc5106f663b2933edc2faae689d2098a954"
+  },
+  "before_artifact_integrity": {
+    "blueprint_sha256": "8ec5da05227296565218f7972ebddb4425bcd39236be31574468543b12a70b60",
+    "semantic_sha256": "7a2383c123331d59637c8128cdbb5fa40e7ed667b8d2045c1882536c9befaf04"
+  },
+  "changed_graph_ids": [
+    "model-shard-layout"
+  ],
+  "contract_validation": {
+    "error_count": 0,
+    "errors": [],
+    "graph_ids": [
+      "model-shard-layout"
+    ],
+    "profile": "leaf",
+    "schema": "blueprint-contract-validation/v4",
+    "snapshot": {
+      "artifact_integrity": {
+        "blueprint_sha256": "35a59fbba4347862df3f2f50f269a1f6a8e951d5aecb3210c6403a83352f0ee1",
+        "semantic_sha256": "3bfdecba885bd5f0bb442195112d5bc5106f663b2933edc2faae689d2098a954"
+      },
+      "covered_graphs": [
+        {
+          "graph_contract_sha256": "083ff1b8ab754f0fe11170f32c449b6777b2944c9156de43a105f0836d89b2d5",
+          "graph_id": "model-load",
+          "role": "ancestor",
+          "type_schema_sha256": "0aa0c0c7dfc43caabc5f745e1e1d6c0a82aae418e40a141221cb94ffe2b1696f"
+        },
+        {
+          "graph_contract_sha256": "02eac4c71742fc979fd644e595afd791b49dc6c6a50e7faff20da038f61ff9ca",
+          "graph_id": "model-shard-layout",
+          "role": "selected",
+          "type_schema_sha256": "aa33ec3ae3a40ac468691f0fb786c052d10c1ece1e28b8ab04a80fadc728b2c6"
+        },
+        {
+          "graph_contract_sha256": "e86e9e8efe3ad48fdda966be2e1723b862adfd62176e7a45defabfa67b50720a",
+          "graph_id": "serve",
+          "role": "ancestor",
+          "type_schema_sha256": "3f4be1b144e1cee44727789840835951678fede862e9ccde1a2c91d025010a46"
+        }
+      ],
+      "selected_graph_ids": [
+        "model-shard-layout"
+      ]
+    },
+    "status": "PASS",
+    "warning_count": 0,
+    "warnings": []
+  },
+  "request_id": "model-shard-layout-add-runtime-tensor-metadata",
+  "schema": "blueprint-write-result/v4",
+  "status": "PASS",
+  "validation": {
+    "blueprint_id": "ds4-arch",
+    "blueprint_sha256": "35a59fbba4347862df3f2f50f269a1f6a8e951d5aecb3210c6403a83352f0ee1",
+    "error_count": 0,
+    "errors": [],
+    "graph_count": 18,
+    "schema": "blueprint-artifact-validation@1",
+    "semantic_sha256": "3bfdecba885bd5f0bb442195112d5bc5106f663b2933edc2faae689d2098a954",
+    "stage": "complete",
+    "status": "PASS",
+    "warning_count": 0,
+    "warnings": []
+  }
+}

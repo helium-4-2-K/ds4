@@ -125,7 +125,7 @@ graph {
     semantics {
       entry_id: "a-load-rank-tensors-ov"
       key: "overview"
-      value: "Memory-map only current-rank and required replicated tensor slices after hash and byte-range validation; reject foreign-rank, stale-hash, missing-span, overlapping-span, and unsupported-layout inputs before touching resident engine state."
+      value: "Memory-map only current-rank and required replicated tensor slices after hash, byte-range, dtype, and shape validation; publish per-tensor runtime metadata beside each mmap handle; reject foreign-rank, stale-hash, missing-span, overlapping-span, missing-metadata, byte-count-mismatch, and unsupported-layout inputs before touching resident engine state."
       status: SUPPORTED
     }
     semantics {
@@ -147,7 +147,7 @@ graph {
     semantics {
       entry_id: "mapped-slices-out"
       key: "output"
-      value: "Produces d-mapped-tensor-slices."
+      value: "Produces d-mapped-tensor-slices with validated mmap handles and per-tensor dtype, shape, element_count, and shape_hash metadata."
       object_ref {
         node_id: "d-mapped-tensor-slices"
       }
@@ -163,7 +163,7 @@ graph {
     semantics {
       entry_id: "a-load-rank-tensors-ef"
       key: "effect"
-      value: "Memory-map only current-rank and required replicated tensor slices after hash and byte-range validation; reject foreign-rank, stale-hash, missing-span, overlapping-span, and unsupported-layout inputs before touching resident engine state."
+      value: "Memory-map only current-rank and required replicated tensor slices after hash, byte-range, dtype, and shape validation; publish per-tensor runtime metadata beside each mmap handle; reject foreign-rank, stale-hash, missing-span, overlapping-span, missing-metadata, byte-count-mismatch, and unsupported-layout inputs before touching resident engine state."
       support_refs {
         node_id: "a-load-rank-tensors"
       }
@@ -181,7 +181,7 @@ graph {
     semantics {
       entry_id: "a-load-rank-tensors-authority"
       key: "authority"
-      value: "This is the first action allowed to create runtime mmap handles, and it may only map entries proven by d-ownership-plan."
+      value: "This is the first action allowed to create runtime mmap handles and runtime tensor metadata records, and it may only map entries proven by d-ownership-plan."
       status: SUPPORTED
     }
     semantics {
@@ -225,7 +225,7 @@ graph {
     semantics {
       entry_id: "a-publish-loaded-shard-ov"
       key: "overview"
-      value: "Convert mapped tensor slices into the parent-visible loaded_rank_shard record and update resident worker model state only after the complete rank-local layout is mapped."
+      value: "Convert mapped tensor slices and their validated runtime tensor metadata into the parent-visible loaded_rank_shard record and update resident worker model state only after the complete rank-local layout is mapped."
       status: SUPPORTED
     }
     semantics {
@@ -263,7 +263,7 @@ graph {
     semantics {
       entry_id: "a-publish-loaded-shard-ef"
       key: "effect"
-      value: "Convert mapped tensor slices into the parent-visible loaded_rank_shard record and update resident worker model state only after the complete rank-local layout is mapped."
+      value: "Convert mapped tensor slices and their validated runtime tensor metadata into the parent-visible loaded_rank_shard record and update resident worker model state only after the complete rank-local layout is mapped."
       support_refs {
         node_id: "a-publish-loaded-shard"
       }
@@ -1060,7 +1060,7 @@ graph {
 }
 canonical {
   schema_sha256: "9de5a18221a33a9379092d084dbae946af604b979dfe7caf07bdd65701b5ea9d"
-  type_schema_sha256: "4f68b4a96f18a59411e0dd7cc6ac4725c60f4f2ce354be997d2867ad29772a44"
-  graph_sha256: "8faa41cc8c3562c0df014ede147966f9de457fda4ad2cab3ec7dad0abf84d947"
-  graph_contract_sha256: "b426dd592e67a1784cbf09253ec0e8c450dc58a97ee922907445b17c6da15154"
+  type_schema_sha256: "aa33ec3ae3a40ac468691f0fb786c052d10c1ece1e28b8ab04a80fadc728b2c6"
+  graph_sha256: "c1b29b777f35f923cf42e010d6adad1571331e787527fab3086658fc1e2699a8"
+  graph_contract_sha256: "02eac4c71742fc979fd644e595afd791b49dc6c6a50e7faff20da038f61ff9ca"
 }
