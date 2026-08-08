@@ -46,22 +46,29 @@ code unit function in `ds4_glm52_l0.c`:
   slice, and rejects mismatches before any resident shard readiness is
   published.
 - Produces a `ds4_glm52_layout_mapped_slices` with tensor_count, mapped_bytes,
-  no_foreign_rank_shard, and hash_verified=true after all mapped slices match
-  their manifest sha256 values.
-- Does NOT create real mmap handles yet; records file existence and byte-range
-  validity. This is the first action allowed to create runtime mmap handles
-  per the contract authority semantic.
+  no_foreign_rank_shard, hash_verified=true, and one
+  `ds4_glm52_layout_mapped_tensor` per accepted visible tensor after all mapped
+  slices match their manifest sha256 values.
+- Creates real read-only `mmap()` handles for the exact validated file slices.
+  Non-page-aligned byte offsets are page-aligned for the OS map while the
+  published tensor record points at the declared slice. File descriptors are
+  closed after mapping; mappings stay owned by the mapped-slices result until
+  publication transfers them to resident state.
+- On any late failure after a prior slice was mapped, partial mappings are
+  unmapped before returning `INVALID`.
 
 ### a-publish-loaded-shard -> `ds4_glm52_layout_publish_loaded_rank_shard`
 
 - Code: `ds4_glm52_l0.c`, `ds4_glm52_layout_publish_loaded_rank_shard`.
 - Converts mapped tensor slices into the parent-visible `loaded_rank_shard`
   record by updating `state->resident_shards` (mapped, mapped_bytes,
-  no_foreign_rank_shard, base/mtp shard counts) and `state->rank_plan`
-  (q_head_start, q_head_end, expert_start, expert_end, vocab_start, vocab_end,
-  rank, bound).
+  tensor_count, mapped tensor records, no_foreign_rank_shard, base/mtp shard
+  counts) and `state->rank_plan` (q_head_start, q_head_end, expert_start,
+  expert_end, vocab_start, vocab_end, rank, bound).
 - Updates `state-model-worker` (same_state_as parent model-load graph) only
   after the complete rank-local layout is mapped.
+- Transfers mmap ownership into `state->resident_shards`; callers clear it with
+  `ds4_glm52_l0_unmap_resident_rank_shards`.
 
 ## Child Integration
 
@@ -83,8 +90,11 @@ gate is TP4/DCP4 fabric readiness, not model-load readiness.
 ## Production State Evidence
 
 - Header types: `ds4_glm52_layout_entry`, `ds4_glm52_layout_spec`,
-  `ds4_glm52_layout_ownership_plan`, `ds4_glm52_layout_mapped_slices` in
-  `ds4_glm52_l0.h`.
+  `ds4_glm52_layout_ownership_plan`, `ds4_glm52_layout_mapped_tensor`,
+  `ds4_glm52_layout_mapped_slices`, and resident mapped tensors in
+  `ds4_glm52_l0_resident_rank_shards` in `ds4_glm52_l0.h`.
+- Cleanup APIs: `ds4_glm52_layout_unmap_mapped_slices` and
+  `ds4_glm52_l0_unmap_resident_rank_shards`.
 - Config: `ds4_glm52_l0_config.layout_path` field; `ds4_engine_options.glm52_tp4_layout_path` in `ds4.h`.
 - CLI: `--glm52-tp4-layout FILE` flag in `ds4_cli.c` and `ds4_server.c`.
 - Help: `--glm52-tp4-layout` documented in `ds4_help.c`.
@@ -136,17 +146,29 @@ gate is TP4/DCP4 fabric readiness, not model-load readiness.
 | `test_layout_sha256_mismatch_fails` | Existing file with wrong slice sha256 fails before publish |
 | `test_model_load_layout_reaches_ready_rank_engines` | Valid layout lets serve-open publish ready rank-local model engines |
 
+Additional assertion coverage in `test_layout_valid_manifest_passes` now proves
+the mapped result contains real readable mmap slice handles, including a
+non-page-aligned declared byte offset, and that publication transfers those
+handles to resident state before resident cleanup unmaps them.
+
+GX10 target run: deployed current source to
+`/tmp/ds4-gx10-real-mmap-20260808032926` on rank0 `192.168.0.40`,
+rank1 `192.168.0.240`, rank2 `192.168.0.99`, and rank3 `192.168.0.39`.
+`make tests/test_glm52_l0 && ./tests/test_glm52_l0` passed on all four Linux
+GX10 hosts; a host-labeled rerun of `./tests/test_glm52_l0` also passed on all
+four ranks.
+
 ### BCD mechanical validation
 
 - Lint (complete): PASS, 18 graphs, 0 errors, 0 warnings
-  (`dev-artifacts/validation/lint-after-crs812-fabric.result.json`).
+  (`dev-artifacts/validation/lint-after-real-mmap-handles.result.json`).
 - model-shard-layout leaf validation: PASS, 0 errors, 0 warnings
-  (`dev-artifacts/validation/validate-model-shard-layout-after-crs812-fabric.result.json`).
+  (`dev-artifacts/validation/validate-model-shard-layout-after-real-mmap-handles.result.json`).
 - serve L0 validation: PASS, 0 errors, 0 warnings
   (`dev-artifacts/validation/validate-serve-after-crs812-fabric.result.json`).
 - model-shard-layout simulation (map-rank-local-ds4-layout-success): PASS,
   simulation_sha256 `7623d73ff1f026ef87a7c56a2bcb89396fc01e6731c438076df210a8ebf826e3`
-  (`dev-artifacts/validation/simulate-model-shard-layout-after-crs812-fabric.result.json`).
+  (`dev-artifacts/validation/simulate-model-shard-layout-after-real-mmap-handles.result.json`).
 
 ### Current digests
 
@@ -161,20 +183,13 @@ gate is TP4/DCP4 fabric readiness, not model-load readiness.
 
 ## Remaining Gaps
 
-1. **Real mmap handles are not retained.** `ds4_glm52_layout_mmap_rank_tensors`
-   validates file existence and byte ranges but does not call `mmap()` or
-   record mapped addresses. The `mapped_tensor_slices` struct records counts
-   and totals plus verified slice hashes, but not actual memory pointers. This
-   is sufficient for a real layout/file-integrity dry run but needs retained
-   mappings for production kernels.
-
-2. **Base/MTP shard count is simplified.** `publish_loaded_rank_shard` sets
+1. **Base/MTP shard count is simplified.** `publish_loaded_rank_shard` sets
    `base_shard_count` and `mtp_shard_count` to the expected constants (20/1)
    rather than counting from the actual mapped entries. This satisfies the
    `resident_shards_ready` check but should be derived from the ownership
    plan's actual entry roles.
 
-3. **Real resident tensor handles are still deferred.** The parent-visible
-   ready state proves DS4 has a validated rank-local layout and file/byte-range
-   residency evidence with verified bytes. It still does not prove real model
-   tensor handles, decoded tensor metadata objects, or GPU upload are wired.
+2. **Decoded tensor metadata objects and GPU upload are still deferred.** The
+   parent-visible ready state now retains real mmap slice handles for validated
+   rank-local and replicated files. It still does not decode tensor dtype/shape
+   metadata from a full production checkpoint format or upload weights to GPU.

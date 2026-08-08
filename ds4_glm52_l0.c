@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/select.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -200,7 +201,13 @@ static bool parse_int_value(const char *s, int *out) {
 
 static void copy_string(char *dst, size_t dst_size, const char *src) {
     if (!dst || dst_size == 0) return;
-    snprintf(dst, dst_size, "%s", src ? src : "");
+    if (!src) {
+        dst[0] = '\0';
+        return;
+    }
+    size_t n = strnlen(src, dst_size - 1);
+    memcpy(dst, src, n);
+    dst[n] = '\0';
 }
 
 static bool key_for_rank(const char *key, int rank, const char *field) {
@@ -3416,6 +3423,103 @@ static bool file_slice_sha256_hex(const char *path,
     return true;
 }
 
+static void unmap_layout_tensor(ds4_glm52_layout_mapped_tensor *tensor) {
+    if (!tensor) return;
+    if (tensor->mapped && tensor->map_base && tensor->map_bytes > 0) {
+        (void)munmap(tensor->map_base, (size_t)tensor->map_bytes);
+    }
+    memset(tensor, 0, sizeof(*tensor));
+}
+
+void ds4_glm52_layout_unmap_mapped_slices(
+        ds4_glm52_layout_mapped_slices *mapped) {
+    if (!mapped) return;
+    for (int i = 0; i < mapped->tensor_count; i++) {
+        unmap_layout_tensor(&mapped->tensors[i]);
+    }
+    mapped->tensor_count = 0;
+    mapped->mapped_bytes = 0;
+    mapped->mapped = false;
+    mapped->hash_verified = false;
+}
+
+void ds4_glm52_l0_unmap_resident_rank_shards(ds4_glm52_l0_state *state) {
+    if (!state) return;
+    for (int i = 0; i < state->resident_shards.tensor_count; i++) {
+        unmap_layout_tensor(&state->resident_shards.tensors[i]);
+    }
+    state->resident_shards.tensor_count = 0;
+    state->resident_shards.mapped_bytes = 0;
+    state->resident_shards.mapped = false;
+}
+
+static bool mmap_layout_entry(const char *path,
+                              const ds4_glm52_layout_entry *entry,
+                              ds4_glm52_layout_mapped_tensor *out,
+                              char *err,
+                              size_t err_size) {
+    if (!path || !entry || !out || entry->byte_length == 0) {
+        set_error(err, err_size, "mmap entry requires path, entry, and bytes");
+        return false;
+    }
+    long page_size_long = sysconf(_SC_PAGESIZE);
+    if (page_size_long <= 0) page_size_long = 4096;
+    const uint64_t page_size = (uint64_t)page_size_long;
+    const uint64_t aligned_offset =
+        (entry->byte_offset / page_size) * page_size;
+    const uint64_t page_delta = entry->byte_offset - aligned_offset;
+    if (entry->byte_length > UINT64_MAX - page_delta) {
+        set_error(err, err_size, "mmap entry byte range overflows");
+        return false;
+    }
+    const uint64_t map_bytes = page_delta + entry->byte_length;
+    if (map_bytes == 0 || map_bytes > (uint64_t)SIZE_MAX ||
+        aligned_offset > (uint64_t)LLONG_MAX) {
+        set_error(err, err_size, "mmap entry byte range is not addressable");
+        return false;
+    }
+
+    int fd = open(path, O_RDONLY);
+    if (fd < 0) {
+        char msg[192];
+        snprintf(msg, sizeof(msg), "cannot open shard file '%.128s'", path);
+        set_error(err, err_size, msg);
+        return false;
+    }
+    void *base = mmap(NULL,
+                      (size_t)map_bytes,
+                      PROT_READ,
+                      MAP_PRIVATE,
+                      fd,
+                      (off_t)aligned_offset);
+    int saved_errno = errno;
+    close(fd);
+    if (base == MAP_FAILED) {
+        char msg[192];
+        snprintf(msg, sizeof(msg),
+                 "mmap failed for entry '%.64s': %.80s",
+                 entry->tensor_name[0] ? entry->tensor_name : "(unnamed)",
+                 strerror(saved_errno));
+        set_error(err, err_size, msg);
+        return false;
+    }
+
+    memset(out, 0, sizeof(*out));
+    copy_string(out->tensor_name, sizeof(out->tensor_name), entry->tensor_name);
+    copy_string(out->file_path, sizeof(out->file_path), path);
+    out->map_base = base;
+    out->map_bytes = map_bytes;
+    out->data = (const unsigned char *)base + page_delta;
+    out->data_bytes = entry->byte_length;
+    out->byte_offset = entry->byte_offset;
+    out->role = (int)entry->role;
+    out->scope = (int)entry->scope;
+    out->rank = entry->rank;
+    out->replicated = entry->replicated;
+    out->mapped = true;
+    return true;
+}
+
 /* ---- a-read-layout-spec: ds4_glm52_layout_read_manifest ---- */
 
 ds4_glm52_l0_status ds4_glm52_layout_read_manifest(
@@ -4039,7 +4143,23 @@ ds4_glm52_l0_status ds4_glm52_layout_mmap_rank_tensors(
             snprintf(msg, sizeof(msg),
                      "sha256 mismatch for entry '%s'",
                      e->tensor_name[0] ? e->tensor_name : "(unnamed)");
+            ds4_glm52_layout_unmap_mapped_slices(mapped);
             return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 2, msg);
+        }
+        if (mapped->tensor_count >= DS4_GLM52_LAYOUT_MAX_MAPPED_TENSORS) {
+            ds4_glm52_layout_unmap_mapped_slices(mapped);
+            return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 2,
+                               "mapped tensor slice table is full");
+        }
+        char mmap_err[192] = "";
+        if (!mmap_layout_entry(resolved,
+                               e,
+                               &mapped->tensors[mapped->tensor_count],
+                               mmap_err,
+                               sizeof(mmap_err))) {
+            ds4_glm52_layout_unmap_mapped_slices(mapped);
+            return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 2,
+                               mmap_err);
         }
         mapped->tensor_count++;
         mapped->mapped_bytes += e->byte_length;
@@ -4050,6 +4170,7 @@ ds4_glm52_l0_status ds4_glm52_layout_mmap_rank_tensors(
                            "no tensor slices mapped");
     }
     if (!mapped->no_foreign_rank_shard) {
+        ds4_glm52_layout_unmap_mapped_slices(mapped);
         return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 2,
                            "foreign-rank shard detected during mmap");
     }
@@ -4066,7 +4187,7 @@ ds4_glm52_l0_status ds4_glm52_layout_mmap_rank_tensors(
 /* ---- a-publish-loaded-shard: ds4_glm52_layout_publish_loaded_rank_shard ---- */
 
 ds4_glm52_l0_status ds4_glm52_layout_publish_loaded_rank_shard(
-        const ds4_glm52_layout_mapped_slices *mapped,
+        ds4_glm52_layout_mapped_slices *mapped,
         const ds4_glm52_layout_ownership_plan *plan,
         ds4_glm52_l0_state *state,
         ds4_glm52_l0_result *result) {
@@ -4084,11 +4205,22 @@ ds4_glm52_l0_status ds4_glm52_layout_publish_loaded_rank_shard(
     }
 
     /* Update resident worker model state (state-model-worker in BCD). */
+    ds4_glm52_l0_unmap_resident_rank_shards(state);
     state->resident_shards.rank = mapped->rank;
     state->resident_shards.mapped_bytes = mapped->mapped_bytes;
+    state->resident_shards.tensor_count = mapped->tensor_count;
+    memcpy(state->resident_shards.tensors,
+           mapped->tensors,
+           (size_t)mapped->tensor_count * sizeof(mapped->tensors[0]));
     state->resident_shards.mapped = true;
     state->resident_shards.no_foreign_rank_shard =
         mapped->no_foreign_rank_shard;
+    memset(mapped->tensors,
+           0,
+           (size_t)mapped->tensor_count * sizeof(mapped->tensors[0]));
+    mapped->tensor_count = 0;
+    mapped->mapped_bytes = 0;
+    mapped->mapped = false;
 
     /* Derive rank-plan spans from the ownership plan. */
     state->rank_plan.q_head_start = plan->q_head_start;

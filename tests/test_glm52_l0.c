@@ -728,7 +728,7 @@ static void ensure_layout_fixture(void) {
         check(fp != NULL, "valid layout open failed");
         write_layout_header(fp);
         write_layout_entry(fp, "q_proj_b", "q_head", "rank_local_shard",
-                           2, "rank2/shard-00.bin", 0, 32, k_sha256_x32,
+                           2, "rank2/shard-00.bin", 16, 32, k_sha256_x32,
                            32, 48, -1, -1, -1, -1);
         write_layout_entry(fp, "mla_kv_b", "mla_kv", "rank_local_shard",
                            2, "rank2/shard-01.bin", 0, 32, k_sha256_x32,
@@ -897,6 +897,15 @@ static void test_layout_valid_manifest_passes(void) {
     check(mapped.hash_verified, "valid layout should verify tensor sha256");
     check(strcmp(mapped.source_layout_sha256, "verified-entry-sha256") == 0,
           "valid layout should record verified source identity");
+    check(mapped.tensors[0].mapped &&
+              mapped.tensors[0].map_base != NULL &&
+              mapped.tensors[0].data != NULL &&
+              mapped.tensors[0].data_bytes == 32 &&
+              mapped.tensors[0].byte_offset == 16,
+          "valid layout should publish a real mmap handle for each tensor");
+    check(mapped.tensors[0].data[0] == 'x' &&
+              mapped.tensors[0].data[31] == 'x',
+          "mapped tensor data should be readable at the declared slice");
 
     ds4_glm52_l0_state state = {0};
     st = ds4_glm52_layout_publish_loaded_rank_shard(&mapped, &plan,
@@ -917,6 +926,18 @@ static void test_layout_valid_manifest_passes(void) {
     check(state.rank_plan.vocab_end == 116160,
           "publish should set vocab_end");
     check(state.rank_plan.bound, "publish should bind rank plan");
+    check(mapped.tensor_count == 0 && !mapped.mapped,
+          "publish should transfer mapped slice ownership to resident state");
+    check(state.resident_shards.tensor_count == 5,
+          "resident state should retain mapped tensor records");
+    check(state.resident_shards.tensors[0].mapped &&
+              state.resident_shards.tensors[0].data != NULL &&
+              state.resident_shards.tensors[0].data[0] == 'x',
+          "resident mapped tensor should remain readable after publish");
+    ds4_glm52_l0_unmap_resident_rank_shards(&state);
+    check(!state.resident_shards.mapped &&
+              state.resident_shards.tensor_count == 0,
+          "resident unmap should clear mapped tensor records");
 }
 
 static void test_model_load_layout_reaches_ready_rank_engines(void) {

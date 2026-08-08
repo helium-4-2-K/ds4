@@ -1,0 +1,13 @@
+{
+  "schema": "blueprint-write-request/v11",
+  "action": "validate_contract",
+  "request_id": "validate-model-shard-layout-after-real-mmap-handles",
+  "root": "/Users/helium/src/ds4-gb10x4-bcd/bdev",
+  "record_dir": "/Users/helium/src/ds4-gb10x4-bcd/dev-artifacts/03_record",
+  "params": {
+    "profile": "leaf",
+    "graph_ids": [
+      "model-shard-layout"
+    ]
+  }
+}

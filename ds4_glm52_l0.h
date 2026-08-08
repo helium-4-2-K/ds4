@@ -29,6 +29,7 @@
 #define DS4_GLM52_L0_EXPECTED_MTP_SHARDS 1
 #define DS4_GLM52_LAYOUT_FORMAT_VERSION "ds4-shard-layout/v1"
 #define DS4_GLM52_LAYOUT_MAX_ENTRIES 512
+#define DS4_GLM52_LAYOUT_MAX_MAPPED_TENSORS DS4_GLM52_LAYOUT_MAX_ENTRIES
 #define DS4_GLM52_LAYOUT_MAX_LINE 1024
 #define DS4_GLM52_LAYOUT_FIELD_MAX 256
 #define DS4_GLM52_L0_FABRIC_DATA_PLANE "crs812-200g"
@@ -110,11 +111,29 @@ typedef struct {
 } ds4_glm52_l0_model_plan;
 
 typedef struct {
+    char tensor_name[DS4_GLM52_LAYOUT_FIELD_MAX];
+    char file_path[DS4_GLM52_LAYOUT_FIELD_MAX];
+    void *map_base;
+    uint64_t map_bytes;
+    const unsigned char *data;
+    uint64_t data_bytes;
+    uint64_t byte_offset;
+    int role;
+    int scope;
+    int rank;
+    bool replicated;
+    bool mapped;
+} ds4_glm52_layout_mapped_tensor;
+
+typedef struct {
     int rank;
     const char *checkpoint_root;
     int base_shard_count;
     int mtp_shard_count;
     uint64_t mapped_bytes;
+    int tensor_count;
+    ds4_glm52_layout_mapped_tensor
+        tensors[DS4_GLM52_LAYOUT_MAX_MAPPED_TENSORS];
     bool mapped;
     bool no_foreign_rank_shard;
 } ds4_glm52_l0_resident_rank_shards;
@@ -940,6 +959,8 @@ typedef struct {
     int tensor_count;
     uint64_t mapped_bytes;
     char source_layout_sha256[DS4_GLM52_LAYOUT_FIELD_MAX];
+    ds4_glm52_layout_mapped_tensor
+        tensors[DS4_GLM52_LAYOUT_MAX_MAPPED_TENSORS];
     bool no_foreign_rank_shard;
     bool hash_verified;
     bool mapped;
@@ -967,10 +988,13 @@ ds4_glm52_l0_status ds4_glm52_layout_mmap_rank_tensors(
 
 /* BCD code unit: a-publish-loaded-shard */
 ds4_glm52_l0_status ds4_glm52_layout_publish_loaded_rank_shard(
-        const ds4_glm52_layout_mapped_slices *mapped,
+        ds4_glm52_layout_mapped_slices *mapped,
         const ds4_glm52_layout_ownership_plan *plan,
         ds4_glm52_l0_state *state,
         ds4_glm52_l0_result *result);
+void ds4_glm52_layout_unmap_mapped_slices(
+        ds4_glm52_layout_mapped_slices *mapped);
+void ds4_glm52_l0_unmap_resident_rank_shards(ds4_glm52_l0_state *state);
 
 const char *ds4_glm52_layout_role_name(ds4_glm52_layout_role role);
 

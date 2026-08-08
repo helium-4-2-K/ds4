@@ -312,7 +312,8 @@ frontier.
 
 ## Remaining Work
 
-- Real mmap handles and tensor object publication from model-load.
+- Decoded tensor dtype/shape metadata objects and GPU upload from the retained
+  model-load mmap handles.
 - Real GPU-resident GLM 5.2 QKV/MLA/MoE/logits kernels.
 - Optional replacement of the staged host-memory CRS812 collective with
   direct device collective transport if the deployment requires lower latency

@@ -1,0 +1,13 @@
+{
+  "action": "lint",
+  "blueprint_id": "ds4-arch",
+  "blueprint_sha256": "8ec5da05227296565218f7972ebddb4425bcd39236be31574468543b12a70b60",
+  "errors": [],
+  "graph_count": 18,
+  "request_id": "lint-after-real-mmap-handles",
+  "schema": "blueprint-lint-result/v3",
+  "semantic_sha256": "7a2383c123331d59637c8128cdbb5fa40e7ed667b8d2045c1882536c9befaf04",
+  "status": "PASS",
+  "validation_stage": "complete",
+  "warnings": []
+}

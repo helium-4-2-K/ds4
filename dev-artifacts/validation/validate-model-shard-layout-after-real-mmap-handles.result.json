@@ -1,0 +1,47 @@
+{
+  "action": "validate_contract",
+  "artifact_integrity": {
+    "blueprint_sha256": "8ec5da05227296565218f7972ebddb4425bcd39236be31574468543b12a70b60",
+    "semantic_sha256": "7a2383c123331d59637c8128cdbb5fa40e7ed667b8d2045c1882536c9befaf04"
+  },
+  "error_count": 0,
+  "errors": [],
+  "graph_ids": [
+    "model-shard-layout"
+  ],
+  "profile": "leaf",
+  "request_id": "validate-model-shard-layout-after-real-mmap-handles",
+  "schema": "blueprint-contract-validation/v4",
+  "snapshot": {
+    "artifact_integrity": {
+      "blueprint_sha256": "8ec5da05227296565218f7972ebddb4425bcd39236be31574468543b12a70b60",
+      "semantic_sha256": "7a2383c123331d59637c8128cdbb5fa40e7ed667b8d2045c1882536c9befaf04"
+    },
+    "covered_graphs": [
+      {
+        "graph_contract_sha256": "083ff1b8ab754f0fe11170f32c449b6777b2944c9156de43a105f0836d89b2d5",
+        "graph_id": "model-load",
+        "role": "ancestor",
+        "type_schema_sha256": "0aa0c0c7dfc43caabc5f745e1e1d6c0a82aae418e40a141221cb94ffe2b1696f"
+      },
+      {
+        "graph_contract_sha256": "b426dd592e67a1784cbf09253ec0e8c450dc58a97ee922907445b17c6da15154",
+        "graph_id": "model-shard-layout",
+        "role": "selected",
+        "type_schema_sha256": "4f68b4a96f18a59411e0dd7cc6ac4725c60f4f2ce354be997d2867ad29772a44"
+      },
+      {
+        "graph_contract_sha256": "e86e9e8efe3ad48fdda966be2e1723b862adfd62176e7a45defabfa67b50720a",
+        "graph_id": "serve",
+        "role": "ancestor",
+        "type_schema_sha256": "3f4be1b144e1cee44727789840835951678fede862e9ccde1a2c91d025010a46"
+      }
+    ],
+    "selected_graph_ids": [
+      "model-shard-layout"
+    ]
+  },
+  "status": "PASS",
+  "warning_count": 0,
+  "warnings": []
+}
