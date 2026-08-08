@@ -71,7 +71,9 @@ work.
 - DCP selected-row real boundary
   - Code: `ds4_glm52_dcp_real_row_exchange`.
   - Host-buffer execution code: `ds4_glm52_dcp_selected_rows_host`.
+  - Bound-host execution code: `ds4_glm52_dcp_selected_rows_bound_host`.
   - Type: `ds4_glm52_dcp_exchange_request`.
+  - Bound row type: `ds4_glm52_dcp_bound_row_payload`.
   - Validates rank in `[0,4)`, DCP4/rank_count=4, nonzero sequence/model/session
     identity, valid layer and selection count, full owner rank mask, validated
     ownership plan, append-ordered KV, row payload readiness, and transport
@@ -82,6 +84,10 @@ work.
     contiguous owner ranges, selected row ids, catalog payload metadata,
     append-ordered KV evidence, and transport readiness, then publishes
     deterministic per-rank replies only after every request passes.
+  - Bound-host selected-row helper additionally validates selected row KV and
+    K-rope byte bindings before publication: selected rows must be ready,
+    capacity-safe, and hash-match the row metadata. Unselected cold rows may
+    remain unbound.
 
 - Real decode-step boundary
   - Code: `ds4_glm52_decode_real_step`.
@@ -108,9 +114,9 @@ work.
 - `make -B tests/test_glm52_l0 && ./tests/test_glm52_l0`: PASS.
 - `make -B tests/glm52_tp4_fabric_smoke`: PASS.
 - BCD lint:
-  `dev-artifacts/validation/lint-after-bound-host-exec.result.json`: PASS.
+  `dev-artifacts/validation/lint-after-dcp-bound-payload.result.json`: PASS.
 - BCD TP4 leaf validation:
-  `dev-artifacts/validation/validate-tp4-leaves-after-bound-host-exec.result.json`:
+  `dev-artifacts/validation/validate-tp4-leaves-after-dcp-bound-payload.result.json`:
   PASS.
 - BCD decode full-trace simulation:
   `dev-artifacts/validation/simulate-decode-after-host-collectives.result.json`:
@@ -134,7 +140,9 @@ work.
   gather/top-k, tensor binding validation for rank-owned logits shards, and
   bound-host full-shard logits top-k.
 - `tests/test_glm52_dcp_row_exchange`: PASS. Covers L0 host-buffer DCP
-  selected-row exchange plus the existing DCP mock exchange.
+  selected-row exchange, bound-host selected row payload validation, fail-closed
+  hash/capacity rejection, unselected cold rows, and the existing DCP mock
+  exchange.
 - New `tests/test_glm52_l0.c` coverage:
   - `test_model_load_layout_reaches_ready_rank_engines`;
   - `test_real_collective_frontier_fails_closed`, including frame-version,
@@ -152,4 +160,6 @@ work.
   payload handoff. The bound-host executor is an executable reference backend
   and transport smoke path, not the final GPU-resident collective backend.
 - GPU/fabric-backed DCP selected-row network exchange for compact KV payloads.
+  The bound-host executor is the selected-row payload reference backend; it is
+  not the final network exchange implementation.
 - Cross-GX10 launch, endpoint files, failure deadlines, and deployment smoke.

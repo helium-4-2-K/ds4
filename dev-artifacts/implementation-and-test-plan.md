@@ -164,6 +164,11 @@ Completed implementation slices:
     selected-row exchange boundary: indexed rank requests, contiguous DCP owner
     ranges, selected row ids, and row payload metadata produce deterministic
     per-rank replies, with no complete reply published on failure;
+  - `ds4_glm52_dcp_selected_rows_bound_host` is the executable reference
+    backend for selected DCP payload storage: selected row KV and K-rope byte
+    ranges must be ready, capacity-safe, and hash-match the row metadata before
+    the deterministic reply exchange can publish. Unselected cold rows are
+    allowed to remain unbound;
   - typed real decode-step validation requires prefill-ready cursor, resident
     model readiness, TP4 collectives, DCP exchange, and GLM 5.2 kernels, and
     preserves KV/cursor/token state while the execution backend is not wired;
@@ -737,10 +742,10 @@ Implementation:
 
 Current realization:
 
-- L0 host-buffer execution exists for ATTN/FFN all-reduce, logits gather/top-k,
-  and DCP selected-row exchange. These helpers are CPU/host validation and
-  deterministic merge/reduction boundaries, not GPU kernels and not the final
-  high-throughput collective backend.
+- L0 host-buffer and bound-host reference execution exists for ATTN/FFN
+  all-reduce, logits gather/top-k, and DCP selected-row exchange. These helpers
+  are CPU/host validation and deterministic merge/reduction boundaries, not GPU
+  kernels and not the final high-throughput collective backend.
 - `tests/glm52_tp4_fabric_smoke --payload-floats` now uses
   `ds4_glm52_tp4_collective_allreduce_f32_bound_host` over validated tensor
   bindings instead of a smoke-local coordinator sum.

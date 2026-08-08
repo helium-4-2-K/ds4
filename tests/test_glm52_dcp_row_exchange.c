@@ -16,6 +16,9 @@ static void check(bool cond, const char *msg) {
 }
 
 #define PER_RANK_ROWS 8
+#define TOTAL_L0_ROWS (DS4_GLM52_L0_DCP_SIZE * PER_RANK_ROWS)
+#define KV_PAYLOAD_BYTES 8
+#define K_ROPE_PAYLOAD_BYTES 6
 
 /* Canonical ownership plan: rank r owns [r*8, r*8+8) over rows 0..31. */
 static void build_plan(ds4_glm52_dcp_plan *plan) {
@@ -110,6 +113,55 @@ static size_t build_l0_dcp_catalog(
     return n;
 }
 
+static size_t build_l0_dcp_bound_catalog(
+        ds4_glm52_dcp_owner_range owners[DS4_GLM52_L0_RANK_COUNT],
+        ds4_glm52_dcp_bound_row_payload catalog[TOTAL_L0_ROWS],
+        unsigned char kv_storage[TOTAL_L0_ROWS][KV_PAYLOAD_BYTES],
+        unsigned char k_rope_storage[TOTAL_L0_ROWS][K_ROPE_PAYLOAD_BYTES]) {
+    size_t n = 0;
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        owners[rank].rank = rank;
+        owners[rank].row_start = (uint64_t)(rank * PER_RANK_ROWS);
+        owners[rank].row_end = (uint64_t)((rank + 1) * PER_RANK_ROWS);
+        owners[rank].present = true;
+        for (int row_id = rank * PER_RANK_ROWS;
+             row_id < (rank + 1) * PER_RANK_ROWS;
+             row_id++) {
+            for (size_t i = 0; i < KV_PAYLOAD_BYTES; i++) {
+                kv_storage[n][i] = (unsigned char)(row_id * 17 + (int)i);
+            }
+            for (size_t i = 0; i < K_ROPE_PAYLOAD_BYTES; i++) {
+                k_rope_storage[n][i] =
+                    (unsigned char)(row_id * 31 + rank + (int)i);
+            }
+
+            memset(&catalog[n], 0, sizeof(catalog[n]));
+            catalog[n].row.row_id = (uint64_t)row_id;
+            catalog[n].row.owner_rank = rank;
+            catalog[n].row.layer_index = 3;
+            catalog[n].row.token_step_j = (uint64_t)row_id;
+            catalog[n].row.kv_hash =
+                ds4_glm52_dcp_payload_hash_host(kv_storage[n],
+                                                KV_PAYLOAD_BYTES);
+            catalog[n].row.k_rope_hash =
+                ds4_glm52_dcp_payload_hash_host(k_rope_storage[n],
+                                                K_ROPE_PAYLOAD_BYTES);
+            catalog[n].row.present = true;
+            catalog[n].kv_handle = kv_storage[n];
+            catalog[n].kv_byte_offset = 0;
+            catalog[n].kv_byte_count = KV_PAYLOAD_BYTES;
+            catalog[n].kv_capacity_bytes = KV_PAYLOAD_BYTES;
+            catalog[n].k_rope_handle = k_rope_storage[n];
+            catalog[n].k_rope_byte_offset = 0;
+            catalog[n].k_rope_byte_count = K_ROPE_PAYLOAD_BYTES;
+            catalog[n].k_rope_capacity_bytes = K_ROPE_PAYLOAD_BYTES;
+            catalog[n].ready = true;
+            n++;
+        }
+    }
+    return n;
+}
+
 static void test_l0_dcp_selected_rows_host(void) {
     ds4_glm52_dcp_owner_range owners[DS4_GLM52_L0_RANK_COUNT];
     ds4_glm52_dcp_row_payload catalog[DS4_GLM52_L0_DCP_SIZE * PER_RANK_ROWS];
@@ -193,6 +245,109 @@ static void test_l0_dcp_selected_rows_host(void) {
           "L0 DCP selected-row host exchange should reject ownership gaps");
     check(strstr(err, "owner ranges") != NULL,
           "L0 DCP owner-range rejection should name owner ranges");
+}
+
+static void test_l0_dcp_selected_rows_bound_host(void) {
+    ds4_glm52_dcp_owner_range owners[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_dcp_bound_row_payload catalog[TOTAL_L0_ROWS];
+    unsigned char kv_storage[TOTAL_L0_ROWS][KV_PAYLOAD_BYTES];
+    unsigned char k_rope_storage[TOTAL_L0_ROWS][K_ROPE_PAYLOAD_BYTES];
+    size_t catalog_count =
+        build_l0_dcp_bound_catalog(owners,
+                                   catalog,
+                                   kv_storage,
+                                   k_rope_storage);
+    const uint64_t selected0[] = {28, 5, 20, 2};
+    const uint64_t selected1[] = {25, 12, 3, 30};
+    const uint64_t selected2[] = {6, 18, 1, 27};
+    const uint64_t selected3[] = {23, 4, 15, 8};
+    const uint64_t *selected[DS4_GLM52_L0_RANK_COUNT] = {
+        selected0, selected1, selected2, selected3,
+    };
+    size_t counts[DS4_GLM52_L0_RANK_COUNT] = {4, 4, 4, 4};
+    ds4_glm52_dcp_exchange_request requests[DS4_GLM52_L0_RANK_COUNT];
+    build_l0_dcp_requests(requests, counts);
+
+    ds4_glm52_dcp_row_payload storage[DS4_GLM52_L0_RANK_COUNT][4];
+    ds4_glm52_dcp_rank_reply replies[DS4_GLM52_L0_RANK_COUNT];
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        memset(storage[rank], 0, sizeof(storage[rank]));
+        memset(&replies[rank], 0, sizeof(replies[rank]));
+        replies[rank].requester_rank = rank;
+        replies[rank].rows = storage[rank];
+        replies[rank].row_capacity = 4;
+    }
+
+    char err[192] = "";
+    check(ds4_glm52_dcp_selected_rows_bound_host(
+              requests,
+              owners,
+              catalog,
+              catalog_count,
+              selected,
+              counts,
+              replies,
+              err,
+              sizeof(err)),
+          "L0 DCP bound selected-row exchange should complete");
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        check(replies[rank].complete,
+              "L0 DCP bound reply should be complete");
+        check(replies[rank].row_count == counts[rank],
+              "L0 DCP bound reply should contain selected rows");
+    }
+
+    kv_storage[20][0] ^= 0x1u;
+    check(!ds4_glm52_dcp_selected_rows_bound_host(
+              requests,
+              owners,
+              catalog,
+              catalog_count,
+              selected,
+              counts,
+              replies,
+              err,
+              sizeof(err)),
+          "L0 DCP bound exchange should reject selected payload hash mismatch");
+    check(strstr(err, "hash") != NULL,
+          "L0 DCP bound hash rejection should name hash");
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        check(!replies[rank].complete,
+              "L0 DCP bound failure should leave replies incomplete");
+        check(replies[rank].row_count == 0,
+              "L0 DCP bound failure should clear reply row counts");
+    }
+    kv_storage[20][0] ^= 0x1u;
+
+    catalog[5].kv_capacity_bytes = catalog[5].kv_byte_count - 1;
+    check(!ds4_glm52_dcp_selected_rows_bound_host(
+              requests,
+              owners,
+              catalog,
+              catalog_count,
+              selected,
+              counts,
+              replies,
+              err,
+              sizeof(err)),
+          "L0 DCP bound exchange should reject selected capacity underrun");
+    check(strstr(err, "capacity") != NULL,
+          "L0 DCP bound capacity rejection should name capacity");
+    catalog[5].kv_capacity_bytes = catalog[5].kv_byte_count;
+
+    catalog[31].ready = false;
+    catalog[31].kv_handle = NULL;
+    check(ds4_glm52_dcp_selected_rows_bound_host(
+              requests,
+              owners,
+              catalog,
+              catalog_count,
+              selected,
+              counts,
+              replies,
+              err,
+              sizeof(err)),
+          "L0 DCP bound exchange should allow unselected cold rows");
 }
 
 static void expect_exchange_invalid(const ds4_glm52_dcp_plan *plan,
@@ -550,6 +705,7 @@ static void test_layer_position_ordering(void) {
 
 int main(void) {
     test_l0_dcp_selected_rows_host();
+    test_l0_dcp_selected_rows_bound_host();
     test_reject_missing_owner_rank();
     test_reject_duplicate_owner();
     test_reject_out_of_range();

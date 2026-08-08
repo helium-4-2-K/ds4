@@ -2124,6 +2124,205 @@ bool ds4_glm52_dcp_selected_rows_host(
     return true;
 }
 
+uint64_t ds4_glm52_dcp_payload_hash_host(const void *data, size_t bytes) {
+    if (!data || bytes == 0) return 0;
+    const unsigned char *p = (const unsigned char *)data;
+    uint64_t h = UINT64_C(1469598103934665603);
+    for (size_t i = 0; i < bytes; i++) {
+        h ^= (uint64_t)p[i];
+        h *= UINT64_C(1099511628211);
+    }
+    return h;
+}
+
+static bool dcp_bound_range_ok(void *handle,
+                               size_t byte_offset,
+                               size_t byte_count,
+                               size_t capacity_bytes) {
+    if (!handle || byte_count == 0 || capacity_bytes == 0) return false;
+    if (byte_offset > capacity_bytes) return false;
+    return byte_count <= capacity_bytes - byte_offset;
+}
+
+static const void *dcp_bound_ptr(void *handle, size_t byte_offset) {
+    return (const void *)((const unsigned char *)handle + byte_offset);
+}
+
+static bool dcp_bound_catalog_validate_selected(
+        const ds4_glm52_dcp_owner_range owners[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_dcp_bound_row_payload *bound_catalog,
+        size_t catalog_count,
+        uint64_t row_id,
+        char *err,
+        size_t err_size) {
+    int owner = -1;
+    if (!dcp_owner_for_row_host(owners, row_id, &owner)) {
+        set_error(err, err_size,
+                  "DCP bound selected-row exchange selected row is outside ownership ranges");
+        return false;
+    }
+
+    bool found = false;
+    ds4_glm52_dcp_row_payload canonical;
+    memset(&canonical, 0, sizeof(canonical));
+    for (size_t i = 0; i < catalog_count; i++) {
+        const ds4_glm52_dcp_bound_row_payload *bound = &bound_catalog[i];
+        const ds4_glm52_dcp_row_payload *row = &bound->row;
+        if (!row->present || row->row_id != row_id) continue;
+        if (row->owner_rank != owner ||
+            row->layer_index < 0 ||
+            row->kv_hash == 0 ||
+            row->k_rope_hash == 0) {
+            set_error(err, err_size,
+                      "DCP bound selected-row exchange row metadata does not match ownership or payload requirements");
+            return false;
+        }
+        if (!bound->ready ||
+            !dcp_bound_range_ok(bound->kv_handle,
+                                bound->kv_byte_offset,
+                                bound->kv_byte_count,
+                                bound->kv_capacity_bytes) ||
+            !dcp_bound_range_ok(bound->k_rope_handle,
+                                bound->k_rope_byte_offset,
+                                bound->k_rope_byte_count,
+                                bound->k_rope_capacity_bytes)) {
+            set_error(err, err_size,
+                      "DCP bound selected-row exchange selected payload byte range is not ready or exceeds capacity");
+            return false;
+        }
+        const void *kv =
+            dcp_bound_ptr(bound->kv_handle, bound->kv_byte_offset);
+        const void *k_rope =
+            dcp_bound_ptr(bound->k_rope_handle, bound->k_rope_byte_offset);
+        const uint64_t kv_hash =
+            ds4_glm52_dcp_payload_hash_host(kv, bound->kv_byte_count);
+        const uint64_t k_rope_hash =
+            ds4_glm52_dcp_payload_hash_host(k_rope,
+                                            bound->k_rope_byte_count);
+        if (kv_hash == 0 || k_rope_hash == 0 ||
+            kv_hash != row->kv_hash ||
+            k_rope_hash != row->k_rope_hash) {
+            set_error(err, err_size,
+                      "DCP bound selected-row exchange payload hash does not match row metadata");
+            return false;
+        }
+        if (!found) {
+            canonical = *row;
+            found = true;
+        } else if (canonical.owner_rank != row->owner_rank ||
+                   canonical.layer_index != row->layer_index ||
+                   canonical.token_step_j != row->token_step_j ||
+                   canonical.kv_hash != row->kv_hash ||
+                   canonical.k_rope_hash != row->k_rope_hash) {
+            set_error(err, err_size,
+                      "DCP bound selected-row exchange duplicate row has conflicting payload metadata");
+            return false;
+        }
+    }
+    if (!found) {
+        set_error(err, err_size,
+                  "DCP bound selected-row exchange missing selected row payload");
+        return false;
+    }
+    return true;
+}
+
+static void dcp_clear_replies_if_present(
+        ds4_glm52_dcp_rank_reply replies[DS4_GLM52_L0_RANK_COUNT]) {
+    if (!replies) return;
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        replies[rank].requester_rank = rank;
+        replies[rank].row_count = 0;
+        replies[rank].complete = false;
+    }
+}
+
+bool ds4_glm52_dcp_selected_rows_bound_host(
+        const ds4_glm52_dcp_exchange_request requests[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_dcp_owner_range owners[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_dcp_bound_row_payload *bound_catalog,
+        size_t catalog_count,
+        const uint64_t *const selected_row_ids[DS4_GLM52_L0_RANK_COUNT],
+        const size_t selection_counts[DS4_GLM52_L0_RANK_COUNT],
+        ds4_glm52_dcp_rank_reply replies[DS4_GLM52_L0_RANK_COUNT],
+        char *err,
+        size_t err_size) {
+    dcp_clear_replies_if_present(replies);
+    if (!requests || !owners || !bound_catalog || catalog_count == 0 ||
+        !selected_row_ids || !selection_counts || !replies) {
+        set_error(err, err_size,
+                  "DCP bound selected-row exchange requires requests, owners, bound catalog, selections, and replies");
+        return false;
+    }
+
+    ds4_glm52_dcp_row_payload *catalog =
+        calloc(catalog_count, sizeof(catalog[0]));
+    if (!catalog) {
+        set_error(err, err_size,
+                  "DCP bound selected-row exchange could not allocate metadata catalog");
+        return false;
+    }
+    for (size_t i = 0; i < catalog_count; i++) {
+        catalog[i] = bound_catalog[i].row;
+    }
+
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        const ds4_glm52_dcp_exchange_request *req = &requests[rank];
+        if (req->rank != rank ||
+            req->dcp_size != DS4_GLM52_L0_DCP_SIZE ||
+            req->rank_count != DS4_GLM52_L0_RANK_COUNT ||
+            req->selected_row_count < 0 ||
+            (size_t)req->selected_row_count != selection_counts[rank]) {
+            free(catalog);
+            set_error(err, err_size,
+                      "DCP bound selected-row exchange request selection metadata is invalid");
+            return false;
+        }
+        if (!replies[rank].rows ||
+            replies[rank].row_capacity == 0 ||
+            selection_counts[rank] > replies[rank].row_capacity) {
+            free(catalog);
+            set_error(err, err_size,
+                      "DCP bound selected-row exchange reply capacity is too small");
+            return false;
+        }
+    }
+
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        if (selection_counts[rank] > 0 && !selected_row_ids[rank]) {
+            free(catalog);
+            set_error(err, err_size,
+                      "DCP bound selected-row exchange selection storage is invalid");
+            return false;
+        }
+        for (size_t i = 0; i < selection_counts[rank]; i++) {
+            if (!dcp_bound_catalog_validate_selected(
+                        owners,
+                        bound_catalog,
+                        catalog_count,
+                        selected_row_ids[rank][i],
+                        err,
+                        err_size)) {
+                free(catalog);
+                return false;
+            }
+        }
+    }
+
+    const bool ok = ds4_glm52_dcp_selected_rows_host(
+            requests,
+            owners,
+            catalog,
+            catalog_count,
+            selected_row_ids,
+            selection_counts,
+            replies,
+            err,
+            err_size);
+    free(catalog);
+    return ok;
+}
+
 ds4_glm52_l0_status ds4_glm52_dcp_real_row_exchange(
         const ds4_glm52_dcp_exchange_request *request,
         ds4_glm52_l0_result *result) {

@@ -425,6 +425,19 @@ typedef struct {
 } ds4_glm52_dcp_row_payload;
 
 typedef struct {
+    ds4_glm52_dcp_row_payload row;
+    void *kv_handle;
+    size_t kv_byte_offset;
+    size_t kv_byte_count;
+    size_t kv_capacity_bytes;
+    void *k_rope_handle;
+    size_t k_rope_byte_offset;
+    size_t k_rope_byte_count;
+    size_t k_rope_capacity_bytes;
+    bool ready;
+} ds4_glm52_dcp_bound_row_payload;
+
+typedef struct {
     int requester_rank;
     ds4_glm52_dcp_row_payload *rows;
     size_t row_capacity;
@@ -515,6 +528,17 @@ bool ds4_glm52_dcp_selected_rows_host(
         const ds4_glm52_dcp_exchange_request requests[DS4_GLM52_L0_RANK_COUNT],
         const ds4_glm52_dcp_owner_range owners[DS4_GLM52_L0_RANK_COUNT],
         const ds4_glm52_dcp_row_payload *catalog,
+        size_t catalog_count,
+        const uint64_t *const selected_row_ids[DS4_GLM52_L0_RANK_COUNT],
+        const size_t selection_counts[DS4_GLM52_L0_RANK_COUNT],
+        ds4_glm52_dcp_rank_reply replies[DS4_GLM52_L0_RANK_COUNT],
+        char *err,
+        size_t err_size);
+uint64_t ds4_glm52_dcp_payload_hash_host(const void *data, size_t bytes);
+bool ds4_glm52_dcp_selected_rows_bound_host(
+        const ds4_glm52_dcp_exchange_request requests[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_dcp_owner_range owners[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_dcp_bound_row_payload *bound_catalog,
         size_t catalog_count,
         const uint64_t *const selected_row_ids[DS4_GLM52_L0_RANK_COUNT],
         const size_t selection_counts[DS4_GLM52_L0_RANK_COUNT],
