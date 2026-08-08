@@ -130,6 +130,23 @@ static uint64_t session_hash_for_smoke(const smoke_config *cfg) {
     return cfg->config_hash ^ (cfg->plan_hash << 1) ^ UINT64_C(0x9e3779b97f4a7c15);
 }
 
+static ds4_glm52_decode_real_request make_decode_request(
+        const smoke_config *cfg,
+        uint64_t seq) {
+    ds4_glm52_decode_real_request req;
+    memset(&req, 0, sizeof(req));
+    req.rank = cfg->rank;
+    req.input_token = 123;
+    req.seq = seq;
+    req.model_hash = cfg->model_hash;
+    req.session_hash = session_hash_for_smoke(cfg);
+    req.model_ready = true;
+    req.tp_collectives_ready = true;
+    req.dcp_exchange_ready = true;
+    req.glm52_kernels_ready = true;
+    return req;
+}
+
 static ds4_glm52_tp4_collective_request make_collective_request(
         const smoke_config *cfg,
         int rank,
@@ -617,14 +634,18 @@ static int run_coordinator(const smoke_config *cfg) {
             output_bindings[rank] =
                 payload_binding(rank, outputs[rank], &requests[rank]);
         }
-        if (!ds4_glm52_tp4_collective_allreduce_f32_bound_host(
-                    requests,
-                    partial_bindings,
-                    output_bindings,
-                    n,
-                    err,
-                    sizeof(err))) {
-            fprintf(stderr, "coordinator: bound allreduce payload failed: %s\n",
+        ds4_glm52_decode_real_request decode = make_decode_request(cfg, seq);
+        decode.rank = 0;
+        ds4_glm52_decode_bound_collective_call call = {
+            .decode = &decode,
+            .requests = requests,
+            .partials = partial_bindings,
+            .outputs = output_bindings,
+            .element_count = n,
+        };
+        if (!ds4_glm52_decode_bound_collective_host(
+                    &call, err, sizeof(err))) {
+            fprintf(stderr, "coordinator: decode-bound allreduce payload failed: %s\n",
                     err);
             free_rank_buffers(partials);
             free_rank_buffers(outputs);

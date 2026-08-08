@@ -221,6 +221,70 @@ static void test_l0_bound_host_allreduce(void) {
     free_float_buffers(outputs_data);
 }
 
+static ds4_glm52_decode_real_request make_decode_request_from_frame(
+        const ds4_glm52_tp4_collective_request *req) {
+    ds4_glm52_decode_real_request decode;
+    memset(&decode, 0, sizeof(decode));
+    decode.rank = 0;
+    decode.input_token = 123;
+    decode.seq = req->seq;
+    decode.model_hash = req->model_hash;
+    decode.session_hash = req->session_hash;
+    decode.model_ready = true;
+    decode.tp_collectives_ready = true;
+    decode.dcp_exchange_ready = true;
+    decode.glm52_kernels_ready = true;
+    return decode;
+}
+
+static void test_l0_decode_bound_collective_allreduce(void) {
+    const size_t n = DS4_GLM52_MOCK_N_EMBD;
+    ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT];
+    float *partials_data[DS4_GLM52_L0_RANK_COUNT] = {0};
+    float *outputs_data[DS4_GLM52_L0_RANK_COUNT] = {0};
+    ds4_glm52_tp4_tensor_binding partials[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_tp4_tensor_binding outputs[DS4_GLM52_L0_RANK_COUNT];
+    char err[192] = "";
+
+    make_l0_requests(requests, DS4_GLM52_TP4_COLLECTIVE_ATTN, 47, 29, n);
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        partials_data[rank] = malloc(n * sizeof(partials_data[rank][0]));
+        outputs_data[rank] = calloc(n, sizeof(outputs_data[rank][0]));
+        check(partials_data[rank] != NULL && outputs_data[rank] != NULL,
+              "decode-bound all-reduce buffers should allocate");
+        partials[rank] =
+            make_tensor_binding(rank, partials_data[rank], &requests[rank]);
+        outputs[rank] =
+            make_tensor_binding(rank, outputs_data[rank], &requests[rank]);
+    }
+    fill_nonassoc_partials(partials_data, n);
+
+    ds4_glm52_decode_real_request decode =
+        make_decode_request_from_frame(&requests[0]);
+    ds4_glm52_decode_bound_collective_call call = {
+        .decode = &decode,
+        .requests = requests,
+        .partials = partials,
+        .outputs = outputs,
+        .element_count = n,
+    };
+    check(ds4_glm52_decode_bound_collective_host(
+              &call, err, sizeof(err)),
+          "decode-bound collective should dispatch ATTN to bound all-reduce");
+    check(outputs_data[0][0] == 3.0f,
+          "decode-bound all-reduce should publish the reduced tensor");
+
+    decode.session_hash++;
+    check(!ds4_glm52_decode_bound_collective_host(
+              &call, err, sizeof(err)),
+          "decode-bound collective should reject decode/frame identity mismatch");
+    check(strstr(err, "identity") != NULL,
+          "decode-bound identity rejection should name identity");
+
+    free_float_buffers(partials_data);
+    free_float_buffers(outputs_data);
+}
+
 static void test_l0_host_allreduce_buffers(void) {
     const size_t n = DS4_GLM52_MOCK_N_EMBD;
     ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT];
@@ -469,6 +533,64 @@ static void test_l0_bound_host_logits_topk(void) {
           "bound host logits non-finite rejection should name non-finite");
     check(memcmp(before_bad, top, sizeof(before_bad)) == 0,
           "bound host logits failure should not publish partial top-k output");
+
+    free_float_buffers(logits);
+}
+
+static void test_l0_decode_bound_collective_logits(void) {
+    const size_t shard_width =
+        DS4_GLM52_L0_VOCAB_SIZE / DS4_GLM52_L0_RANK_COUNT;
+    ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_tp4_logits_tensor_shard shards[DS4_GLM52_L0_RANK_COUNT];
+    float *logits[DS4_GLM52_L0_RANK_COUNT] = {0};
+    int handles[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_tp4_logits_topk_entry top[2];
+    char err[192] = "";
+
+    make_l0_requests(requests,
+                     DS4_GLM52_TP4_COLLECTIVE_LOGITS,
+                     48,
+                     30,
+                     shard_width);
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        logits[rank] = malloc(shard_width * sizeof(logits[rank][0]));
+        check(logits[rank] != NULL,
+              "decode-bound logits shard should allocate");
+        for (size_t i = 0; i < shard_width; i++) {
+            logits[rank][i] = -1000.0f - (float)i;
+        }
+    }
+    fill_logits_tensor_shards(requests, shards, handles);
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        shards[rank].logits.handle = logits[rank];
+    }
+    logits[2][5] = 17.0f;
+    logits[0][1] = 16.0f;
+
+    ds4_glm52_decode_real_request decode =
+        make_decode_request_from_frame(&requests[0]);
+    ds4_glm52_decode_bound_collective_call call = {
+        .decode = &decode,
+        .requests = requests,
+        .logits_shards = shards,
+        .top_k = 2,
+        .topk_out = top,
+        .topk_out_count = sizeof(top) / sizeof(top[0]),
+    };
+    check(ds4_glm52_decode_bound_collective_host(
+              &call, err, sizeof(err)),
+          "decode-bound collective should dispatch LOGITS to bound top-k");
+    check(top[0].owner_rank == 2 && top[0].score == 17.0f,
+          "decode-bound logits should select the highest rank-local score");
+    check(top[1].owner_rank == 0 && top[1].score == 16.0f,
+          "decode-bound logits should gather across all rank-owned shards");
+
+    decode.tp_collectives_ready = false;
+    check(!ds4_glm52_decode_bound_collective_host(
+              &call, err, sizeof(err)),
+          "decode-bound collective should reject missing TP readiness");
+    check(strstr(err, "readiness") != NULL,
+          "decode-bound readiness rejection should name readiness");
 
     free_float_buffers(logits);
 }
@@ -841,9 +963,11 @@ int main(void) {
     test_l0_host_allreduce_buffers();
     test_l0_collective_tensor_bindings();
     test_l0_bound_host_allreduce();
+    test_l0_decode_bound_collective_allreduce();
     test_l0_logits_gather_topk();
     test_l0_logits_tensor_bindings();
     test_l0_bound_host_logits_topk();
+    test_l0_decode_bound_collective_logits();
     test_allreduce_sums_in_rank_order();
     test_allreduce_rejects_missing_and_duplicate_ranks();
     test_allreduce_rejects_identity_mismatches();

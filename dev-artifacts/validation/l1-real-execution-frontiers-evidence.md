@@ -159,6 +159,32 @@ work.
   - Rank0 published local TP4/DCP4 fabric-ready state and completed shutdown
     command sequence `1` with `ack_mask=0xf`; all workers received shutdown
     sequence `1` and acked cleanly.
+- Decode-bound collective dispatch and real four-GX10 CRS812 payload smoke:
+  PASS on working tree after `1090a6b`.
+  - Production API added:
+    `ds4_glm52_decode_bound_collective_host`.
+  - The API validates decode request rank/token/sequence/model/session
+    identity and model/TP/DCP/kernel readiness before dispatching typed TP4
+    frames to a backend.
+  - ATTN/FFN dispatch calls
+    `ds4_glm52_tp4_collective_allreduce_f32_bound_host`; LOGITS dispatch calls
+    `ds4_glm52_tp4_logits_gather_topk_f32_bound_host`.
+  - Local unit gate: `tests/test_glm52_tp4_allreduce` covers decode-bound
+    ATTN all-reduce, decode/frame identity mismatch rejection, decode-bound
+    LOGITS full-shard top-k, and readiness rejection.
+  - Deployed the working tree to
+    `/tmp/ds4-gx10-decode-bound-20260807220956` on all four GX10s.
+  - Per-host target build and unit check passed:
+    `make tests/glm52_tp4_fabric_smoke tests/test_glm52_tp4_allreduce &&
+    ./tests/test_glm52_tp4_allreduce`.
+  - CRS812 payload run: rank0 `192.168.0.40` listened on
+    `10.100.185.3:49132`; ranks 1..3 connected from `192.168.0.240`,
+    `192.168.0.99`, and `192.168.0.39`.
+  - Rank0 reduced 1024 payload floats through
+    `ds4_glm52_decode_bound_collective_host`, observed `first=1000.0` and
+    `last=5092.0`, then completed decode command sequence `1` with
+    `ack_mask=0xf`; every worker verified the replicated reduced payload and
+    acked.
 - `make cpu tests/test_tp4_rank_group tests/test_glm52_l0
   tests/test_glm52_mock tests/test_glm52_tp4_mock
   tests/test_glm52_tp4_mock_serve tests/test_glm52_tp4_allreduce

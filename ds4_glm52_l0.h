@@ -457,6 +457,18 @@ typedef struct {
     bool glm52_kernels_ready;
 } ds4_glm52_decode_real_request;
 
+typedef struct {
+    const ds4_glm52_decode_real_request *decode;
+    const ds4_glm52_tp4_collective_request *requests;
+    const ds4_glm52_tp4_tensor_binding *partials;
+    const ds4_glm52_tp4_tensor_binding *outputs;
+    size_t element_count;
+    const ds4_glm52_tp4_logits_tensor_shard *logits_shards;
+    size_t top_k;
+    ds4_glm52_tp4_logits_topk_entry *topk_out;
+    size_t topk_out_count;
+} ds4_glm52_decode_bound_collective_call;
+
 const char *ds4_glm52_tp4_collective_kind_name(
         ds4_glm52_tp4_collective_kind kind);
 const char *ds4_glm52_tp4_tensor_dtype_name(
@@ -519,6 +531,10 @@ bool ds4_glm52_tp4_logits_gather_topk_f32_bound_host(
         size_t k,
         ds4_glm52_tp4_logits_topk_entry *out,
         size_t out_count,
+        char *err,
+        size_t err_size);
+bool ds4_glm52_decode_bound_collective_host(
+        const ds4_glm52_decode_bound_collective_call *call,
         char *err,
         size_t err_size);
 ds4_glm52_l0_status ds4_glm52_tp4_real_collective_allreduce(

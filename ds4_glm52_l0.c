@@ -1851,6 +1851,98 @@ bool ds4_glm52_tp4_logits_gather_topk_f32_bound_host(
     return true;
 }
 
+static bool decode_real_request_ready(
+        const ds4_glm52_decode_real_request *decode,
+        char *err,
+        size_t err_size) {
+    if (!decode) {
+        set_error(err, err_size, "decode collective call requires decode identity");
+        return false;
+    }
+    if (decode->rank < 0 ||
+        decode->rank >= DS4_GLM52_L0_RANK_COUNT ||
+        decode->input_token < 0 ||
+        decode->seq == 0 ||
+        decode->model_hash == 0 ||
+        decode->session_hash == 0) {
+        set_error(err, err_size,
+                  "decode collective call requires valid rank, token, sequence, model, and session identity");
+        return false;
+    }
+    if (!decode->model_ready ||
+        !decode->tp_collectives_ready ||
+        !decode->dcp_exchange_ready ||
+        !decode->glm52_kernels_ready) {
+        set_error(err, err_size,
+                  "decode collective call requires model, TP collective, DCP exchange, and GLM kernel readiness");
+        return false;
+    }
+    return true;
+}
+
+static bool decode_collective_requests_match(
+        const ds4_glm52_decode_real_request *decode,
+        const ds4_glm52_tp4_collective_request *requests,
+        char *err,
+        size_t err_size) {
+    if (!requests) {
+        set_error(err, err_size, "decode collective call requires TP4 frames");
+        return false;
+    }
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        const ds4_glm52_tp4_collective_request *req = &requests[rank];
+        if (!ds4_glm52_tp4_collective_frame_validate(
+                    req, err, err_size)) {
+            return false;
+        }
+        if (req->rank != rank ||
+            req->seq != decode->seq ||
+            req->model_hash != decode->model_hash ||
+            req->session_hash != decode->session_hash) {
+            set_error(err, err_size,
+                      "decode collective TP4 frame identity does not match decode request");
+            return false;
+        }
+    }
+    return true;
+}
+
+bool ds4_glm52_decode_bound_collective_host(
+        const ds4_glm52_decode_bound_collective_call *call,
+        char *err,
+        size_t err_size) {
+    if (!call ||
+        !decode_real_request_ready(call->decode, err, err_size) ||
+        !decode_collective_requests_match(
+                call->decode, call->requests, err, err_size)) {
+        return false;
+    }
+    const ds4_glm52_tp4_collective_kind kind = call->requests[0].kind;
+    if (kind == DS4_GLM52_TP4_COLLECTIVE_ATTN ||
+        kind == DS4_GLM52_TP4_COLLECTIVE_FFN) {
+        return ds4_glm52_tp4_collective_allreduce_f32_bound_host(
+                call->requests,
+                call->partials,
+                call->outputs,
+                call->element_count,
+                err,
+                err_size);
+    }
+    if (kind == DS4_GLM52_TP4_COLLECTIVE_LOGITS) {
+        return ds4_glm52_tp4_logits_gather_topk_f32_bound_host(
+                call->requests,
+                call->logits_shards,
+                call->top_k,
+                call->topk_out,
+                call->topk_out_count,
+                err,
+                err_size);
+    }
+    set_error(err, err_size,
+              "decode collective call received unsupported TP4 collective kind");
+    return false;
+}
+
 ds4_glm52_l0_status ds4_glm52_tp4_real_collective_allreduce(
         const ds4_glm52_tp4_collective_request *request,
         ds4_glm52_l0_result *result) {
