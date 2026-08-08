@@ -412,6 +412,12 @@ tests/glm52_tp4_gpu_fabric_smoke.o: tests/glm52_tp4_gpu_fabric_smoke.c ds4_gpu.h
 tests/glm52_tp4_gpu_fabric_smoke: tests/glm52_tp4_gpu_fabric_smoke.o ds4_glm52_l0.o ds4_cuda.o $(MMQ_OBJS)
 	$(NVCC) $(NVCCFLAGS) -o $@ $^ $(CUDA_LDLIBS)
 
+tests/test_glm52_cuda_layout_upload.o: tests/test_glm52_cuda_layout_upload.c ds4_glm52_l0.h ds4_gpu.h ds4_gpu_mgpu.h
+	$(CC) $(CFLAGS) -I. -I$(CUDA_HOME)/include -c -o $@ $<
+
+tests/test_glm52_cuda_layout_upload: tests/test_glm52_cuda_layout_upload.o ds4_glm52_l0.o ds4_cuda.o $(MMQ_OBJS)
+	$(NVCC) $(NVCCFLAGS) -o $@ $^ $(CUDA_LDLIBS)
+
 tests/test_gpu_model_cache.o: tests/test_gpu_model_cache.c ds4_gpu.h
 	$(CC) $(CFLAGS) -I. -I$(CUDA_HOME)/include -c -o $@ $<
 
@@ -540,4 +546,4 @@ mxfp4-dot-test: tests/test_mxfp4_dot.c
 	./tests/test_mxfp4_dot
 
 clean:
-	rm -f ds4 ds4-server ds4-bench ds4-eval ds4-agent ds4_cpu ds4_native ds4_server_test ds4_test ds4_agent_test gguf-tools/quality-testing/score_official gguf-tools/quality-testing/score_official.o tests/test_q4k_dot tests/test_mxfp4_dot tests/test_mxfp4_metal tests/test_mxfp4_cuda tests/test_metal_session_batch tests/test_gpu_xdev tests/test_gpu_model_cache tests/test_gpu_lookup_cache_strict tests/test_engine_mgpu_refusal tests/test_engine_mgpu_runtime tests/test_engine_correctness tests/test_sampling tests/test_cuda_session_batch tests/test_cuda_mixed_batch tests/test_glm52_l0 tests/test_tp4_rank_group tests/glm52_tp4_fabric_smoke tests/glm52_tp4_gpu_fabric_smoke tests/test_glm52_mock tests/test_glm52_tp4_mock tests/test_glm52_tp4_mock_serve tests/test_glm52_tp4_allreduce tests/test_glm52_dcp_row_exchange tests/test_glm52_tp4_mock_process tests/*.o *.o tests/cuda_long_context_smoke tests/cuda_long_context_smoke.o
+	rm -f ds4 ds4-server ds4-bench ds4-eval ds4-agent ds4_cpu ds4_native ds4_server_test ds4_test ds4_agent_test gguf-tools/quality-testing/score_official gguf-tools/quality-testing/score_official.o tests/test_q4k_dot tests/test_mxfp4_dot tests/test_mxfp4_metal tests/test_mxfp4_cuda tests/test_metal_session_batch tests/test_gpu_xdev tests/test_gpu_model_cache tests/test_gpu_lookup_cache_strict tests/test_engine_mgpu_refusal tests/test_engine_mgpu_runtime tests/test_engine_correctness tests/test_sampling tests/test_cuda_session_batch tests/test_cuda_mixed_batch tests/test_glm52_l0 tests/test_tp4_rank_group tests/glm52_tp4_fabric_smoke tests/glm52_tp4_gpu_fabric_smoke tests/test_glm52_cuda_layout_upload tests/test_glm52_mock tests/test_glm52_tp4_mock tests/test_glm52_tp4_mock_serve tests/test_glm52_tp4_allreduce tests/test_glm52_dcp_row_exchange tests/test_glm52_tp4_mock_process tests/*.o *.o tests/cuda_long_context_smoke tests/cuda_long_context_smoke.o

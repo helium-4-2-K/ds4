@@ -22,6 +22,7 @@
 
 #include "cuda/mmq/ds4_mmq.h"
 #include "cuda/mmq/ds4_repack.h"
+#include "ds4_glm52_l0.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -3149,6 +3150,23 @@ extern "C" int ds4_gpu_tensor_read(const ds4_gpu_tensor *tensor, uint64_t offset
                      "tensor read");
     }
     return ok;
+}
+
+static int ds4_glm52_cuda_gpu_tensor_alloc(ds4_gpu_tensor *tensor,
+                                           int device_id,
+                                           uint64_t bytes) {
+    return ds4_gpu_tensor_alloc_on(tensor, device_id, bytes) == 0;
+}
+
+static const ds4_glm52_gpu_tensor_runtime k_ds4_glm52_cuda_gpu_tensor_runtime = {
+    ds4_glm52_cuda_gpu_tensor_alloc,
+    ds4_gpu_tensor_write,
+    ds4_gpu_tensor_free_in_place,
+};
+
+extern "C" const ds4_glm52_gpu_tensor_runtime *
+ds4_glm52_cuda_gpu_tensor_runtime(void) {
+    return &k_ds4_glm52_cuda_gpu_tensor_runtime;
 }
 
 extern "C" int ds4_gpu_tensor_copy(ds4_gpu_tensor *dst, uint64_t dst_offset,

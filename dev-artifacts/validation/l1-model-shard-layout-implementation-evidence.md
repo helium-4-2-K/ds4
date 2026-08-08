@@ -181,9 +181,21 @@ GX10 hosts.
   device id, byte count, dtype, shape hash, payload bytes, and cleanup. Added
   `test_layout_gpu_upload_missing_metadata_fails` to prove missing runtime
   metadata blocks GPU residency before allocation.
-- This is still a backend boundary, not a CUDA implementation: tests use an
-  injected fake GPU runtime, and production CUDA upload/wiring remains a
-  follow-up behind the same API.
+- Added `ds4_glm52_cuda_gpu_tensor_runtime`, the production CUDA upload
+  adapter for the same BCD boundary. It wraps `ds4_gpu_tensor_alloc_on` so the
+  callback success convention is correct, uses `ds4_gpu_tensor_write` for exact
+  host-to-device bytes, and uses `ds4_gpu_tensor_free_in_place` for cleanup.
+- Added `tests/test_glm52_cuda_layout_upload`, a CUDA-only checkpoint-free
+  smoke that uploads a synthetic resident mapped tensor through
+  `ds4_glm52_layout_upload_resident_gpu_tensors`, reads it back with
+  `ds4_gpu_tensor_read`, and verifies GPU tensor metadata plus byte-for-byte
+  payload retention.
+- CUDA adapter GX10 run for this slice: deployed current source to
+  `/tmp/ds4-gx10-cuda-layout-upload-20260808080612` on rank0 `192.168.0.40`,
+  rank1 `192.168.0.240`, rank2 `192.168.0.99`, and rank3 `192.168.0.39`.
+  The build target `tests/test_glm52_cuda_layout_upload` and the executable
+  `./tests/test_glm52_cuda_layout_upload` passed on all four Linux GB10 hosts
+  with CUDA backend initialization on `NVIDIA GB10 (sm_121)`.
 - GX10 target run for this slice: deployed current source to
   `/tmp/ds4-gx10-gpu-upload-binding-20260808073416` on rank0 `192.168.0.40`,
   rank1 `192.168.0.240`, rank2 `192.168.0.99`, and rank3 `192.168.0.39`.
@@ -231,10 +243,10 @@ GX10 hosts.
    `resident_shards_ready` check but should be derived from the ownership
    plan's actual entry roles.
 
-2. **Production CUDA upload is still deferred.** The L0 upload/binding API is
-   implemented and validated with an injected runtime, but no production CUDA
-   caller yet wires `ds4_gpu_tensor_alloc_on` plus host-to-device copy into
-   DwarfStar model load.
+2. **DwarfStar model-load CUDA caller is still deferred.** The production CUDA
+   adapter exists and is validated by a CUDA-backed upload/readback smoke, but
+   `run_model_shard_layout` still publishes host-resident mmap state only; the
+   serving startup path does not yet opt into GPU residency automatically.
 
 3. **Production checkpoint header decode is still deferred.** The runtime trusts
    the DS4-native layout manifest for dtype/shape metadata after validating it

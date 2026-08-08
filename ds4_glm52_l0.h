@@ -8,6 +8,10 @@
 #include "ds4.h"
 #include "ds4_gpu_mgpu.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define DS4_GLM52_L0_GRAPH_ID "serve"
 #define DS4_GLM52_MODEL_LOAD_GRAPH_ID "model-load"
 #define DS4_GLM52_MODEL_SHARD_LAYOUT_GRAPH_ID "model-shard-layout"
@@ -1050,6 +1054,7 @@ ds4_glm52_l0_status ds4_glm52_layout_upload_resident_gpu_tensors(
         int device_id,
         const ds4_glm52_gpu_tensor_runtime *runtime,
         ds4_glm52_l0_result *result);
+const ds4_glm52_gpu_tensor_runtime *ds4_glm52_cuda_gpu_tensor_runtime(void);
 void ds4_glm52_layout_unmap_mapped_slices(
         ds4_glm52_layout_mapped_slices *mapped);
 void ds4_glm52_layout_release_resident_gpu_tensors(
@@ -1057,5 +1062,9 @@ void ds4_glm52_layout_release_resident_gpu_tensors(
 void ds4_glm52_l0_unmap_resident_rank_shards(ds4_glm52_l0_state *state);
 
 const char *ds4_glm52_layout_role_name(ds4_glm52_layout_role role);
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif
