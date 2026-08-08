@@ -1909,14 +1909,47 @@ static void test_real_decode_frontier_preserves_cursor(void) {
     req = valid_real_decode_request();
     status = ds4_glm52_decode_real_step(&cfg, &req, &state, &result);
     check(status == DS4_GLM52_L0_STATUS_NOT_READY,
-          "real decode should remain not_ready until execution is wired");
-    check(strstr(result.message, "KV cursor is unchanged") != NULL,
-          "complete decode frontier should promise cursor preservation");
+          "real decode should remain not_ready until backend outputs are available");
+    check(strstr(result.message, "backend logits") != NULL,
+          "complete decode frontier should name missing backend output evidence");
     check(state.cursor.token_step_j == before.cursor.token_step_j &&
               state.cursor.kv_length == before.cursor.kv_length &&
               state.kv.length == before.kv.length &&
               !state.token.present,
-          "unimplemented real decode must preserve cursor, KV, and token state");
+          "incomplete real decode must preserve cursor, KV, and token state");
+
+    req = valid_real_decode_request();
+    req.logits_ready = true;
+    req.sampled_token_ready = true;
+    req.kv_append_committed = true;
+    req.sampled_token = 321;
+    status = ds4_glm52_decode_real_step(&cfg, &req, &state, &result);
+    check(status == DS4_GLM52_L0_STATUS_OK,
+          "real decode should commit complete backend output evidence");
+    check(state.token.present &&
+              state.token.token_id == 321 &&
+              state.token.position == before.cursor.token_step_j,
+          "real decode should publish the sampled token at prior position j");
+    check(state.cursor.token_step_j == before.cursor.token_step_j + 1 &&
+              state.cursor.kv_length == before.cursor.kv_length + 1 &&
+              state.kv.length == before.kv.length + 1 &&
+              state.cursor.phase == DS4_GLM52_L0_CURSOR_PHASE_DECODE,
+          "real decode should advance token cursor and KV length by one");
+
+    before = state;
+    req = valid_real_decode_request();
+    req.logits_ready = true;
+    req.sampled_token_ready = true;
+    req.kv_append_committed = true;
+    req.sampled_token = DS4_GLM52_L0_VOCAB_SIZE;
+    status = ds4_glm52_decode_real_step(&cfg, &req, &state, &result);
+    check(status == DS4_GLM52_L0_STATUS_INVALID,
+          "real decode should reject sampled token outside vocab");
+    check(state.cursor.token_step_j == before.cursor.token_step_j &&
+              state.cursor.kv_length == before.cursor.kv_length &&
+              state.kv.length == before.kv.length &&
+              state.token.token_id == before.token.token_id,
+          "invalid sampled token must not mutate committed decode state");
 }
 
 int main(void) {

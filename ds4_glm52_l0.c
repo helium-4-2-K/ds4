@@ -1642,6 +1642,90 @@ bool ds4_glm52_tp4_collective_bind_gpu_tensors(
     return true;
 }
 
+bool ds4_glm52_tp4_gpu_collective_read_f32(
+        const ds4_glm52_tp4_collective_request *request,
+        const ds4_glm52_tp4_gpu_tensor_binding *binding,
+        int expected_device,
+        const ds4_glm52_gpu_tensor_io *io,
+        float *out,
+        size_t element_count,
+        char *err,
+        size_t err_size) {
+    if (!request || !binding || !io || !io->read || !out ||
+        element_count == 0) {
+        set_error(err, err_size,
+                  "TP4 GPU staged read requires frame, binding, read callback, output, and nonzero elements");
+        return false;
+    }
+    if (!ds4_glm52_tp4_collective_frame_validate(
+                request, err, err_size)) {
+        return false;
+    }
+    if (request->element_count != element_count ||
+        request->dtype != DS4_GLM52_TP4_TENSOR_DTYPE_F32) {
+        set_error(err, err_size,
+                  "TP4 GPU staged read requires matching f32 element count");
+        return false;
+    }
+    if (!validate_tp4_gpu_tensor_binding("TP4 GPU staged read",
+                                         binding,
+                                         request->rank,
+                                         expected_device,
+                                         request->dtype,
+                                         request->shape_hash,
+                                         request->byte_count,
+                                         err,
+                                         err_size)) {
+        return false;
+    }
+    return io->read(binding->tensor,
+                    (uint64_t)binding->byte_offset,
+                    out,
+                    (uint64_t)binding->byte_count) != 0;
+}
+
+bool ds4_glm52_tp4_gpu_collective_write_f32(
+        const ds4_glm52_tp4_collective_request *request,
+        const ds4_glm52_tp4_gpu_tensor_binding *binding,
+        int expected_device,
+        const ds4_glm52_gpu_tensor_io *io,
+        const float *data,
+        size_t element_count,
+        char *err,
+        size_t err_size) {
+    if (!request || !binding || !io || !io->write || !data ||
+        element_count == 0) {
+        set_error(err, err_size,
+                  "TP4 GPU staged write requires frame, binding, write callback, input, and nonzero elements");
+        return false;
+    }
+    if (!ds4_glm52_tp4_collective_frame_validate(
+                request, err, err_size)) {
+        return false;
+    }
+    if (request->element_count != element_count ||
+        request->dtype != DS4_GLM52_TP4_TENSOR_DTYPE_F32) {
+        set_error(err, err_size,
+                  "TP4 GPU staged write requires matching f32 element count");
+        return false;
+    }
+    if (!validate_tp4_gpu_tensor_binding("TP4 GPU staged write",
+                                         binding,
+                                         request->rank,
+                                         expected_device,
+                                         request->dtype,
+                                         request->shape_hash,
+                                         request->byte_count,
+                                         err,
+                                         err_size)) {
+        return false;
+    }
+    return io->write((struct ds4_gpu_tensor *)binding->tensor,
+                     (uint64_t)binding->byte_offset,
+                     data,
+                     (uint64_t)binding->byte_count) != 0;
+}
+
 static void *tensor_binding_ptr(const ds4_glm52_tp4_tensor_binding *binding) {
     return (void *)((unsigned char *)binding->handle + binding->byte_offset);
 }
@@ -2824,11 +2908,43 @@ ds4_glm52_l0_status ds4_glm52_decode_real_step(
                    "real decode requires GLM 5.2 QKV/MLA/MoE/logits kernels");
         return DS4_GLM52_L0_STATUS_NOT_READY;
     }
+    if (!request->logits_ready ||
+        !request->sampled_token_ready ||
+        !request->kv_append_committed) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_NOT_READY,
+                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+                   "real decode requires backend logits, sampled token, and committed KV append evidence");
+        return DS4_GLM52_L0_STATUS_NOT_READY;
+    }
+    if (request->sampled_token < 0 ||
+        request->sampled_token >= DS4_GLM52_L0_VOCAB_SIZE) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_INVALID,
+                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+                   "real decode sampled token is outside the GLM 5.2 vocabulary");
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+
+    const uint64_t position = state->cursor.token_step_j;
+    state->token.token_id = request->sampled_token;
+    state->token.position = position;
+    state->token.present = true;
+    state->kv.length = position + 1;
+    state->kv.tp_aware = true;
+    state->kv.append_ordered = true;
+    state->kv.prefill_complete = true;
+    state->cursor.token_step_j = position + 1;
+    state->cursor.kv_length = position + 1;
+    state->cursor.replicated = true;
+    state->cursor.phase = DS4_GLM52_L0_CURSOR_PHASE_DECODE;
+    state->logits.owner_rank = 0;
+    state->logits.coordinator_visible = true;
     set_result(result,
-               DS4_GLM52_L0_STATUS_NOT_READY,
+               DS4_GLM52_L0_STATUS_OK,
                DS4_GLM52_L0_ACTION_DECODE_TOKEN,
-               "real GLM 5.2 decode execution is not implemented behind the validated boundary; KV cursor is unchanged");
-    return DS4_GLM52_L0_STATUS_NOT_READY;
+               "real GLM 5.2 decode step committed backend outputs and advanced the KV cursor");
+    return DS4_GLM52_L0_STATUS_OK;
 }
 
 ds4_glm52_l0_status ds4_glm52_l0_stub_action(ds4_glm52_l0_action action,
@@ -4222,6 +4338,7 @@ typedef enum {
     DS4_GLM52_TP4_FRAME_COMMAND = 2,
     DS4_GLM52_TP4_FRAME_ACK = 3,
     DS4_GLM52_TP4_FRAME_DCP_PAYLOAD = 4,
+    DS4_GLM52_TP4_FRAME_COLLECTIVE_F32 = 5,
 } ds4_glm52_tp4_frame_type;
 
 typedef struct {
@@ -5029,5 +5146,109 @@ bool ds4_glm52_dcp_transport_recv_payload(
         set_error(err, err_size, "DCP transport payload frame is invalid");
         return false;
     }
+    return true;
+}
+
+bool ds4_glm52_tp4_transport_send_collective_f32(
+        int fd,
+        const ds4_glm52_tp4_collective_request *request,
+        const float *payload,
+        size_t element_count,
+        char *err,
+        size_t err_size) {
+    if (!request || !payload || element_count == 0) {
+        set_error(err, err_size,
+                  "TP4 collective transport requires frame, f32 payload, and nonzero elements");
+        return false;
+    }
+    if (!ds4_glm52_tp4_collective_frame_validate(
+                request, err, err_size)) {
+        return false;
+    }
+    if (request->dtype != DS4_GLM52_TP4_TENSOR_DTYPE_F32 ||
+        request->element_count != element_count ||
+        request->byte_count != element_count * sizeof(payload[0])) {
+        set_error(err, err_size,
+                  "TP4 collective transport requires matching f32 frame byte count");
+        return false;
+    }
+    const size_t bytes = request->byte_count;
+    const size_t wire_size = DS4_GLM52_TP4_COLLECTIVE_WIRE_SIZE + bytes;
+    unsigned char *wire = (unsigned char *)malloc(wire_size);
+    if (!wire) {
+        set_error(err, err_size,
+                  "TP4 collective transport could not allocate wire payload");
+        return false;
+    }
+    if (!ds4_glm52_tp4_collective_frame_encode(
+                request,
+                wire,
+                DS4_GLM52_TP4_COLLECTIVE_WIRE_SIZE,
+                err,
+                err_size)) {
+        free(wire);
+        return false;
+    }
+    memcpy(wire + DS4_GLM52_TP4_COLLECTIVE_WIRE_SIZE, payload, bytes);
+    const bool ok = tp4_frame_write(fd,
+                                    DS4_GLM52_TP4_FRAME_COLLECTIVE_F32,
+                                    wire,
+                                    wire_size,
+                                    err,
+                                    err_size);
+    free(wire);
+    return ok;
+}
+
+bool ds4_glm52_tp4_transport_recv_collective_f32(
+        int fd,
+        ds4_glm52_tp4_collective_request *request,
+        float *payload,
+        size_t element_capacity,
+        size_t *element_count_out,
+        char *err,
+        size_t err_size) {
+    if (!request || !payload || element_capacity == 0) {
+        set_error(err, err_size,
+                  "TP4 collective transport receive requires frame output and payload capacity");
+        return false;
+    }
+    if (element_count_out) *element_count_out = 0;
+    ds4_glm52_tp4_frame_header header;
+    if (!read_exact(fd, &header, sizeof(header))) {
+        set_error(err, err_size,
+                  "TP4 collective transport frame header read failed");
+        return false;
+    }
+    if (header.magic != DS4_GLM52_TP4_FRAME_MAGIC ||
+        header.version != DS4_GLM52_TP4_FRAME_VERSION ||
+        header.type != (uint32_t)DS4_GLM52_TP4_FRAME_COLLECTIVE_F32 ||
+        header.payload_size < DS4_GLM52_TP4_COLLECTIVE_WIRE_SIZE) {
+        set_error(err, err_size,
+                  "TP4 collective transport frame header is invalid");
+        return false;
+    }
+    unsigned char meta[DS4_GLM52_TP4_COLLECTIVE_WIRE_SIZE];
+    if (!read_exact(fd, meta, sizeof(meta)) ||
+        !ds4_glm52_tp4_collective_frame_decode(
+                meta, sizeof(meta), request, err, err_size)) {
+        return false;
+    }
+    if (request->dtype != DS4_GLM52_TP4_TENSOR_DTYPE_F32 ||
+        request->element_count == 0 ||
+        request->element_count > element_capacity ||
+        request->byte_count != request->element_count * sizeof(payload[0]) ||
+        header.payload_size !=
+            DS4_GLM52_TP4_COLLECTIVE_WIRE_SIZE + request->byte_count) {
+        set_error(err, err_size,
+                  "TP4 collective transport f32 payload size does not match frame metadata");
+        return false;
+    }
+    if (!read_exact(fd, payload, request->byte_count)) {
+        set_error(err, err_size,
+                  "TP4 collective transport f32 payload read failed");
+        return false;
+    }
+    if (element_count_out) *element_count_out = request->element_count;
     return true;
 }

@@ -480,6 +480,7 @@ typedef struct {
 typedef struct {
     int rank;
     int input_token;
+    int sampled_token;
     uint64_t seq;
     uint64_t model_hash;
     uint64_t session_hash;
@@ -487,7 +488,26 @@ typedef struct {
     bool tp_collectives_ready;
     bool dcp_exchange_ready;
     bool glm52_kernels_ready;
+    bool logits_ready;
+    bool sampled_token_ready;
+    bool kv_append_committed;
 } ds4_glm52_decode_real_request;
+
+typedef int (*ds4_glm52_gpu_tensor_read_fn)(
+        const struct ds4_gpu_tensor *tensor,
+        uint64_t offset,
+        void *data,
+        uint64_t bytes);
+typedef int (*ds4_glm52_gpu_tensor_write_fn)(
+        struct ds4_gpu_tensor *tensor,
+        uint64_t offset,
+        const void *data,
+        uint64_t bytes);
+
+typedef struct {
+    ds4_glm52_gpu_tensor_read_fn read;
+    ds4_glm52_gpu_tensor_write_fn write;
+} ds4_glm52_gpu_tensor_io;
 
 typedef struct {
     const ds4_glm52_decode_real_request *decode;
@@ -542,6 +562,24 @@ bool ds4_glm52_tp4_collective_bind_gpu_tensors(
         const ds4_glm52_tp4_gpu_tensor_binding partials[DS4_GLM52_L0_RANK_COUNT],
         const ds4_glm52_tp4_gpu_tensor_binding outputs[DS4_GLM52_L0_RANK_COUNT],
         const int expected_devices[DS4_GLM52_L0_RANK_COUNT],
+        size_t element_count,
+        char *err,
+        size_t err_size);
+bool ds4_glm52_tp4_gpu_collective_read_f32(
+        const ds4_glm52_tp4_collective_request *request,
+        const ds4_glm52_tp4_gpu_tensor_binding *binding,
+        int expected_device,
+        const ds4_glm52_gpu_tensor_io *io,
+        float *out,
+        size_t element_count,
+        char *err,
+        size_t err_size);
+bool ds4_glm52_tp4_gpu_collective_write_f32(
+        const ds4_glm52_tp4_collective_request *request,
+        const ds4_glm52_tp4_gpu_tensor_binding *binding,
+        int expected_device,
+        const ds4_glm52_gpu_tensor_io *io,
+        const float *data,
         size_t element_count,
         char *err,
         size_t err_size);
@@ -791,6 +829,21 @@ bool ds4_glm52_dcp_transport_send_payload(
 bool ds4_glm52_dcp_transport_recv_payload(
         int fd,
         ds4_glm52_dcp_transport_payload *payload,
+        char *err,
+        size_t err_size);
+bool ds4_glm52_tp4_transport_send_collective_f32(
+        int fd,
+        const ds4_glm52_tp4_collective_request *request,
+        const float *payload,
+        size_t element_count,
+        char *err,
+        size_t err_size);
+bool ds4_glm52_tp4_transport_recv_collective_f32(
+        int fd,
+        ds4_glm52_tp4_collective_request *request,
+        float *payload,
+        size_t element_capacity,
+        size_t *element_count_out,
         char *err,
         size_t err_size);
 bool ds4_glm52_tp4_tcp_parse_endpoint(

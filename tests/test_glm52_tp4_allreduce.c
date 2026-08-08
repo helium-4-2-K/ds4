@@ -124,6 +124,32 @@ static ds4_glm52_tp4_tensor_binding make_tensor_binding(
     return binding;
 }
 
+static int fake_gpu_read(const ds4_gpu_tensor *tensor,
+                         uint64_t offset,
+                         void *data,
+                         uint64_t bytes) {
+    if (!tensor || !tensor->ptr || !data ||
+        offset > tensor->bytes ||
+        bytes > tensor->bytes - offset) {
+        return 0;
+    }
+    memcpy(data, (const unsigned char *)tensor->ptr + offset, (size_t)bytes);
+    return 1;
+}
+
+static int fake_gpu_write(ds4_gpu_tensor *tensor,
+                          uint64_t offset,
+                          const void *data,
+                          uint64_t bytes) {
+    if (!tensor || !tensor->ptr || !data ||
+        offset > tensor->bytes ||
+        bytes > tensor->bytes - offset) {
+        return 0;
+    }
+    memcpy((unsigned char *)tensor->ptr + offset, data, (size_t)bytes);
+    return 1;
+}
+
 static void test_l0_collective_tensor_bindings(void) {
     const size_t n = DS4_GLM52_MOCK_N_EMBD;
     ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT];
@@ -253,6 +279,72 @@ static void test_l0_collective_gpu_tensor_bindings(void) {
           "L0 GPU tensor binding should reject unaligned byte ranges");
     check(strstr(err, "aligned") != NULL,
           "L0 GPU tensor binding alignment rejection should name alignment");
+}
+
+static void test_l0_gpu_collective_staged_io(void) {
+    const size_t n = 8;
+    ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT];
+    ds4_gpu_tensor partial_tensor;
+    ds4_gpu_tensor output_tensor;
+    ds4_glm52_tp4_gpu_tensor_binding partial;
+    ds4_glm52_tp4_gpu_tensor_binding output;
+    float partial_storage[8];
+    float output_storage[8];
+    float staged[8];
+    float reduced[8];
+    char err[192] = "";
+
+    make_l0_requests(requests, DS4_GLM52_TP4_COLLECTIVE_ATTN, 50, 32, n);
+    for (size_t i = 0; i < n; i++) {
+        partial_storage[i] = (float)i + 0.5f;
+        output_storage[i] = 0.0f;
+        reduced[i] = (float)i + 1000.0f;
+    }
+
+    memset(&partial_tensor, 0, sizeof(partial_tensor));
+    partial_tensor.ptr = partial_storage;
+    partial_tensor.bytes = requests[2].byte_count;
+    partial_tensor.owner = 1;
+    partial_tensor.device_id = 2;
+    memset(&output_tensor, 0, sizeof(output_tensor));
+    output_tensor.ptr = output_storage;
+    output_tensor.bytes = requests[2].byte_count;
+    output_tensor.owner = 1;
+    output_tensor.device_id = 2;
+
+    memset(&partial, 0, sizeof(partial));
+    partial.rank = 2;
+    partial.tensor = &partial_tensor;
+    partial.byte_offset = 0;
+    partial.byte_count = requests[2].byte_count;
+    partial.dtype = requests[2].dtype;
+    partial.shape_hash = requests[2].shape_hash;
+    partial.ready = true;
+    output = partial;
+    output.tensor = &output_tensor;
+
+    const ds4_glm52_gpu_tensor_io io = {
+        .read = fake_gpu_read,
+        .write = fake_gpu_write,
+    };
+    check(ds4_glm52_tp4_gpu_collective_read_f32(
+              &requests[2], &partial, 2, &io, staged, n, err, sizeof(err)),
+          "GPU staged read should copy rank-local partial through callback");
+    check(memcmp(staged, partial_storage, sizeof(staged)) == 0,
+          "GPU staged read should preserve f32 payload bytes");
+
+    check(ds4_glm52_tp4_gpu_collective_write_f32(
+              &requests[2], &output, 2, &io, reduced, n, err, sizeof(err)),
+          "GPU staged write should copy replicated output through callback");
+    check(memcmp(output_storage, reduced, sizeof(reduced)) == 0,
+          "GPU staged write should preserve f32 reduced bytes");
+
+    output_tensor.device_id = 0;
+    check(!ds4_glm52_tp4_gpu_collective_write_f32(
+              &requests[2], &output, 2, &io, reduced, n, err, sizeof(err)),
+          "GPU staged write should reject a tensor on the wrong device");
+    check(strstr(err, "device") != NULL,
+          "GPU staged write rejection should name device mismatch");
 }
 
 static void test_l0_bound_host_allreduce(void) {
@@ -1041,6 +1133,7 @@ int main(void) {
     test_l0_host_allreduce_buffers();
     test_l0_collective_tensor_bindings();
     test_l0_collective_gpu_tensor_bindings();
+    test_l0_gpu_collective_staged_io();
     test_l0_bound_host_allreduce();
     test_l0_decode_bound_collective_allreduce();
     test_l0_logits_gather_topk();

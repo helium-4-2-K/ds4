@@ -10,9 +10,10 @@ after the TP4 mock proof:
 3. real DCP selected-row exchange boundary;
 4. real GLM 5.2 decode-step boundary.
 
-This is not a claim that real GX10 tensor/network execution is complete. It is
-the fail-closed production frontier that separates mock proofs from real-path
-work.
+This records the production frontier plus the first executable real GX10
+tensor/network slice. The validated real path is a staged-GPU TP4 collective
+over CRS812; the full GLM5.2 kernel backend remains a separate implementation
+frontier.
 
 ## Code Mapping
 
@@ -67,6 +68,20 @@ work.
     bindings, then scans the bound shard tensors directly for deterministic
     global top-k. This proves the full-shard handoff, not just preselected
     candidate arrays.
+  - CRS812 f32 collective transport:
+    `ds4_glm52_tp4_transport_send_collective_f32` and
+    `ds4_glm52_tp4_transport_recv_collective_f32`.
+  - Staged GPU tensor execution frontier:
+    `ds4_glm52_tp4_gpu_collective_read_f32` and
+    `ds4_glm52_tp4_gpu_collective_write_f32`.
+  - The staged GPU path validates the same collective frame plus the
+    rank-owned `ds4_gpu_tensor` binding before moving bytes. A CUDA backend can
+    supply `ds4_gpu_tensor_read/write` callbacks, so the path is:
+    rank-local GPU partial -> host staging -> CRS812 typed f32 frame ->
+    coordinator deterministic TP4 reduce -> CRS812 typed f32 frame ->
+    rank-local GPU replicated output. This is a real inter-machine executable
+    TP4 path over CRS812, but it is intentionally staged through host memory and
+    is not an NCCL/RDMA device-to-device collective.
 
 - DCP selected-row real boundary
   - Code: `ds4_glm52_dcp_real_row_exchange`.
@@ -96,9 +111,14 @@ work.
     replicated cursor, rank identity, nonzero sequence/model/session identity,
     valid input token, resident model readiness, TP4 collective readiness, DCP
     exchange readiness, and GLM 5.2 kernel readiness.
-  - Returns `NOT_READY` after validation because real decode execution is not
-    wired. It does not mutate `state-kv`, `state-kv-cursor`, or sampled-token
-    state.
+  - Returns `NOT_READY` without mutation unless the backend also supplies
+    explicit logits-ready, sampled-token-ready, and KV-append-committed
+    evidence.
+  - With complete backend evidence, validates the sampled token against the
+    GLM5.2 vocabulary, publishes it at the current token-step index `j`,
+    advances `state-kv.length`, `state-kv-cursor.kv_length`, and
+    `state-kv-cursor.token_step_j` by one, switches the cursor to decode phase,
+    and marks logits coordinator-visible.
 
 - DCP row-exchange mock tightening
   - Code: `ds4_glm52_dcp_mock.c`.
@@ -215,7 +235,8 @@ work.
     four requester ranks, and completed decode command sequence `1` with
     `ack_mask=0xf`; every worker sent its DCP payload and acked.
 - GPU-resident TP4 binding frontier and real GX10 CUDA device check: PARTIAL
-  PASS on working tree after `bd8a535`.
+  PASS on working tree after `bd8a535`; expanded to staged GPU fabric execution
+  after the current change.
   - Production GPU binding type added:
     `ds4_glm52_tp4_gpu_tensor_binding`.
   - Production validator added:
@@ -236,11 +257,28 @@ work.
     `make tests/test_gpu_xdev && ./tests/test_gpu_xdev` on `192.168.0.40`.
     The test saw one NVIDIA GB10 CUDA device (`sm_121`) and passed existing
     allocation/copy/top-k/attention/MoE/Q8/F16/attention-output-TP CUDA checks.
-  - Limitation: this does not yet replace the host reference collective with
-    inter-machine GPU-resident execution. `tests/test_gpu_xdev` skipped
-    multi-GPU paths because a single GX10 exposes one CUDA device, and DS4 has
-    no GLM5.2 TP4 CRS812 GPU collective backend or GLM5.2 real kernel seam
-    wired behind `ds4_glm52_decode_real_step` yet.
+  - Added CUDA/GX10 smoke executable:
+    `tests/glm52_tp4_gpu_fabric_smoke`.
+  - Deployed the working tree to
+    `/tmp/ds4-gx10-gpu-fabric-20260807223814` on all four GX10s.
+  - All four GX10s built:
+    `make tests/test_glm52_l0 tests/test_glm52_tp4_allreduce
+    tests/glm52_tp4_gpu_fabric_smoke`, then passed
+    `./tests/test_glm52_l0` and `./tests/test_glm52_tp4_allreduce`.
+  - CRS812 staged GPU collective run: rank0 `192.168.0.40` listened on
+    `10.100.185.3:49150`; ranks 1..3 connected from `192.168.0.240`,
+    `192.168.0.99`, and `192.168.0.39`.
+  - Each rank allocated CUDA tensors on its local NVIDIA GB10 (`sm_121`),
+    wrote its rank-local f32 partial to GPU, staged that partial through
+    `ds4_glm52_tp4_gpu_collective_read_f32`, exchanged typed collective frames
+    over CRS812, wrote the replicated reduced result back to GPU through
+    `ds4_glm52_tp4_gpu_collective_write_f32`, read it back, and verified
+    1024 floats. Rank0 completed with `ack_mask=0xf`.
+  - Remaining limitation: the CRS812 collective is staged through host memory
+    and reduced on rank0 CPU after GPU readback. The repo still needs real
+    GLM5.2 QKV/MLA/MoE/logits weight kernels and a production decode backend
+    that produces the logits/sample/KV-append evidence consumed by
+    `ds4_glm52_decode_real_step`.
 - `make cpu tests/test_tp4_rank_group tests/test_glm52_l0
   tests/test_glm52_mock tests/test_glm52_tp4_mock
   tests/test_glm52_tp4_mock_serve tests/test_glm52_tp4_allreduce
@@ -262,16 +300,27 @@ work.
     dtype, shape-hash, byte-count, participant, transport, and fail-closed
     execution checks;
   - `test_real_dcp_exchange_frontier_fails_closed`;
-  - `test_real_decode_frontier_preserves_cursor`.
+  - `test_real_decode_frontier_preserves_cursor`, including non-mutating
+    missing backend-output evidence, successful sampled-token/KV cursor commit,
+    and invalid sampled-token rejection.
+- New `tests/glm52_tp4_gpu_fabric_smoke.c` coverage:
+  - Four real GX10 processes over CRS812;
+  - CUDA tensor allocation/write/read on every rank;
+  - production TP4 f32 collective transport;
+  - production GPU staged read/write frontier;
+  - deterministic TP4 reduction and replicated result verification.
 
 ## Remaining Work
 
 - Real mmap handles and tensor object publication from model-load.
 - Real GPU-resident GLM 5.2 QKV/MLA/MoE/logits kernels.
-- GPU/NCCL or fabric-native tensor all-reduce and logits gather/top-k across
-  four GX10 ranks using the validated tensor binding descriptors as the real
-  payload handoff. The bound-host executor is an executable reference backend
-  and transport smoke path, not the final GPU-resident collective backend.
+- Optional replacement of the staged host-memory CRS812 collective with
+  direct device collective transport if the deployment requires lower latency
+  than the current validated fallback.
+- Direct GPU/NCCL or fabric-native tensor all-reduce and logits gather/top-k
+  across four GX10 ranks. The current validated CRS812 path is a staged-GPU
+  fallback: GPU tensors are real on every rank, but network transfer and
+  reduction stage through host memory.
 - GPU/fabric-backed DCP selected-row network exchange for compact KV payloads.
   The bound-host executor is the selected-row payload reference backend; it is
   not the final network exchange implementation.
