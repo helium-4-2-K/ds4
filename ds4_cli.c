@@ -1961,6 +1961,9 @@ static cli_config parse_options(int argc, char **argv) {
             c.engine.glm52_tp4_l0 = true;
             c.engine.glm52_tp4_mock_model = true;
             c.engine.glm52_tp4_mock_matmul = true;
+        } else if (!strcmp(arg, "--glm52-tp4-gpu-resident")) {
+            c.engine.glm52_tp4_l0 = true;
+            c.engine.glm52_tp4_gpu_resident = true;
         } else if (!strcmp(arg, "--glm52-tp4-rank")) {
             c.engine.glm52_tp4_l0 = true;
             c.engine.glm52_tp4_rank_set = true;

@@ -67,10 +67,13 @@ typedef enum {
     DS4_GLM52_MODEL_LOAD_ACTION_COUNT,
 } ds4_glm52_model_load_action;
 
+struct ds4_glm52_gpu_tensor_runtime;
+
 typedef struct {
     bool enabled;
     bool mock_model;
     bool mock_matmul;
+    bool gpu_residency_required;
     bool legacy_cuda_tensor_parallel;
     bool legacy_two_rank_tp;
     bool rank_set;
@@ -78,10 +81,12 @@ typedef struct {
     int tp_size;
     int dcp_size;
     int pp_size;
+    int gpu_device_id;
     const char *model_root;
     const char *rank_plan;
     const char *layout_path;
     const char *fabric_addr;
+    const struct ds4_glm52_gpu_tensor_runtime *gpu_runtime;
 } ds4_glm52_l0_config;
 
 typedef struct {
@@ -135,7 +140,7 @@ typedef int (*ds4_glm52_gpu_tensor_upload_fn)(
 typedef void (*ds4_glm52_gpu_tensor_free_fn)(
         struct ds4_gpu_tensor *tensor);
 
-typedef struct {
+typedef struct ds4_glm52_gpu_tensor_runtime {
     ds4_glm52_gpu_tensor_alloc_fn alloc;
     ds4_glm52_gpu_tensor_upload_fn upload;
     ds4_glm52_gpu_tensor_free_fn free;

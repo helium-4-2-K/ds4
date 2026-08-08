@@ -321,6 +321,26 @@ static void test_validation(void) {
     check(!ds4_glm52_l0_validate_config(&cfg, err, sizeof(err)),
           "missing explicit rank should be rejected");
 
+    ds4_engine_options gpu_opt = {
+        .model_path = g_model_root,
+        .glm52_tp4_l0 = true,
+        .glm52_tp4_rank_set = true,
+        .glm52_tp4_rank = 2,
+        .glm52_tp4_rank_plan = g_plan_path,
+        .glm52_tp4_gpu_resident = true,
+    };
+    check(ds4_glm52_l0_config_from_engine(&gpu_opt, &cfg, err, sizeof(err)),
+          "GPU-resident engine config conversion should succeed");
+    check(cfg.gpu_residency_required && cfg.gpu_device_id == 0,
+          "GPU-resident engine option should request rank-local device 0");
+    check(ds4_glm52_l0_validate_config(&cfg, err, sizeof(err)),
+          "GPU-resident real layout config should validate before runtime injection");
+
+    cfg.mock_model = true;
+    cfg.mock_matmul = true;
+    check(!ds4_glm52_l0_validate_config(&cfg, err, sizeof(err)),
+          "GPU residency should reject mock model mode");
+
     ds4_engine_options opt = {
         .model_path = "/models/glm-5.2",
         .glm52_tp4_l0 = true,
@@ -1152,6 +1172,64 @@ static void test_model_load_layout_reaches_ready_rank_engines(void) {
               state.rank_plan.vocab_start == 77440 &&
               state.rank_plan.vocab_end == 116160,
           "serve-open should bind the rank-local Q-head/expert/vocab layout");
+}
+
+static void test_model_load_layout_gpu_residency_reaches_ready_rank_engines(void) {
+    ensure_layout_fixture();
+    ds4_glm52_l0_config cfg = valid_config();
+    cfg.layout_path = g_layout_valid_path;
+    cfg.gpu_residency_required = true;
+    cfg.gpu_runtime = &k_fake_gpu_runtime;
+    cfg.gpu_device_id = 7;
+    ds4_glm52_l0_state state = {0};
+    ds4_glm52_l0_result result;
+    g_fake_gpu_allocs = 0;
+    g_fake_gpu_frees = 0;
+    ds4_glm52_l0_status status =
+        ds4_glm52_l0_stub_action(DS4_GLM52_L0_ACTION_SERVE_OPEN,
+                                 &cfg,
+                                 &state,
+                                 &result);
+    check(status == DS4_GLM52_L0_STATUS_OK,
+          "serve-open should reach ready rank engines after GPU upload");
+    check(state.resident_shards.mapped &&
+              state.resident_shards.gpu_resident &&
+              state.resident_shards.gpu_tensor_count ==
+                  state.resident_shards.tensor_count &&
+              state.resident_shards.gpu_bytes ==
+                  state.resident_shards.mapped_bytes,
+          "serve-open should publish GPU-resident rank-local tensor bindings");
+    check(state.resident_shards.gpu_tensors[0].ready &&
+              state.resident_shards.gpu_tensors[0].device_id == 7 &&
+              ((unsigned char *)state.resident_shards.gpu_tensors[0].tensor.ptr)[0] == 'x',
+          "serve-open GPU upload should retain binding metadata and payload");
+    ds4_glm52_l0_unmap_resident_rank_shards(&state);
+    check(g_fake_gpu_frees == g_fake_gpu_allocs,
+          "serve-open cleanup should release GPU-resident tensors");
+}
+
+static void test_model_load_layout_gpu_residency_requires_runtime(void) {
+    ensure_layout_fixture();
+    ds4_glm52_l0_config cfg = valid_config();
+    cfg.layout_path = g_layout_valid_path;
+    cfg.gpu_residency_required = true;
+    cfg.gpu_runtime = NULL;
+    ds4_glm52_l0_state state = {0};
+    ds4_glm52_l0_result result;
+    ds4_glm52_l0_status status =
+        ds4_glm52_l0_stub_action(DS4_GLM52_L0_ACTION_SERVE_OPEN,
+                                 &cfg,
+                                 &state,
+                                 &result);
+    check(status == DS4_GLM52_L0_STATUS_INVALID,
+          "serve-open GPU residency should fail closed without runtime");
+    check(strstr(result.message, "CUDA tensor runtime") != NULL,
+          "missing GPU runtime error should name CUDA tensor runtime");
+    check(state.resident_shards.mapped &&
+              !state.resident_shards.gpu_resident &&
+              state.resident_shards.gpu_tensor_count == 0,
+          "missing runtime should not publish GPU-resident tensor bindings");
+    ds4_glm52_l0_unmap_resident_rank_shards(&state);
 }
 
 static void test_layout_wrong_tp_fails(void) {
@@ -2189,6 +2267,8 @@ int main(void) {
     /* model-shard-layout child tests */
     test_layout_valid_manifest_passes();
     test_model_load_layout_reaches_ready_rank_engines();
+    test_model_load_layout_gpu_residency_reaches_ready_rank_engines();
+    test_model_load_layout_gpu_residency_requires_runtime();
     test_layout_wrong_tp_fails();
     test_layout_foreign_rank_fails();
     test_layout_missing_qhead_fails();

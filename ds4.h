@@ -155,6 +155,7 @@ typedef struct {
     bool glm52_tp4_l0;
     bool glm52_tp4_mock_model;
     bool glm52_tp4_mock_matmul;
+    bool glm52_tp4_gpu_resident;
     bool ssd_streaming;
     bool ssd_streaming_cold;
     bool ssd_streaming_full_layers_set;

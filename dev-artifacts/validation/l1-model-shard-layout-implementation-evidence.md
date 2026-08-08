@@ -196,6 +196,23 @@ GX10 hosts.
   The build target `tests/test_glm52_cuda_layout_upload` and the executable
   `./tests/test_glm52_cuda_layout_upload` passed on all four Linux GB10 hosts
   with CUDA backend initialization on `NVIDIA GB10 (sm_121)`.
+- Added the opt-in startup path `--glm52-tp4-gpu-resident`. CLI/server options
+  request GPU residency, the GLM52 L0 config carries the request and injected
+  CUDA runtime, and `run_model_shard_layout` now executes
+  `a-upload-gpu-resident-tensors` after `a-publish-loaded-shard` when requested.
+  The real engine branch initializes CUDA with `ds4_gpu_init_multi`, injects
+  `ds4_glm52_cuda_gpu_tensor_runtime`, reports the GPU-resident tensor count
+  and bytes, then still fails closed at later unresolved L0 serving seams.
+- Expanded `tests/test_glm52_cuda_layout_upload` to drive `SERVE_OPEN` with a
+  generated DS4-native rank plan/layout fixture, proving the model-load child
+  graph can map layout files, publish rank-local shard spans, upload all mapped
+  tensors to CUDA residency, read back payload bytes, and clean up.
+- Startup GPU-residency GX10 run for this slice: deployed current source to
+  `/tmp/ds4-gx10-serve-open-gpu-resident-20260808083245` on rank0
+  `192.168.0.40`, rank1 `192.168.0.240`, rank2 `192.168.0.99`, and rank3
+  `192.168.0.39`. `make ds4 tests/test_glm52_cuda_layout_upload &&
+  ./tests/test_glm52_cuda_layout_upload` passed warning-clean on all four Linux
+  GB10 hosts.
 - GX10 target run for this slice: deployed current source to
   `/tmp/ds4-gx10-gpu-upload-binding-20260808073416` on rank0 `192.168.0.40`,
   rank1 `192.168.0.240`, rank2 `192.168.0.99`, and rank3 `192.168.0.39`.
@@ -223,6 +240,9 @@ GX10 hosts.
   upload success cases, simulation_sha256
   `d4039d04353210e65ca30cc9a32afdb4c9176a8883f309a2fb0ffa94f6d3c58d`
   (`dev-artifacts/validation/simulate-model-shard-layout-after-gpu-upload-binding.result.json`).
+- Startup GPU-residency recheck reused the same current contract digests:
+  lint PASS, model-shard-layout leaf validation PASS, and model-shard-layout
+  simulation PASS for the GPU upload success case.
 
 ### Current digests
 
@@ -243,10 +263,10 @@ GX10 hosts.
    `resident_shards_ready` check but should be derived from the ownership
    plan's actual entry roles.
 
-2. **DwarfStar model-load CUDA caller is still deferred.** The production CUDA
-   adapter exists and is validated by a CUDA-backed upload/readback smoke, but
-   `run_model_shard_layout` still publishes host-resident mmap state only; the
-   serving startup path does not yet opt into GPU residency automatically.
+2. **Real full-size rank layout validation remains.** The startup path can now
+   opt into CUDA GPU residency and is validated with checkpoint-free fixtures;
+   the next data-dependent gate is to run it against the actual GLM 5.2
+   per-rank layout manifests and local shard files on the four GX10 machines.
 
 3. **Production checkpoint header decode is still deferred.** The runtime trusts
    the DS4-native layout manifest for dtype/shape metadata after validating it

@@ -627,6 +627,7 @@ bool ds4_glm52_l0_config_from_engine(const ds4_engine_options *opt,
     cfg->enabled = opt->glm52_tp4_l0;
     cfg->mock_model = opt->glm52_tp4_mock_model;
     cfg->mock_matmul = opt->glm52_tp4_mock_matmul;
+    cfg->gpu_residency_required = opt->glm52_tp4_gpu_resident;
     cfg->legacy_cuda_tensor_parallel = opt->cuda_tensor_parallel;
     cfg->legacy_two_rank_tp = opt->tp.requested || opt->tp.role != DS4_TP_NONE;
     cfg->rank_set = opt->glm52_tp4_rank_set;
@@ -637,6 +638,7 @@ bool ds4_glm52_l0_config_from_engine(const ds4_engine_options *opt,
         opt->glm52_tp4_dcp_size : DS4_GLM52_L0_DCP_SIZE;
     cfg->pp_size = opt->glm52_tp4_pp_size > 0 ?
         opt->glm52_tp4_pp_size : DS4_GLM52_L0_PP_SIZE;
+    cfg->gpu_device_id = 0;
     cfg->model_root = opt->model_path;
     cfg->rank_plan = opt->glm52_tp4_rank_plan;
     cfg->layout_path = opt->glm52_tp4_layout_path;
@@ -657,6 +659,10 @@ bool ds4_glm52_l0_validate_config(const ds4_glm52_l0_config *cfg,
     }
     if (cfg->mock_matmul && !cfg->mock_model) {
         set_error(err, err_size, "GLM 5.2 mock matmul requires --glm52-tp4-mock-model");
+        return false;
+    }
+    if (cfg->gpu_residency_required && cfg->mock_model) {
+        set_error(err, err_size, "GLM 5.2 GPU residency requires a real model layout, not --glm52-tp4-mock-model");
         return false;
     }
     if (!cfg->model_root || !cfg->model_root[0]) {
@@ -695,13 +701,19 @@ bool ds4_glm52_l0_validate_config(const ds4_glm52_l0_config *cfg,
         set_error(err, err_size, "GLM 5.2 TP4 L0 rank must be in [0,4)");
         return false;
     }
+    if (cfg->gpu_residency_required && cfg->gpu_device_id < 0) {
+        set_error(err, err_size, "GLM 5.2 GPU residency requires a valid rank-local GPU device id");
+        return false;
+    }
     return true;
 }
 
 /* Run the model-shard-layout child graph when a layout manifest is provided.
- * Executes the four BCD actions in contract order:
+ * Executes the BCD actions in contract order:
  *   a-read-layout-spec -> a-validate-tensor-ownership ->
  *   a-load-rank-tensors -> a-publish-loaded-shard
+ * and, when requested by runtime config:
+ *   a-upload-gpu-resident-tensors
  * Updates state->resident_shards and state->rank_plan on success. */
 static ds4_glm52_l0_status run_model_shard_layout(
         const ds4_glm52_l0_config *cfg,
@@ -736,6 +748,22 @@ static ds4_glm52_l0_status run_model_shard_layout(
     /* a-publish-loaded-shard */
     st = ds4_glm52_layout_publish_loaded_rank_shard(&mapped, &plan,
                                                      state, result);
+    if (st != DS4_GLM52_L0_STATUS_OK) return st;
+
+    if (cfg->gpu_residency_required) {
+        if (!cfg->gpu_runtime) {
+            set_result(result,
+                       DS4_GLM52_L0_STATUS_INVALID,
+                       DS4_GLM52_L0_ACTION_SERVE_OPEN,
+                       "model-shard-layout/a-upload-gpu-resident-tensors: GPU-resident model load requires an initialized CUDA tensor runtime");
+            return DS4_GLM52_L0_STATUS_INVALID;
+        }
+        st = ds4_glm52_layout_upload_resident_gpu_tensors(
+                state,
+                cfg->gpu_device_id,
+                cfg->gpu_runtime,
+                result);
+    }
     return st;
 }
 

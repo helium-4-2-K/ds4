@@ -160,6 +160,7 @@ static void print_model_runtime(FILE *fp, const help_colors *c,
         opt(fp, c, "--glm52-tp4-l0", "Experimental: enter the GLM 5.2 TP4/DCP4 L0 skeleton and fail closed at unimplemented seams.");
         opt(fp, c, "--glm52-tp4-mock-model", "Experimental GLM 5.2 TP4 synthetic model descriptor for server/session skeleton validation.");
         opt(fp, c, "--glm52-tp4-mock-matmul", "Experimental GLM 5.2 TP4 deterministic mocked matmul/logits path. Also enables mock model.");
+        opt(fp, c, "--glm52-tp4-gpu-resident", "Experimental GLM 5.2 TP4 model-load path uploads mapped rank-local layout tensors into CUDA GPU residency.");
         opt(fp, c, "--glm52-tp4-rank N", "Experimental GLM 5.2 TP4 rank id, 0..3. Also enables --glm52-tp4-l0.");
         opt(fp, c, "--glm52-tp4-rank-plan FILE", "Experimental GLM 5.2 TP4 rank-plan manifest path.");
         opt(fp, c, "--glm52-tp4-layout FILE", "Experimental GLM 5.2 TP4 DS4-native shard layout manifest path.");

@@ -56274,17 +56274,60 @@ static int ds4_engine_open_internal(ds4_engine **out,
             *out = e;
             return 0;
         }
+        bool l0_gpu_initialized = false;
+        if (l0_cfg.gpu_residency_required) {
+            if (opt->backend != DS4_BACKEND_CUDA || !gpu_cfg ||
+                gpu_cfg->n_gpus < 1) {
+                fprintf(stderr,
+                        "ds4: --glm52-tp4-gpu-resident requires CUDA startup with --gpu-vram/--gpu-devices\n");
+                free(e);
+                *out = NULL;
+                return 1;
+            }
+#if defined(DS4_NO_GPU) || defined(__APPLE__) || defined(DS4_ROCM_BUILD)
+            fprintf(stderr,
+                    "ds4: --glm52-tp4-gpu-resident requires the CUDA build\n");
+            free(e);
+            *out = NULL;
+            return 1;
+#else
+            if (ds4_gpu_init_multi(gpu_cfg) == 0) {
+                fprintf(stderr,
+                        "ds4: ds4_gpu_init_multi failed; aborting GLM 5.2 GPU-resident model load\n");
+                free(e);
+                *out = NULL;
+                return 1;
+            }
+            l0_gpu_initialized = true;
+            l0_cfg.gpu_runtime = ds4_glm52_cuda_gpu_tensor_runtime();
+            l0_cfg.gpu_device_id = 0;
+#endif
+        }
         ds4_glm52_l0_status l0_status =
             ds4_glm52_l0_review_skeleton(&l0_cfg,
                                          &l0_state,
                                          &l0_result,
                                          ds4_glm52_l0_stderr_trace,
                                          NULL);
+        if (l0_state.resident_shards.gpu_resident) {
+            fprintf(stderr,
+                    "ds4: GLM 5.2 TP4 rank %d GPU-resident layout loaded: tensors=%d bytes=%llu device=%d\n",
+                    l0_state.resident_shards.rank,
+                    l0_state.resident_shards.gpu_tensor_count,
+                    (unsigned long long)l0_state.resident_shards.gpu_bytes,
+                    l0_cfg.gpu_device_id);
+        }
         fprintf(stderr,
                 "ds4: GLM 5.2 TP4 L0 %s at %s: %s\n",
                 ds4_glm52_l0_status_name(l0_status),
                 l0_result.action_id,
                 l0_result.message);
+        ds4_glm52_l0_unmap_resident_rank_shards(&l0_state);
+#if !defined(DS4_NO_GPU) && !defined(__APPLE__) && !defined(DS4_ROCM_BUILD)
+        if (l0_gpu_initialized) ds4_gpu_cleanup();
+#else
+        (void)l0_gpu_initialized;
+#endif
         free(e);
         *out = NULL;
         return 1;
