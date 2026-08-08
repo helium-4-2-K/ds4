@@ -247,12 +247,12 @@ static bool send_payload(int fd,
     return true;
 }
 
-static bool recv_payload_sum(int fd,
-                             int expected_rank,
-                             const ds4_glm52_tp4_collective_request *expected,
-                             float *sum,
-                             char *err,
-                             size_t err_size) {
+static bool recv_payload_partial(int fd,
+                                 int expected_rank,
+                                 const ds4_glm52_tp4_collective_request *expected,
+                                 float *partial,
+                                 char *err,
+                                 size_t err_size) {
     ds4_glm52_tp4_collective_request actual;
     if (!recv_collective_frame(fd, &actual, err, err_size)) return false;
     if (actual.rank != expected_rank ||
@@ -272,9 +272,17 @@ static bool recv_payload_sum(int fd,
             snprintf(err, err_size, "payload value is non-finite");
             return false;
         }
-        sum[i] += value;
+        partial[i] = value;
     }
     return true;
+}
+
+static void free_rank_buffers(float *buffers[DS4_GLM52_L0_RANK_COUNT]) {
+    if (!buffers) return;
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        free(buffers[rank]);
+        buffers[rank] = NULL;
+    }
 }
 
 static bool send_reduced_payload(int fd,
@@ -520,59 +528,90 @@ static int run_coordinator(const smoke_config *cfg) {
 
     float *sum = NULL;
     if (cfg->payload_floats > 0) {
-        sum = calloc((size_t)cfg->payload_floats, sizeof(sum[0]));
-        if (!sum) {
+        ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT];
+        const float *partial_inputs[DS4_GLM52_L0_RANK_COUNT] = {0};
+        float *partials[DS4_GLM52_L0_RANK_COUNT] = {0};
+        float *outputs[DS4_GLM52_L0_RANK_COUNT] = {0};
+        const size_t n = (size_t)cfg->payload_floats;
+        bool allocated = true;
+        for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+            requests[rank] = make_collective_request(cfg, rank, seq);
+            partials[rank] = calloc(n, sizeof(partials[rank][0]));
+            outputs[rank] = calloc(n, sizeof(outputs[rank][0]));
+            allocated = allocated && partials[rank] && outputs[rank];
+        }
+        if (!allocated) {
             fprintf(stderr, "coordinator: payload allocation failed\n");
+            free_rank_buffers(partials);
+            free_rank_buffers(outputs);
             close(listen_fd);
             return 12;
         }
         for (int i = 0; i < cfg->payload_floats; i++) {
-            sum[i] = partial_value(0, i);
+            partials[0][i] = partial_value(0, i);
         }
+        partial_inputs[0] = partials[0];
         for (int rank = 1; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
-            ds4_glm52_tp4_collective_request expected =
-                make_collective_request(cfg, rank, seq);
-            if (!recv_payload_sum(fds[rank],
-                                  rank,
-                                  &expected,
-                                  sum,
-                                  err,
-                                  sizeof(err))) {
+            if (!recv_payload_partial(fds[rank],
+                                      rank,
+                                      &requests[rank],
+                                      partials[rank],
+                                      err,
+                                      sizeof(err))) {
                 fprintf(stderr, "coordinator: recv payload rank %d failed: %s\n",
                         rank, err);
-                free(sum);
+                free_rank_buffers(partials);
+                free_rank_buffers(outputs);
                 close(listen_fd);
                 return 13;
             }
+            partial_inputs[rank] = partials[rank];
         }
+        if (!ds4_glm52_tp4_collective_allreduce_f32_host(
+                    requests,
+                    partial_inputs,
+                    outputs,
+                    n,
+                    err,
+                    sizeof(err))) {
+            fprintf(stderr, "coordinator: allreduce payload failed: %s\n", err);
+            free_rank_buffers(partials);
+            free_rank_buffers(outputs);
+            close(listen_fd);
+            return 14;
+        }
+        sum = outputs[0];
         for (int i = 0; i < cfg->payload_floats; i++) {
             if (sum[i] != reduced_value(i)) {
                 fprintf(stderr, "coordinator: reduced payload mismatch at %d\n",
                         i);
-                free(sum);
+                free_rank_buffers(partials);
+                free_rank_buffers(outputs);
                 close(listen_fd);
-                return 14;
+                return 15;
             }
         }
         for (int rank = 1; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
-            ds4_glm52_tp4_collective_request result_frame =
-                make_collective_request(cfg, 0, seq);
             if (!send_reduced_payload(fds[rank],
-                                      &result_frame,
-                                      sum,
+                                      &requests[0],
+                                      outputs[rank],
                                       err,
                                       sizeof(err))) {
                 fprintf(stderr, "coordinator: send reduced rank %d failed: %s\n",
                         rank, err);
-                free(sum);
+                free_rank_buffers(partials);
+                free_rank_buffers(outputs);
                 close(listen_fd);
-                return 15;
+                return 16;
             }
         }
         printf("coordinator: allreduce payload floats=%d first=%.1f last=%.1f\n",
                cfg->payload_floats,
                sum[0],
                sum[cfg->payload_floats - 1]);
+        free_rank_buffers(partials);
+        free_rank_buffers(outputs);
+        sum = NULL;
     }
 
     if (!ds4_glm52_tp4_rank_group_ack(
@@ -585,7 +624,7 @@ static int run_coordinator(const smoke_config *cfg) {
         fprintf(stderr, "coordinator: local ack failed: %s\n", err);
         free(sum);
         close(listen_fd);
-        return 16;
+        return 17;
     }
     for (int rank = 1; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
         if (!ds4_glm52_tp4_transport_recv_ack_and_record(
@@ -594,7 +633,7 @@ static int run_coordinator(const smoke_config *cfg) {
                     rank, err);
             free(sum);
             close(listen_fd);
-            return 17;
+            return 18;
         }
         printf("coordinator: ack rank %d\n", rank);
         close(fds[rank]);
@@ -604,7 +643,7 @@ static int run_coordinator(const smoke_config *cfg) {
 
     if (!ds4_glm52_tp4_rank_group_command_done(&group)) {
         fprintf(stderr, "coordinator: shutdown command incomplete\n");
-        return 18;
+        return 19;
     }
     printf("coordinator: command %s complete seq=%llu ack_mask=0x%x\n",
            ds4_glm52_tp4_command_name(command),

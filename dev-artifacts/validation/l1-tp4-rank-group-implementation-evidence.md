@@ -67,12 +67,13 @@ or execute GLM kernels.
   `ack_mask=0xf`. Evidence:
   `dev-artifacts/validation/l1-tp-group-crs812-smoke-evidence.md`.
 - Real CRS812 typed-frame fixed-size all-reduce payload smoke: PASS. Rank 0
-  listened on `10.100.185.3:49057`; workers sent portable 96-byte big-endian
+  listened on `10.100.185.3:49061`; workers sent portable 96-byte big-endian
   TP4 collective metadata frames plus deterministic `float[1024]` partials;
-  rank 0 decoded and validated the frames, summed all four rank payloads, sent
-  portable reduced-result frames, workers verified the reduced vector, and the
-  final positive run reached `ack_mask=0xf`. The CRS812 bad-frame run on
-  `10.100.185.3:49058` rejected rank 1 before reduction. Evidence:
+  rank 0 decoded and validated the frames, reduced all four rank payloads via
+  `ds4_glm52_tp4_collective_allreduce_f32_host`, sent portable reduced-result
+  frames, workers verified the reduced vector, and the final positive run
+  reached `ack_mask=0xf`. The CRS812 bad-frame run on
+  `10.100.185.3:49062` rejected rank 1 before reduction. Evidence:
   `dev-artifacts/validation/l1-tp4-allreduce-payload-smoke-evidence.md`.
 - `make cpu`: PASS.
 - BCD lint at blueprint
@@ -83,7 +84,8 @@ or execute GLM kernels.
 ## Remaining Frontier
 
 Wire this CRS812 endpoint protocol into the normal DS4 CLI/server process
-roles, then replace the smoke payload with the collective backend used by
-prefill/decode. The remaining real frontier is production tensor metadata and
-math: attention/FFN all-reduce payloads from real buffers, logits gather/top-k
-payloads, DCP selected-row exchange payloads, and GPU/GLM kernels.
+roles, then replace the host-buffer smoke payload with the production backend
+used by prefill/decode. The remaining real frontier is production GPU/fabric
+math: attention/FFN all-reduce payloads from actual GLM buffers, logits
+gather/top-k payloads from actual vocab shards, DCP selected-row exchange
+payloads over the fabric backend, and GPU/GLM kernels.

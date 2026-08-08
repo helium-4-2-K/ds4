@@ -130,9 +130,20 @@ Completed implementation slices:
     frame versions, participant masks, identity, unsupported dtype, layer,
     missing shape hash, and byte counts inconsistent with dtype/element count
     before execution;
+  - `ds4_glm52_tp4_collective_allreduce_f32_host` realizes the first
+    host-buffer ATTN/FFN all-reduce boundary: four rank-indexed validated
+    frames plus four rank-local F32 partial buffers produce identical
+    replicated outputs for all four ranks;
+  - `ds4_glm52_tp4_logits_gather_topk_f32_host` realizes the first
+    host-buffer logits gather/top-k boundary: LOGITS frames plus contiguous
+    rank-owned vocab shards merge deterministic global top-k entries on rank 0;
   - typed real DCP selected-row exchange validation rejects incomplete owner
     maps, invalid identity, and non-append-ordered KV evidence before
     execution;
+  - `ds4_glm52_dcp_selected_rows_host` realizes the first host-buffer DCP
+    selected-row exchange boundary: indexed rank requests, contiguous DCP owner
+    ranges, selected row ids, and row payload metadata produce deterministic
+    per-rank replies, with no complete reply published on failure;
   - typed real decode-step validation requires prefill-ready cursor, resident
     model readiness, TP4 collectives, DCP exchange, and GLM 5.2 kernels, and
     preserves KV/cursor/token state while the execution backend is not wired;
@@ -158,11 +169,15 @@ Delegated implementation slice:
 Open implementation slices before real serving:
 
 - cross-machine deployment policy for rank endpoint files/CLI wiring;
-- real collective backend execution for the lowered
+- GPU/NCCL or fabric-native collective backend execution for the lowered
   `decode-attn-allreduce-sum`, `decode-ffn-allreduce-sum`, and
-  `decode-logits-gather-topk` contracts;
-- real DCP selected-row network exchange execution for
-  `decode-dcp-row-exchange`;
+  `decode-logits-gather-topk` contracts; host-buffer L0 helpers now cover
+  typed metadata, buffer validation, deterministic reduction/merge, and
+  fail-closed behavior;
+- GPU/fabric-backed DCP selected-row network exchange execution for
+  `decode-dcp-row-exchange`; host-buffer L0 helper now covers ownership,
+  selected-row payload validation, deterministic reply ordering, and
+  fail-closed behavior;
 - request/session binding implementation for the new `request-session` child;
 - real TP4/DCP4 prefill kernels/collectives (prefill L0 state machine is done);
 - decode skeleton and then real GLM 5.2 TP4/DCP4 kernels/collectives;
@@ -440,22 +455,32 @@ Active in `tests/test_glm52_l0.c` and DCP tests:
   a backend can run;
 - real DCP row-exchange frontier rejects incomplete owner maps and missing row
   payload/transport before execution;
+- L0 host all-reduce executes ATTN/FFN rank-local F32 partial buffers into
+  replicated outputs for all four ranks and rejects LOGITS on the all-reduce
+  path before writing output;
+- L0 host logits gather/top-k validates rank-owned vocab shard coverage and
+  rejects candidate tokens outside their owner shard;
+- L0 host DCP selected-row exchange validates request identity, ownership
+  ranges, selected-row payloads, and leaves replies incomplete on failure;
 - DCP row-exchange mock rejects invalid selection counts, never publishes
   partial replies on failure, and orders replies deterministically.
 
-Tests to add with real collective execution:
+Remaining tests to add with GPU/fabric backend execution:
 
-- all-reduce sum over four rank-local hidden partials;
-- logits gather or distributed top-k to rank 0;
 - DCP local top-k candidate merge into global top-k;
-- selected-row owner mapping and selected-row byte exchange;
-- sequence mismatch by layer/token cursor is rejected;
-- shape mismatch is rejected before collective execution.
+- attention/FFN all-reduce payloads from actual GLM rank-local output buffers;
+- logits gather/top-k from actual vocab-shard logits buffers;
+- selected-row byte exchange over the production fabric backend;
+- backend sequence mismatch by layer/token cursor is rejected;
+- backend shape mismatch is rejected before collective execution.
 
 Suggested test files:
 
-- `tests/test_glm_tp4_collectives.c`;
-- `tests/test_glm_dcp_topk.c`.
+- `tests/test_glm52_tp4_allreduce.c`;
+- `tests/test_glm52_dcp_row_exchange.c`;
+- future GPU/fabric backend tests can use dedicated
+  `tests/test_glm_tp4_collectives.c` and `tests/test_glm_dcp_topk.c` targets
+  once actual backend buffers are wired.
 
 ### Rung 6: Prefill/Decode Correctness Tests
 
@@ -689,10 +714,22 @@ Implementation:
 - Before binding real buffers, preserve the portable-frame payload smoke as a
   regression gate for backend replacement and collective integration.
 
+Current realization:
+
+- L0 host-buffer execution exists for ATTN/FFN all-reduce, logits gather/top-k,
+  and DCP selected-row exchange. These helpers are CPU/host validation and
+  deterministic merge/reduction boundaries, not GPU kernels and not the final
+  high-throughput collective backend.
+- `tests/glm52_tp4_fabric_smoke --payload-floats` now uses
+  `ds4_glm52_tp4_collective_allreduce_f32_host` instead of a smoke-local
+  coordinator sum.
+
 Tests:
 
-- `tests/test_glm_tp4_collectives.c`: deterministic all-reduce, gather, top-k
-  merge, and selected-row exchange using fake ranks.
+- `tests/test_glm52_tp4_allreduce.c`: deterministic all-reduce, logits
+  gather/top-k merge, and failure cases using fake ranks/host buffers.
+- `tests/test_glm52_dcp_row_exchange.c`: deterministic selected-row exchange
+  and fail-closed behavior using fake ranks/host buffers.
 - Counterexample: each rank has a high local candidate but only the global top-k
   rows survive.
 - Sequence mismatch test: wrong layer or cursor is rejected.
@@ -945,8 +982,9 @@ Add the new TP4 tests to the normal test target as they land:
 
 ```sh
 tests/test_tp4_rank_group
-tests/test_glm_tp4_manifest
-tests/test_glm_tp4_collectives
+tests/test_glm52_l0
+tests/test_glm52_tp4_allreduce
+tests/test_glm52_dcp_row_exchange
 tests/test_glm_tp4_decode_math
 tests/test_glm_dcp_topk
 tests/test_glm_tp4_prefill

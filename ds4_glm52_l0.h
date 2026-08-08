@@ -356,6 +356,23 @@ typedef struct {
 
 typedef struct {
     int rank;
+    int vocab_start;
+    int vocab_end;
+    const int *token_ids;
+    const float *scores;
+    size_t candidate_count;
+    bool present;
+} ds4_glm52_tp4_logits_rank_candidates;
+
+typedef struct {
+    int token_id;
+    float score;
+    int owner_rank;
+    bool present;
+} ds4_glm52_tp4_logits_topk_entry;
+
+typedef struct {
+    int rank;
     int dcp_size;
     int rank_count;
     int layer_index;
@@ -370,6 +387,31 @@ typedef struct {
     bool row_payload_ready;
     bool transport_ready;
 } ds4_glm52_dcp_exchange_request;
+
+typedef struct {
+    int rank;
+    uint64_t row_start;
+    uint64_t row_end;
+    bool present;
+} ds4_glm52_dcp_owner_range;
+
+typedef struct {
+    uint64_t row_id;
+    int owner_rank;
+    int layer_index;
+    uint64_t token_step_j;
+    uint64_t kv_hash;
+    uint64_t k_rope_hash;
+    bool present;
+} ds4_glm52_dcp_row_payload;
+
+typedef struct {
+    int requester_rank;
+    ds4_glm52_dcp_row_payload *rows;
+    size_t row_capacity;
+    size_t row_count;
+    bool complete;
+} ds4_glm52_dcp_rank_reply;
 
 typedef struct {
     int rank;
@@ -405,9 +447,34 @@ bool ds4_glm52_tp4_collective_frame_decode(
         ds4_glm52_tp4_collective_request *request,
         char *err,
         size_t err_size);
+bool ds4_glm52_tp4_collective_allreduce_f32_host(
+        const ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT],
+        const float *const partials[DS4_GLM52_L0_RANK_COUNT],
+        float *const outputs[DS4_GLM52_L0_RANK_COUNT],
+        size_t element_count,
+        char *err,
+        size_t err_size);
+bool ds4_glm52_tp4_logits_gather_topk_f32_host(
+        const ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_tp4_logits_rank_candidates shards[DS4_GLM52_L0_RANK_COUNT],
+        size_t k,
+        ds4_glm52_tp4_logits_topk_entry *out,
+        size_t out_count,
+        char *err,
+        size_t err_size);
 ds4_glm52_l0_status ds4_glm52_tp4_real_collective_allreduce(
         const ds4_glm52_tp4_collective_request *request,
         ds4_glm52_l0_result *result);
+bool ds4_glm52_dcp_selected_rows_host(
+        const ds4_glm52_dcp_exchange_request requests[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_dcp_owner_range owners[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_dcp_row_payload *catalog,
+        size_t catalog_count,
+        const uint64_t *const selected_row_ids[DS4_GLM52_L0_RANK_COUNT],
+        const size_t selection_counts[DS4_GLM52_L0_RANK_COUNT],
+        ds4_glm52_dcp_rank_reply replies[DS4_GLM52_L0_RANK_COUNT],
+        char *err,
+        size_t err_size);
 ds4_glm52_l0_status ds4_glm52_dcp_real_row_exchange(
         const ds4_glm52_dcp_exchange_request *request,
         ds4_glm52_l0_result *result);

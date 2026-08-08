@@ -56,6 +56,145 @@ static void request_rank(ds4_glm52_dcp_request *req, int rank, const int *rows, 
     req->present = true;
 }
 
+static uint32_t full_rank_mask(void) {
+    return (UINT32_C(1) << DS4_GLM52_L0_RANK_COUNT) - UINT32_C(1);
+}
+
+static void build_l0_dcp_requests(
+        ds4_glm52_dcp_exchange_request requests[DS4_GLM52_L0_RANK_COUNT],
+        const size_t selection_counts[DS4_GLM52_L0_RANK_COUNT]) {
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        ds4_glm52_dcp_exchange_request *req = &requests[rank];
+        memset(req, 0, sizeof(*req));
+        req->rank = rank;
+        req->dcp_size = DS4_GLM52_L0_DCP_SIZE;
+        req->rank_count = DS4_GLM52_L0_RANK_COUNT;
+        req->layer_index = 3;
+        req->seq = 41;
+        req->model_hash = 0x52000010u;
+        req->session_hash = 0x52000011u;
+        req->token_step_j = 29;
+        req->selected_row_count = (int)selection_counts[rank];
+        req->owner_rank_mask = full_rank_mask();
+        req->ownership_plan_valid = true;
+        req->append_ordered_kv = true;
+        req->row_payload_ready = true;
+        req->transport_ready = true;
+    }
+}
+
+static size_t build_l0_dcp_catalog(
+        ds4_glm52_dcp_owner_range owners[DS4_GLM52_L0_RANK_COUNT],
+        ds4_glm52_dcp_row_payload catalog[DS4_GLM52_L0_DCP_SIZE * PER_RANK_ROWS]) {
+    size_t n = 0;
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        owners[rank].rank = rank;
+        owners[rank].row_start = (uint64_t)(rank * PER_RANK_ROWS);
+        owners[rank].row_end = (uint64_t)((rank + 1) * PER_RANK_ROWS);
+        owners[rank].present = true;
+        for (int row_id = rank * PER_RANK_ROWS;
+             row_id < (rank + 1) * PER_RANK_ROWS;
+             row_id++) {
+            catalog[n].row_id = (uint64_t)row_id;
+            catalog[n].owner_rank = rank;
+            catalog[n].layer_index = 3;
+            catalog[n].token_step_j = (uint64_t)row_id;
+            catalog[n].kv_hash =
+                (uint64_t)(row_id + 1) * UINT64_C(1099511628211);
+            catalog[n].k_rope_hash =
+                (uint64_t)(row_id + 3) * UINT64_C(2654435761);
+            catalog[n].present = true;
+            n++;
+        }
+    }
+    return n;
+}
+
+static void test_l0_dcp_selected_rows_host(void) {
+    ds4_glm52_dcp_owner_range owners[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_dcp_row_payload catalog[DS4_GLM52_L0_DCP_SIZE * PER_RANK_ROWS];
+    size_t catalog_count = build_l0_dcp_catalog(owners, catalog);
+    const uint64_t selected0[] = {28, 5, 20, 2};
+    const uint64_t selected1[] = {25, 12, 3, 30};
+    const uint64_t selected2[] = {6, 18, 1, 27};
+    const uint64_t selected3[] = {23, 4, 15, 8};
+    const uint64_t *selected[DS4_GLM52_L0_RANK_COUNT] = {
+        selected0, selected1, selected2, selected3,
+    };
+    size_t counts[DS4_GLM52_L0_RANK_COUNT] = {4, 4, 4, 4};
+    ds4_glm52_dcp_exchange_request requests[DS4_GLM52_L0_RANK_COUNT];
+    build_l0_dcp_requests(requests, counts);
+
+    ds4_glm52_dcp_row_payload storage[DS4_GLM52_L0_RANK_COUNT][4];
+    ds4_glm52_dcp_rank_reply replies[DS4_GLM52_L0_RANK_COUNT];
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        memset(storage[rank], 0, sizeof(storage[rank]));
+        memset(&replies[rank], 0, sizeof(replies[rank]));
+        replies[rank].requester_rank = rank;
+        replies[rank].rows = storage[rank];
+        replies[rank].row_capacity = 4;
+    }
+    char err[192] = "";
+    check(ds4_glm52_dcp_selected_rows_host(
+              requests,
+              owners,
+              catalog,
+              catalog_count,
+              selected,
+              counts,
+              replies,
+              err,
+              sizeof(err)),
+          "L0 DCP selected-row host exchange should complete");
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        check(replies[rank].complete, "L0 DCP reply should be complete");
+        check(replies[rank].row_count == counts[rank],
+              "L0 DCP reply should contain selected rows");
+        for (size_t i = 1; i < replies[rank].row_count; i++) {
+            check(replies[rank].rows[i - 1].token_step_j <
+                  replies[rank].rows[i].token_step_j,
+                  "L0 DCP reply rows should be sorted by token position");
+        }
+    }
+
+    catalog[20].present = false;
+    check(!ds4_glm52_dcp_selected_rows_host(
+              requests,
+              owners,
+              catalog,
+              catalog_count,
+              selected,
+              counts,
+              replies,
+              err,
+              sizeof(err)),
+          "L0 DCP selected-row host exchange should reject missing payload");
+    check(strstr(err, "missing selected row payload") != NULL,
+          "L0 DCP missing payload rejection should name payload");
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        check(!replies[rank].complete,
+              "L0 DCP failure should leave replies incomplete");
+        check(replies[rank].row_count == 0,
+              "L0 DCP failure should clear reply row counts");
+    }
+    catalog[20].present = true;
+
+    owners[2].row_start++;
+    check(!ds4_glm52_dcp_selected_rows_host(
+              requests,
+              owners,
+              catalog,
+              catalog_count,
+              selected,
+              counts,
+              replies,
+              err,
+              sizeof(err)),
+          "L0 DCP selected-row host exchange should reject ownership gaps");
+    check(strstr(err, "owner ranges") != NULL,
+          "L0 DCP owner-range rejection should name owner ranges");
+}
+
 static void expect_exchange_invalid(const ds4_glm52_dcp_plan *plan,
                                     const ds4_glm52_dcp_row *rows,
                                     size_t row_count,
@@ -410,6 +549,7 @@ static void test_layer_position_ordering(void) {
 }
 
 int main(void) {
+    test_l0_dcp_selected_rows_host();
     test_reject_missing_owner_rank();
     test_reject_duplicate_owner();
     test_reject_out_of_range();

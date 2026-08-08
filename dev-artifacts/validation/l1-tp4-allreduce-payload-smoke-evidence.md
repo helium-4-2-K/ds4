@@ -4,8 +4,10 @@ Date: 2026-08-07
 
 Scope: first executable tensor-payload smoke over local loopback and the real
 CRS812 four-GX10 fabric. This extends the TP-group hello/command/ack smoke with
-a deterministic fixed-size float all-reduce payload. It is still a CPU test
-tool, not the final GPU collective backend.
+a deterministic fixed-size float all-reduce payload. The coordinator now calls
+the shared L0 host-buffer reducer
+`ds4_glm52_tp4_collective_allreduce_f32_host`; this is still a CPU test tool,
+not the final GPU collective backend.
 
 Portable-frame update: the payload smoke now carries a portable 96-byte
 big-endian TP4 collective metadata frame before every rank-local partial
@@ -39,10 +41,11 @@ The frame is encoded/decoded with production L0
   - validates all worker hello frames;
   - publishes fabric readiness;
   - broadcasts decode command;
-  - validates each worker's typed TP4 collective frame before payload bytes
-    enter the reduction;
-  - reads worker payloads;
-  - sums rank 0 local partial plus ranks 1..3 payloads;
+  - decodes and validates each worker's typed TP4 collective frame before
+    payload bytes enter the reduction;
+  - reads worker payloads into rank-local partial buffers;
+  - calls `ds4_glm52_tp4_collective_allreduce_f32_host` with rank 0 local
+    partial plus ranks 1..3 partial buffers;
   - sends a typed TP4 collective frame before every reduced payload;
   - sends reduced vector to every worker;
   - records all acks.
@@ -56,10 +59,10 @@ Command shape:
 ./tests/glm52_tp4_fabric_smoke --role worker --rank 1 --connect 127.0.0.1:49110 --payload-floats 16
 ./tests/glm52_tp4_fabric_smoke --role worker --rank 2 --connect 127.0.0.1:49110 --payload-floats 16
 ./tests/glm52_tp4_fabric_smoke --role worker --rank 3 --connect 127.0.0.1:49110 --payload-floats 16
-./tests/glm52_tp4_fabric_smoke --role coordinator --rank 0 --listen 127.0.0.1:49130 --payload-floats 1024
-./tests/glm52_tp4_fabric_smoke --role worker --rank 1 --connect 127.0.0.1:49130 --payload-floats 1024
-./tests/glm52_tp4_fabric_smoke --role worker --rank 2 --connect 127.0.0.1:49130 --payload-floats 1024
-./tests/glm52_tp4_fabric_smoke --role worker --rank 3 --connect 127.0.0.1:49130 --payload-floats 1024
+./tests/glm52_tp4_fabric_smoke --role coordinator --rank 0 --listen 127.0.0.1:49144 --payload-floats 1024
+./tests/glm52_tp4_fabric_smoke --role worker --rank 1 --connect 127.0.0.1:49144 --payload-floats 1024
+./tests/glm52_tp4_fabric_smoke --role worker --rank 2 --connect 127.0.0.1:49144 --payload-floats 1024
+./tests/glm52_tp4_fabric_smoke --role worker --rank 3 --connect 127.0.0.1:49144 --payload-floats 1024
 ```
 
 Observed result:
@@ -75,20 +78,20 @@ worker3: allreduce payload verified floats=1024
 Negative command shape:
 
 ```bash
-./tests/glm52_tp4_fabric_smoke --role worker --rank 1 --connect 127.0.0.1:49132 --payload-floats 1024 --bad-payload-frame
+./tests/glm52_tp4_fabric_smoke --role worker --rank 1 --connect 127.0.0.1:49145 --payload-floats 1024 --bad-payload-frame
 ```
 
 Observed negative result:
 
 ```text
-statuses coord=13 w1=141 w2=141 w3=7
+statuses coord=13 w1=7 w2=7 w3=7
 coordinator: recv payload rank 1 failed: real TP4 collective requires nonzero identity, layer, shape hash, element count, and matching dtype byte count
 ```
 
 ## Real CRS812 Run
 
 Source staged on each GX10 from the current working tree into
-`~/ds4-smoke-portable-frame`; all four ranks rebuilt
+`~/ds4-smoke-host-collectives`; all four ranks rebuilt
 `tests/glm52_tp4_fabric_smoke` locally before execution.
 
 Rank mapping:
@@ -106,7 +109,7 @@ Coordinator command:
 ./tests/glm52_tp4_fabric_smoke \
   --role coordinator \
   --rank 0 \
-  --listen 10.100.185.3:49057 \
+  --listen 10.100.185.3:49061 \
   --timeout-ms 30000 \
   --payload-floats 1024
 ```
@@ -114,9 +117,9 @@ Coordinator command:
 Worker commands:
 
 ```bash
-./tests/glm52_tp4_fabric_smoke --role worker --rank 1 --connect 10.100.185.3:49057 --timeout-ms 30000 --payload-floats 1024
-./tests/glm52_tp4_fabric_smoke --role worker --rank 2 --connect 10.100.185.3:49057 --timeout-ms 30000 --payload-floats 1024
-./tests/glm52_tp4_fabric_smoke --role worker --rank 3 --connect 10.100.185.3:49057 --timeout-ms 30000 --payload-floats 1024
+./tests/glm52_tp4_fabric_smoke --role worker --rank 1 --connect 10.100.185.3:49061 --timeout-ms 30000 --payload-floats 1024
+./tests/glm52_tp4_fabric_smoke --role worker --rank 2 --connect 10.100.185.3:49061 --timeout-ms 30000 --payload-floats 1024
+./tests/glm52_tp4_fabric_smoke --role worker --rank 3 --connect 10.100.185.3:49061 --timeout-ms 30000 --payload-floats 1024
 ```
 
 Observed worker output:
@@ -136,7 +139,7 @@ worker3: ack sent
 Observed coordinator output:
 
 ```text
-coordinator: listening 10.100.185.3:49057
+coordinator: listening 10.100.185.3:49061
 coordinator: registered rank 1
 coordinator: registered rank 2
 coordinator: registered rank 3
@@ -151,10 +154,10 @@ coordinator: command decode complete seq=1 ack_mask=0xf
 Observed CRS812 negative run:
 
 ```text
-coordinator: listening 10.100.185.3:49058
-coordinator: registered rank 1
+coordinator: listening 10.100.185.3:49062
 coordinator: registered rank 2
 coordinator: registered rank 3
+coordinator: registered rank 1
 coordinator: fabric ready tp=4 dcp=4 ranks=4
 coordinator: recv payload rank 1 failed: real TP4 collective requires nonzero identity, layer, shape hash, element count, and matching dtype byte count
 ```
@@ -163,8 +166,8 @@ Worker negative statuses:
 
 ```text
 rank1_status=8
-rank2_status=8
-rank3_status=8
+rank2_status=255
+rank3_status=7
 ```
 
 Interpretation:
@@ -175,23 +178,27 @@ Interpretation:
   big-endian TP4 collective metadata frame.
 - PASS: malformed local and CRS812 collective metadata is rejected before
   payload reduction.
-- PASS: rank 0 performed deterministic all-rank float summation.
+- PASS: rank 0 performed deterministic all-rank float summation via the shared
+  L0 host-buffer all-reduce helper.
 - PASS: reduced tensor bytes moved from rank 0 back to workers locally and over
   CRS812.
 - PASS: all workers verified the reduced payload before acking in the positive
   path.
+- PASS: L0 host-buffer logits gather/top-k and DCP selected-row exchange are
+  covered by focused local tests.
 - NOT PROVEN: decentralized all-reduce topology, high-throughput streaming,
-  GPU buffers, BF16/FP8 tensor payload execution, NCCL/RDMA semantics, DCP row
-  exchange, logits gather/top-k integration, or GLM layer integration.
+  GPU buffers, BF16/FP8 tensor payload execution, NCCL/RDMA semantics,
+  fabric-backed DCP row exchange, fabric-backed logits gather/top-k, or GLM
+  layer integration.
 
 ## Next Frontier
 
-Replace the coordinator-summed smoke with the target production collective
-shape:
+Replace the host-buffer smoke with the target production collective shape:
 
-1. attention/FFN all-reduce payloads backed by the real rank-local output
-   buffers;
-2. logits gather/top-k payloads;
-3. DCP selected-row exchange payloads;
+1. attention/FFN all-reduce backed by actual GLM rank-local output buffers and
+   the production GPU/fabric backend;
+2. logits gather/top-k from actual vocab-shard logits buffers over the
+   production backend;
+3. DCP selected-row exchange over the production backend;
 4. portable control-frame encoding if the smoke hello/command/ack transport is
    promoted into a stable multi-release TCP backend.

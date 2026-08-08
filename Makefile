@@ -375,7 +375,7 @@ ds4_glm52_dcp_mock.o: ds4_glm52_dcp_mock.c ds4_glm52_dcp_mock.h ds4_glm52_l0.h d
 tests/test_glm52_dcp_row_exchange.o: tests/test_glm52_dcp_row_exchange.c ds4.h ds4_glm52_l0.h ds4_glm52_dcp_mock.h
 	$(CC) $(CFLAGS) -I. -c -o $@ $<
 
-tests/test_glm52_dcp_row_exchange: tests/test_glm52_dcp_row_exchange.o ds4_glm52_dcp_mock.o
+tests/test_glm52_dcp_row_exchange: tests/test_glm52_dcp_row_exchange.o ds4_glm52_dcp_mock.o ds4_glm52_l0.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 tests/test_glm52_tp4_mock_process.o: tests/test_glm52_tp4_mock_process.c ds4.h ds4_glm52_l0.h ds4_glm52_mock.h

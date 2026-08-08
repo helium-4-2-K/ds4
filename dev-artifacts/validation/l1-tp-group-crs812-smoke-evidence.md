@@ -119,12 +119,14 @@ Interpretation:
 - PASS: the group published fabric readiness in the L0 state seam.
 - PASS: rank 0 broadcast a command and collected all acknowledgements.
 - PROVEN IN FOLLOW-UP: portable 96-byte big-endian TP4 collective metadata
-  frames plus fixed-size CPU float payload exchange, coordinator-summed
+  frames plus fixed-size CPU float payload exchange, shared L0 host-buffer
   all-reduce smoke, and malformed frame rejection over CRS812. Evidence:
   `dev-artifacts/validation/l1-tp4-allreduce-payload-smoke-evidence.md`.
+- PROVEN LOCALLY: host-buffer logits gather/top-k and DCP selected-row exchange
+  validation/reply semantics.
 - NOT PROVEN: production tensor collectives, decentralized all-reduce topology,
-  high-throughput streaming, DCP row payload exchange, GPU buffers, or GLM
-  kernels.
+  high-throughput streaming, fabric-backed DCP row payload exchange,
+  fabric-backed logits gather/top-k, GPU buffers, or GLM kernels.
 
 ## Next Frontier
 
@@ -135,6 +137,7 @@ collective payloads:
    remains a backend is complete for collective metadata frames; remaining
    control-frame portability is optional until the smoke transport becomes a
    stable multi-release protocol;
-2. TP4 attention/FFN all-reduce transport backed by real rank-local buffers;
-3. logits gather/top-k transport;
-4. DCP selected-row exchange payloads.
+2. TP4 attention/FFN all-reduce backed by actual GLM rank-local buffers and
+   the production GPU/fabric backend;
+3. logits gather/top-k transport from actual vocab-shard buffers;
+4. DCP selected-row exchange payloads over the production backend.

@@ -62,6 +62,223 @@ static void fill_nonassoc_partials(float *partials[DS4_GLM52_L0_RANK_COUNT],
     }
 }
 
+static uint32_t full_rank_mask(void) {
+    return (UINT32_C(1) << DS4_GLM52_L0_RANK_COUNT) - UINT32_C(1);
+}
+
+static void make_l0_requests(
+        ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT],
+        ds4_glm52_tp4_collective_kind kind,
+        uint64_t seq,
+        int layer,
+        size_t element_count) {
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        ds4_glm52_tp4_collective_request *req = &requests[rank];
+        memset(req, 0, sizeof(*req));
+        req->frame_version = DS4_GLM52_TP4_COLLECTIVE_FRAME_VERSION;
+        req->kind = kind;
+        req->rank = rank;
+        req->tp_size = DS4_GLM52_L0_TP_SIZE;
+        req->dcp_size = DS4_GLM52_L0_DCP_SIZE;
+        req->rank_count = DS4_GLM52_L0_RANK_COUNT;
+        req->layer_index = layer;
+        req->dtype = DS4_GLM52_TP4_TENSOR_DTYPE_F32;
+        req->seq = seq;
+        req->model_hash = 0x52000000u;
+        req->session_hash = 0x52000001u;
+        req->token_step_j = 17;
+        req->element_count = element_count;
+        req->shape_hash = 0x52006144u;
+        req->byte_count =
+            element_count * ds4_glm52_tp4_tensor_dtype_size(req->dtype);
+        req->participant_mask = full_rank_mask();
+        req->topology_ready = true;
+        req->transport_ready = true;
+        req->rank_local_partial_ready = true;
+        req->replicated_output_ready = true;
+    }
+}
+
+static void free_float_buffers(float *buffers[DS4_GLM52_L0_RANK_COUNT]) {
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        free(buffers[rank]);
+        buffers[rank] = NULL;
+    }
+}
+
+static void test_l0_host_allreduce_buffers(void) {
+    const size_t n = DS4_GLM52_MOCK_N_EMBD;
+    ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT];
+    float *partials[DS4_GLM52_L0_RANK_COUNT] = {0};
+    float *outputs[DS4_GLM52_L0_RANK_COUNT] = {0};
+    const float *partial_inputs[DS4_GLM52_L0_RANK_COUNT] = {0};
+    char err[192] = "";
+
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        partials[rank] = malloc(n * sizeof(partials[rank][0]));
+        outputs[rank] = malloc(n * sizeof(outputs[rank][0]));
+        check(partials[rank] != NULL && outputs[rank] != NULL,
+              "L0 host all-reduce buffers should allocate");
+        partial_inputs[rank] = partials[rank];
+    }
+    fill_nonassoc_partials(partials, n);
+
+    make_l0_requests(requests, DS4_GLM52_TP4_COLLECTIVE_ATTN, 21, 11, n);
+    check(ds4_glm52_tp4_collective_allreduce_f32_host(
+              requests,
+              partial_inputs,
+              outputs,
+              n,
+              err,
+              sizeof(err)),
+          "L0 host attention all-reduce should execute");
+    check(outputs[0][0] == 3.0f,
+          "L0 host attention all-reduce should sum in rank order");
+    for (int rank = 1; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        check(memcmp(outputs[0], outputs[rank], n * sizeof(outputs[0][0])) == 0,
+              "L0 host all-reduce output should be replicated to every rank");
+    }
+
+    make_l0_requests(requests, DS4_GLM52_TP4_COLLECTIVE_FFN, 22, 12, n);
+    check(ds4_glm52_tp4_collective_allreduce_f32_host(
+              requests,
+              partial_inputs,
+              outputs,
+              n,
+              err,
+              sizeof(err)),
+          "L0 host FFN all-reduce should execute");
+
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        for (size_t i = 0; i < n; i++) outputs[rank][i] = 42.0f;
+    }
+    make_l0_requests(requests, DS4_GLM52_TP4_COLLECTIVE_LOGITS, 23, 13, n);
+    check(!ds4_glm52_tp4_collective_allreduce_f32_host(
+              requests,
+              partial_inputs,
+              outputs,
+              n,
+              err,
+              sizeof(err)),
+          "L0 host all-reduce should reject logits collectives");
+    check(strstr(err, "attention or FFN") != NULL,
+          "L0 host all-reduce logits rejection should name supported kinds");
+    check(outputs[0][0] == 42.0f,
+          "L0 host all-reduce should not publish output after kind rejection");
+
+    make_l0_requests(requests, DS4_GLM52_TP4_COLLECTIVE_ATTN, 24, 14, n);
+    requests[3].session_hash++;
+    check(!ds4_glm52_tp4_collective_allreduce_f32_host(
+              requests,
+              partial_inputs,
+              outputs,
+              n,
+              err,
+              sizeof(err)),
+          "L0 host all-reduce should reject rank identity mismatch");
+    check(strstr(err, "identity") != NULL,
+          "L0 host all-reduce identity rejection should name identity");
+
+    free_float_buffers(partials);
+    free_float_buffers(outputs);
+}
+
+static void fill_logits_shards(
+        ds4_glm52_tp4_logits_rank_candidates shards[DS4_GLM52_L0_RANK_COUNT],
+        int token_ids[DS4_GLM52_L0_RANK_COUNT][3],
+        float scores[DS4_GLM52_L0_RANK_COUNT][3]) {
+    const int shard_width = DS4_GLM52_L0_VOCAB_SIZE / DS4_GLM52_L0_RANK_COUNT;
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        const int start = rank * shard_width;
+        const int end = (rank == DS4_GLM52_L0_RANK_COUNT - 1)
+            ? DS4_GLM52_L0_VOCAB_SIZE
+            : start + shard_width;
+        shards[rank].rank = rank;
+        shards[rank].vocab_start = start;
+        shards[rank].vocab_end = end;
+        shards[rank].token_ids = token_ids[rank];
+        shards[rank].scores = scores[rank];
+        shards[rank].candidate_count = 3;
+        shards[rank].present = true;
+        for (int i = 0; i < 3; i++) {
+            token_ids[rank][i] = start + 10 + i;
+            scores[rank][i] = (float)(rank * 3 + i);
+        }
+    }
+    scores[0][0] = 10.0f;
+    scores[0][1] = 8.0f;
+    scores[0][2] = 1.0f;
+    scores[1][0] = 11.0f;
+    scores[1][1] = 9.0f;
+    scores[1][2] = 7.0f;
+    scores[2][0] = 2.0f;
+    scores[2][1] = 11.0f;
+    scores[2][2] = 6.0f;
+    scores[3][0] = 12.0f;
+    scores[3][1] = 5.0f;
+    scores[3][2] = 4.0f;
+}
+
+static void test_l0_logits_gather_topk(void) {
+    ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_tp4_logits_rank_candidates shards[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_tp4_logits_topk_entry top[5];
+    int token_ids[DS4_GLM52_L0_RANK_COUNT][3];
+    float scores[DS4_GLM52_L0_RANK_COUNT][3];
+    char err[192] = "";
+
+    fill_logits_shards(shards, token_ids, scores);
+    make_l0_requests(requests, DS4_GLM52_TP4_COLLECTIVE_LOGITS, 31, 15, 3);
+    check(ds4_glm52_tp4_logits_gather_topk_f32_host(
+              requests,
+              shards,
+              5,
+              top,
+              sizeof(top) / sizeof(top[0]),
+              err,
+              sizeof(err)),
+          "L0 logits gather/top-k should merge rank-local candidates");
+    check(top[0].owner_rank == 3 && top[0].score == 12.0f,
+          "L0 logits top-k should choose highest score first");
+    check(top[1].owner_rank == 1 && top[1].score == 11.0f,
+          "L0 logits top-k ties should prefer lower token id");
+    check(top[2].owner_rank == 2 && top[2].score == 11.0f,
+          "L0 logits top-k should preserve second tied candidate");
+    check(top[3].owner_rank == 0 && top[3].score == 10.0f,
+          "L0 logits top-k should include rank 0 candidate by score");
+    check(top[4].owner_rank == 1 && top[4].score == 9.0f,
+          "L0 logits top-k should fill requested k");
+
+    ds4_glm52_tp4_logits_rank_candidates bad_shards[DS4_GLM52_L0_RANK_COUNT];
+    memcpy(bad_shards, shards, sizeof(bad_shards));
+    bad_shards[2].vocab_start++;
+    check(!ds4_glm52_tp4_logits_gather_topk_f32_host(
+              requests,
+              bad_shards,
+              5,
+              top,
+              sizeof(top) / sizeof(top[0]),
+              err,
+              sizeof(err)),
+          "L0 logits gather/top-k should reject vocab coverage gaps");
+    check(strstr(err, "vocab shards") != NULL,
+          "L0 logits coverage rejection should name vocab shards");
+
+    memcpy(bad_shards, shards, sizeof(bad_shards));
+    token_ids[0][0] = shards[1].vocab_start;
+    check(!ds4_glm52_tp4_logits_gather_topk_f32_host(
+              requests,
+              bad_shards,
+              5,
+              top,
+              sizeof(top) / sizeof(top[0]),
+              err,
+              sizeof(err)),
+          "L0 logits gather/top-k should reject token outside owner shard");
+    check(strstr(err, "owner shard") != NULL,
+          "L0 logits ownership rejection should name owner shard");
+}
+
 static void make_partials(
         const ds4_glm52_mock_model models[DS4_GLM52_L0_RANK_COUNT],
         const ds4_glm52_mock_session sessions[DS4_GLM52_L0_RANK_COUNT],
@@ -363,6 +580,8 @@ static void test_allreduce_rejects_shape_dtype_and_nonfinite(void) {
 }
 
 int main(void) {
+    test_l0_host_allreduce_buffers();
+    test_l0_logits_gather_topk();
     test_allreduce_sums_in_rank_order();
     test_allreduce_rejects_missing_and_duplicate_ranks();
     test_allreduce_rejects_identity_mismatches();

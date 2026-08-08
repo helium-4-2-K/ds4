@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <math.h>
 #include <limits.h>
 #include <netinet/in.h>
 #include <stdio.h>
@@ -1254,6 +1255,261 @@ bool ds4_glm52_tp4_collective_frame_decode(
             request, err, err_size);
 }
 
+static bool collective_f32_allreduce_kind(
+        ds4_glm52_tp4_collective_kind kind) {
+    return kind == DS4_GLM52_TP4_COLLECTIVE_ATTN ||
+           kind == DS4_GLM52_TP4_COLLECTIVE_FFN;
+}
+
+static bool same_collective_identity(
+        const ds4_glm52_tp4_collective_request *a,
+        const ds4_glm52_tp4_collective_request *b) {
+    return a->kind == b->kind &&
+           a->tp_size == b->tp_size &&
+           a->dcp_size == b->dcp_size &&
+           a->rank_count == b->rank_count &&
+           a->layer_index == b->layer_index &&
+           a->dtype == b->dtype &&
+           a->seq == b->seq &&
+           a->model_hash == b->model_hash &&
+           a->session_hash == b->session_hash &&
+           a->token_step_j == b->token_step_j &&
+           a->element_count == b->element_count &&
+           a->shape_hash == b->shape_hash &&
+           a->byte_count == b->byte_count &&
+           a->participant_mask == b->participant_mask;
+}
+
+bool ds4_glm52_tp4_collective_allreduce_f32_host(
+        const ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT],
+        const float *const partials[DS4_GLM52_L0_RANK_COUNT],
+        float *const outputs[DS4_GLM52_L0_RANK_COUNT],
+        size_t element_count,
+        char *err,
+        size_t err_size) {
+    if (!requests || !partials || !outputs || element_count == 0) {
+        set_error(err, err_size,
+                  "TP4 host all-reduce requires frames, partial buffers, output buffers, and nonzero elements");
+        return false;
+    }
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        if (!partials[rank] || !outputs[rank]) {
+            set_error(err, err_size,
+                      "TP4 host all-reduce requires every rank partial and output buffer");
+            return false;
+        }
+    }
+
+    const ds4_glm52_tp4_collective_request *ref = &requests[0];
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        const ds4_glm52_tp4_collective_request *req = &requests[rank];
+        if (!ds4_glm52_tp4_collective_frame_validate(
+                    req, err, err_size)) {
+            return false;
+        }
+        if (req->rank != rank) {
+            set_error(err, err_size,
+                      "TP4 host all-reduce request array must be indexed by rank");
+            return false;
+        }
+        if (!collective_f32_allreduce_kind(req->kind)) {
+            set_error(err, err_size,
+                      "TP4 host all-reduce only accepts attention or FFN collectives");
+            return false;
+        }
+        if (req->dtype != DS4_GLM52_TP4_TENSOR_DTYPE_F32) {
+            set_error(err, err_size,
+                      "TP4 host all-reduce currently requires f32 tensor frames");
+            return false;
+        }
+        if (!req->topology_ready ||
+            !req->transport_ready ||
+            !req->rank_local_partial_ready ||
+            !req->replicated_output_ready) {
+            set_error(err, err_size,
+                      "TP4 host all-reduce requires topology, transport, rank-local partial, and replicated output readiness");
+            return false;
+        }
+        if (req->element_count != element_count) {
+            set_error(err, err_size,
+                      "TP4 host all-reduce element count does not match frame metadata");
+            return false;
+        }
+        if (rank != 0 && !same_collective_identity(ref, req)) {
+            set_error(err, err_size,
+                      "TP4 host all-reduce rank frames disagree on collective identity");
+            return false;
+        }
+        for (size_t i = 0; i < element_count; i++) {
+            if (!isfinite(partials[rank][i])) {
+                set_error(err, err_size,
+                          "TP4 host all-reduce rank-local partial contains non-finite values");
+                return false;
+            }
+        }
+    }
+
+    float *reduced = calloc(element_count, sizeof(reduced[0]));
+    if (!reduced) {
+        set_error(err, err_size,
+                  "TP4 host all-reduce could not allocate staging buffer");
+        return false;
+    }
+    for (int src_rank = 0; src_rank < DS4_GLM52_L0_RANK_COUNT; src_rank++) {
+        const float *partial = partials[src_rank];
+        for (size_t i = 0; i < element_count; i++) {
+            reduced[i] += partial[i];
+        }
+    }
+    for (size_t i = 0; i < element_count; i++) {
+        if (!isfinite(reduced[i])) {
+            free(reduced);
+            set_error(err, err_size,
+                      "TP4 host all-reduce replicated output contains non-finite values");
+            return false;
+        }
+    }
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        memcpy(outputs[rank], reduced, element_count * sizeof(reduced[0]));
+    }
+    free(reduced);
+    return true;
+}
+
+static bool logits_candidate_better(
+        const ds4_glm52_tp4_logits_topk_entry *a,
+        const ds4_glm52_tp4_logits_topk_entry *b) {
+    if (!b->present) return true;
+    if (a->score > b->score) return true;
+    if (a->score < b->score) return false;
+    if (a->token_id < b->token_id) return true;
+    if (a->token_id > b->token_id) return false;
+    return a->owner_rank < b->owner_rank;
+}
+
+bool ds4_glm52_tp4_logits_gather_topk_f32_host(
+        const ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_tp4_logits_rank_candidates shards[DS4_GLM52_L0_RANK_COUNT],
+        size_t k,
+        ds4_glm52_tp4_logits_topk_entry *out,
+        size_t out_count,
+        char *err,
+        size_t err_size) {
+    if (!requests || !shards || !out || k == 0 || out_count < k) {
+        set_error(err, err_size,
+                  "TP4 logits gather/top-k requires frames, rank shards, output storage, and nonzero k");
+        return false;
+    }
+    for (size_t i = 0; i < out_count; i++) {
+        out[i].present = false;
+        out[i].token_id = -1;
+        out[i].score = 0.0f;
+        out[i].owner_rank = -1;
+    }
+
+    const ds4_glm52_tp4_collective_request *ref = &requests[0];
+    int expected_vocab_start = 0;
+    size_t total_candidates = 0;
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        const ds4_glm52_tp4_collective_request *req = &requests[rank];
+        const ds4_glm52_tp4_logits_rank_candidates *shard = &shards[rank];
+        if (!ds4_glm52_tp4_collective_frame_validate(
+                    req, err, err_size)) {
+            return false;
+        }
+        if (req->rank != rank || req->kind != DS4_GLM52_TP4_COLLECTIVE_LOGITS) {
+            set_error(err, err_size,
+                      "TP4 logits gather/top-k requires LOGITS frames indexed by rank");
+            return false;
+        }
+        if (req->dtype != DS4_GLM52_TP4_TENSOR_DTYPE_F32) {
+            set_error(err, err_size,
+                      "TP4 logits gather/top-k currently requires f32 score frames");
+            return false;
+        }
+        if (!req->topology_ready ||
+            !req->transport_ready ||
+            !req->rank_local_partial_ready ||
+            !req->replicated_output_ready) {
+            set_error(err, err_size,
+                      "TP4 logits gather/top-k requires topology, transport, rank-local logits, and coordinator output readiness");
+            return false;
+        }
+        if (rank != 0 && !same_collective_identity(ref, req)) {
+            set_error(err, err_size,
+                      "TP4 logits gather/top-k rank frames disagree on collective identity");
+            return false;
+        }
+        if (!shard->present ||
+            shard->rank != rank ||
+            shard->vocab_start != expected_vocab_start ||
+            shard->vocab_end <= shard->vocab_start ||
+            shard->vocab_end > DS4_GLM52_L0_VOCAB_SIZE ||
+            !shard->token_ids ||
+            !shard->scores ||
+            shard->candidate_count == 0 ||
+            shard->candidate_count != req->element_count) {
+            set_error(err, err_size,
+                      "TP4 logits gather/top-k requires contiguous rank vocab shards and score candidates");
+            return false;
+        }
+        expected_vocab_start = shard->vocab_end;
+        total_candidates += shard->candidate_count;
+        for (size_t i = 0; i < shard->candidate_count; i++) {
+            const int token = shard->token_ids[i];
+            if (token < shard->vocab_start || token >= shard->vocab_end) {
+                set_error(err, err_size,
+                          "TP4 logits gather/top-k candidate token is outside its owner shard");
+                return false;
+            }
+            if (!isfinite(shard->scores[i])) {
+                set_error(err, err_size,
+                          "TP4 logits gather/top-k candidate score is non-finite");
+                return false;
+            }
+        }
+    }
+    if (expected_vocab_start != DS4_GLM52_L0_VOCAB_SIZE) {
+        set_error(err, err_size,
+                  "TP4 logits gather/top-k vocab shard coverage is incomplete");
+        return false;
+    }
+    if (k > total_candidates) {
+        set_error(err, err_size,
+                  "TP4 logits gather/top-k requires at least k candidates");
+        return false;
+    }
+
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        const ds4_glm52_tp4_logits_rank_candidates *shard = &shards[rank];
+        for (size_t i = 0; i < shard->candidate_count; i++) {
+            ds4_glm52_tp4_logits_topk_entry cand = {
+                .token_id = shard->token_ids[i],
+                .score = shard->scores[i],
+                .owner_rank = rank,
+                .present = true,
+            };
+            for (size_t pos = 0; pos < k; pos++) {
+                if (logits_candidate_better(&cand, &out[pos])) {
+                    for (size_t shift = k - 1; shift > pos; shift--) {
+                        out[shift] = out[shift - 1];
+                    }
+                    out[pos] = cand;
+                    break;
+                }
+            }
+        }
+    }
+    for (size_t i = 0; i < k; i++) {
+        if (!out[i].present) {
+            set_error(err, err_size,
+                      "TP4 logits gather/top-k failed to fill requested output");
+            return false;
+        }
+    }
+    return true;
+}
+
 ds4_glm52_l0_status ds4_glm52_tp4_real_collective_allreduce(
         const ds4_glm52_tp4_collective_request *request,
         ds4_glm52_l0_result *result) {
@@ -1286,6 +1542,245 @@ ds4_glm52_l0_status ds4_glm52_tp4_real_collective_allreduce(
                DS4_GLM52_L0_ACTION_DECODE_TOKEN,
                "real TP4 all-reduce tensor execution is not implemented behind the validated boundary");
     return DS4_GLM52_L0_STATUS_NOT_READY;
+}
+
+static bool same_dcp_identity(
+        const ds4_glm52_dcp_exchange_request *a,
+        const ds4_glm52_dcp_exchange_request *b) {
+    return a->dcp_size == b->dcp_size &&
+           a->rank_count == b->rank_count &&
+           a->layer_index == b->layer_index &&
+           a->seq == b->seq &&
+           a->model_hash == b->model_hash &&
+           a->session_hash == b->session_hash &&
+           a->token_step_j == b->token_step_j &&
+           a->owner_rank_mask == b->owner_rank_mask &&
+           a->ownership_plan_valid == b->ownership_plan_valid &&
+           a->append_ordered_kv == b->append_ordered_kv &&
+           a->row_payload_ready == b->row_payload_ready &&
+           a->transport_ready == b->transport_ready;
+}
+
+static bool dcp_owner_for_row_host(
+        const ds4_glm52_dcp_owner_range owners[DS4_GLM52_L0_RANK_COUNT],
+        uint64_t row_id,
+        int *owner_out) {
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        if (row_id >= owners[rank].row_start &&
+            row_id < owners[rank].row_end) {
+            if (owner_out) *owner_out = rank;
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool dcp_payload_lt(
+        const ds4_glm52_dcp_row_payload *a,
+        const ds4_glm52_dcp_row_payload *b) {
+    if (a->layer_index != b->layer_index) return a->layer_index < b->layer_index;
+    if (a->token_step_j != b->token_step_j) return a->token_step_j < b->token_step_j;
+    return a->row_id < b->row_id;
+}
+
+static bool dcp_reply_insert_sorted_host(
+        ds4_glm52_dcp_rank_reply *reply,
+        const ds4_glm52_dcp_row_payload *row,
+        char *err,
+        size_t err_size) {
+    if (reply->row_count >= reply->row_capacity) {
+        set_error(err, err_size,
+                  "DCP selected-row exchange reply capacity is too small");
+        return false;
+    }
+    size_t pos = 0;
+    for (; pos < reply->row_count; pos++) {
+        if (reply->rows[pos].row_id == row->row_id) return true;
+        if (dcp_payload_lt(row, &reply->rows[pos])) break;
+    }
+    for (size_t i = reply->row_count; i > pos; i--) {
+        reply->rows[i] = reply->rows[i - 1];
+    }
+    reply->rows[pos] = *row;
+    reply->row_count++;
+    return true;
+}
+
+static bool dcp_catalog_lookup_host(
+        const ds4_glm52_dcp_owner_range owners[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_dcp_row_payload *catalog,
+        size_t catalog_count,
+        uint64_t row_id,
+        ds4_glm52_dcp_row_payload *out,
+        char *err,
+        size_t err_size) {
+    int owner = -1;
+    if (!dcp_owner_for_row_host(owners, row_id, &owner)) {
+        set_error(err, err_size,
+                  "DCP selected-row exchange selected row is outside ownership ranges");
+        return false;
+    }
+
+    bool found = false;
+    ds4_glm52_dcp_row_payload canonical;
+    memset(&canonical, 0, sizeof(canonical));
+    for (size_t i = 0; i < catalog_count; i++) {
+        const ds4_glm52_dcp_row_payload *row = &catalog[i];
+        if (!row->present || row->row_id != row_id) continue;
+        if (row->owner_rank != owner ||
+            row->layer_index < 0 ||
+            row->kv_hash == 0 ||
+            row->k_rope_hash == 0) {
+            set_error(err, err_size,
+                      "DCP selected-row exchange catalog row does not match ownership or payload requirements");
+            return false;
+        }
+        if (!found) {
+            canonical = *row;
+            found = true;
+        } else if (canonical.owner_rank != row->owner_rank ||
+                   canonical.layer_index != row->layer_index ||
+                   canonical.token_step_j != row->token_step_j ||
+                   canonical.kv_hash != row->kv_hash ||
+                   canonical.k_rope_hash != row->k_rope_hash) {
+            set_error(err, err_size,
+                      "DCP selected-row exchange duplicate row has conflicting payload metadata");
+            return false;
+        }
+    }
+    if (!found) {
+        set_error(err, err_size,
+                  "DCP selected-row exchange missing selected row payload");
+        return false;
+    }
+    if (out) *out = canonical;
+    return true;
+}
+
+bool ds4_glm52_dcp_selected_rows_host(
+        const ds4_glm52_dcp_exchange_request requests[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_dcp_owner_range owners[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_dcp_row_payload *catalog,
+        size_t catalog_count,
+        const uint64_t *const selected_row_ids[DS4_GLM52_L0_RANK_COUNT],
+        const size_t selection_counts[DS4_GLM52_L0_RANK_COUNT],
+        ds4_glm52_dcp_rank_reply replies[DS4_GLM52_L0_RANK_COUNT],
+        char *err,
+        size_t err_size) {
+    if (!requests || !owners || !catalog || catalog_count == 0 ||
+        !selected_row_ids || !selection_counts || !replies) {
+        set_error(err, err_size,
+                  "DCP selected-row exchange requires requests, owners, catalog, selections, and replies");
+        return false;
+    }
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        replies[rank].requester_rank = rank;
+        replies[rank].row_count = 0;
+        replies[rank].complete = false;
+        if (!replies[rank].rows || replies[rank].row_capacity == 0) {
+            set_error(err, err_size,
+                      "DCP selected-row exchange requires reply row storage for every rank");
+            return false;
+        }
+    }
+
+    uint64_t expected_start = 0;
+    uint32_t owner_mask = 0;
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        if (!owners[rank].present ||
+            owners[rank].rank != rank ||
+            owners[rank].row_start != expected_start ||
+            owners[rank].row_end <= owners[rank].row_start) {
+            set_error(err, err_size,
+                      "DCP selected-row exchange requires contiguous owner ranges indexed by rank");
+            return false;
+        }
+        expected_start = owners[rank].row_end;
+        owner_mask |= UINT32_C(1) << rank;
+    }
+    if (owner_mask != l0_full_rank_mask()) {
+        set_error(err, err_size,
+                  "DCP selected-row exchange requires all owner ranks");
+        return false;
+    }
+
+    const ds4_glm52_dcp_exchange_request *ref = &requests[0];
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        const ds4_glm52_dcp_exchange_request *req = &requests[rank];
+        if (req->rank != rank ||
+            req->dcp_size != DS4_GLM52_L0_DCP_SIZE ||
+            req->rank_count != DS4_GLM52_L0_RANK_COUNT ||
+            req->seq == 0 ||
+            req->model_hash == 0 ||
+            req->session_hash == 0 ||
+            req->layer_index < 0 ||
+            req->selected_row_count < 0 ||
+            req->owner_rank_mask != l0_full_rank_mask()) {
+            set_error(err, err_size,
+                      "DCP selected-row exchange request identity or topology is invalid");
+            return false;
+        }
+        if (rank != 0 && !same_dcp_identity(ref, req)) {
+            set_error(err, err_size,
+                      "DCP selected-row exchange rank requests disagree on identity");
+            return false;
+        }
+        if (!req->ownership_plan_valid ||
+            !req->append_ordered_kv ||
+            !req->row_payload_ready ||
+            !req->transport_ready) {
+            set_error(err, err_size,
+                      "DCP selected-row exchange requires ownership, append-ordered KV, row payload, and transport readiness");
+            return false;
+        }
+        if ((size_t)req->selected_row_count != selection_counts[rank]) {
+            set_error(err, err_size,
+                      "DCP selected-row exchange selection count does not match request metadata");
+            return false;
+        }
+        if (selection_counts[rank] > replies[rank].row_capacity ||
+            (selection_counts[rank] > 0 && !selected_row_ids[rank])) {
+            set_error(err, err_size,
+                      "DCP selected-row exchange selection storage is invalid");
+            return false;
+        }
+    }
+
+    ds4_glm52_dcp_rank_reply staging[DS4_GLM52_L0_RANK_COUNT];
+    memset(staging, 0, sizeof(staging));
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        staging[rank].requester_rank = rank;
+        staging[rank].rows = replies[rank].rows;
+        staging[rank].row_capacity = replies[rank].row_capacity;
+    }
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        for (size_t i = 0; i < selection_counts[rank]; i++) {
+            ds4_glm52_dcp_row_payload row;
+            if (!dcp_catalog_lookup_host(owners,
+                                         catalog,
+                                         catalog_count,
+                                         selected_row_ids[rank][i],
+                                         &row,
+                                         err,
+                                         err_size)) {
+                return false;
+            }
+            if (row.layer_index != ref->layer_index) {
+                set_error(err, err_size,
+                          "DCP selected-row exchange row layer does not match request layer");
+                return false;
+            }
+            if (!dcp_reply_insert_sorted_host(
+                        &staging[rank], &row, err, err_size)) {
+                return false;
+            }
+        }
+    }
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        replies[rank].row_count = staging[rank].row_count;
+        replies[rank].complete = true;
+    }
+    return true;
 }
 
 ds4_glm52_l0_status ds4_glm52_dcp_real_row_exchange(

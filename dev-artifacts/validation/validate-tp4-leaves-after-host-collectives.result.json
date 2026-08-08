@@ -1,0 +1,77 @@
+{
+  "action": "validate_contract",
+  "artifact_integrity": {
+    "blueprint_sha256": "8ec5da05227296565218f7972ebddb4425bcd39236be31574468543b12a70b60",
+    "semantic_sha256": "7a2383c123331d59637c8128cdbb5fa40e7ed667b8d2045c1882536c9befaf04"
+  },
+  "error_count": 0,
+  "errors": [],
+  "graph_ids": [
+    "decode-attn-allreduce-sum",
+    "decode-dcp-row-exchange",
+    "decode-ffn-allreduce-sum",
+    "decode-logits-gather-topk"
+  ],
+  "profile": "leaf",
+  "request_id": "validate-lowered-tp4-leaves",
+  "schema": "blueprint-contract-validation/v4",
+  "snapshot": {
+    "artifact_integrity": {
+      "blueprint_sha256": "8ec5da05227296565218f7972ebddb4425bcd39236be31574468543b12a70b60",
+      "semantic_sha256": "7a2383c123331d59637c8128cdbb5fa40e7ed667b8d2045c1882536c9befaf04"
+    },
+    "covered_graphs": [
+      {
+        "graph_contract_sha256": "b93f17489a529e3e978315192766824b9fc85d745b030a115e2fbbb5cc8eff74",
+        "graph_id": "decode",
+        "role": "ancestor",
+        "type_schema_sha256": "275f7e1fbd151e30dfa166610d865a78c47f36c1ddd38d43ac8159ad7c122d97"
+      },
+      {
+        "graph_contract_sha256": "34edbcdcbc65b8efa156e71c0b4652c13732bea0620557c746a20701a9482195",
+        "graph_id": "decode-attn-allreduce-sum",
+        "role": "selected",
+        "type_schema_sha256": "99684015c793c2a55ffbde749fb99fa6e2bac82dd1e0648d6c823effdfc4b42c"
+      },
+      {
+        "graph_contract_sha256": "4d29e030e5f5eb113dcd5c924983d7aa0c6a805846405064de89becc3f53bb89",
+        "graph_id": "decode-dcp-row-exchange",
+        "role": "selected",
+        "type_schema_sha256": "dec82e16d316c00858e4b33a1f27179e5315937d2d5a1b970bde07409f2473b4"
+      },
+      {
+        "graph_contract_sha256": "0641a0c8d36a047a12b5d6b5a2aba12f939efca745742a513096e4c25713a9f4",
+        "graph_id": "decode-dcp-topk",
+        "role": "ancestor",
+        "type_schema_sha256": "706710b33d899ac4dc46ed2cf67c4164c6ca7003d5e714791a37b746aacc77da"
+      },
+      {
+        "graph_contract_sha256": "b0cc61d217bbc67dd57da335109963232be8eb8587519bc23f3ccfe1512adb06",
+        "graph_id": "decode-ffn-allreduce-sum",
+        "role": "selected",
+        "type_schema_sha256": "03b9e9783cb3a0257a8daa1505737ef805d2f09f7a7f3031d0372d6c38044ca1"
+      },
+      {
+        "graph_contract_sha256": "517ec3e5bb0f51738073ce1e2e7cf66a1595d762a2476921772d22e4acfb9fa7",
+        "graph_id": "decode-logits-gather-topk",
+        "role": "selected",
+        "type_schema_sha256": "2ed27add9a997ce21222e72bff8584c39f96cf325603632d4a8bb169060b4544"
+      },
+      {
+        "graph_contract_sha256": "e86e9e8efe3ad48fdda966be2e1723b862adfd62176e7a45defabfa67b50720a",
+        "graph_id": "serve",
+        "role": "ancestor",
+        "type_schema_sha256": "3f4be1b144e1cee44727789840835951678fede862e9ccde1a2c91d025010a46"
+      }
+    ],
+    "selected_graph_ids": [
+      "decode-attn-allreduce-sum",
+      "decode-dcp-row-exchange",
+      "decode-ffn-allreduce-sum",
+      "decode-logits-gather-topk"
+    ]
+  },
+  "status": "PASS",
+  "warning_count": 0,
+  "warnings": []
+}
