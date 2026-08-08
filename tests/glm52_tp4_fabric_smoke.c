@@ -1,6 +1,7 @@
 #include "ds4_glm52_l0.h"
 
 #include <errno.h>
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,6 +20,7 @@ typedef struct {
     const char *listen;
     const char *connect;
     int timeout_ms;
+    int payload_floats;
     uint64_t model_hash;
     uint64_t config_hash;
     uint64_t plan_hash;
@@ -36,6 +38,7 @@ static void usage(FILE *fp, const char *prog) {
             "  --listen HOST:PORT       coordinator listen endpoint\n"
             "  --connect HOST:PORT      worker connect endpoint\n"
             "  --timeout-ms N           default 10000\n"
+            "  --payload-floats N       optional fixed-size all-reduce payload\n"
             "  --model-hash U64         default 11\n"
             "  --config-hash U64        default 22\n"
             "  --plan-hash U64          default 33\n",
@@ -59,9 +62,149 @@ static bool parse_int_arg(const char *s, int *out) {
     return true;
 }
 
+static bool write_exact_local(int fd, const void *buf, size_t len) {
+    const char *p = (const char *)buf;
+    while (len > 0) {
+        ssize_t n = write(fd, p, len);
+        if (n < 0) {
+            if (errno == EINTR) continue;
+            return false;
+        }
+        if (n == 0) return false;
+        p += (size_t)n;
+        len -= (size_t)n;
+    }
+    return true;
+}
+
+static bool read_exact_local(int fd, void *buf, size_t len) {
+    char *p = (char *)buf;
+    while (len > 0) {
+        ssize_t n = read(fd, p, len);
+        if (n < 0) {
+            if (errno == EINTR) continue;
+            return false;
+        }
+        if (n == 0) return false;
+        p += (size_t)n;
+        len -= (size_t)n;
+    }
+    return true;
+}
+
 static bool endpoint_is_management(const ds4_glm52_tp4_tcp_endpoint *endpoint) {
     return endpoint &&
            !strncmp(endpoint->host, "192.168.0.", strlen("192.168.0."));
+}
+
+static float partial_value(int rank, int index) {
+    return (float)(rank + 1) * 100.0f + (float)index;
+}
+
+static float reduced_value(int index) {
+    float sum = 0.0f;
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        sum += partial_value(rank, index);
+    }
+    return sum;
+}
+
+static bool payload_count_valid(int n) {
+    return n >= 0 && n <= 4096;
+}
+
+static bool send_payload(int fd, int rank, int n, char *err, size_t err_size) {
+    if (!payload_count_valid(n)) {
+        snprintf(err, err_size, "invalid payload float count");
+        return false;
+    }
+    int32_t header[2] = {(int32_t)rank, (int32_t)n};
+    if (!write_exact_local(fd, header, sizeof(header))) {
+        snprintf(err, err_size, "payload header write failed");
+        return false;
+    }
+    for (int i = 0; i < n; i++) {
+        float value = partial_value(rank, i);
+        if (!write_exact_local(fd, &value, sizeof(value))) {
+            snprintf(err, err_size, "payload body write failed");
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool recv_payload_sum(int fd,
+                             int expected_rank,
+                             int n,
+                             float *sum,
+                             char *err,
+                             size_t err_size) {
+    int32_t header[2] = {0, 0};
+    if (!read_exact_local(fd, header, sizeof(header))) {
+        snprintf(err, err_size, "payload header read failed");
+        return false;
+    }
+    if (header[0] != expected_rank || header[1] != n) {
+        snprintf(err, err_size, "payload identity mismatch");
+        return false;
+    }
+    for (int i = 0; i < n; i++) {
+        float value = 0.0f;
+        if (!read_exact_local(fd, &value, sizeof(value))) {
+            snprintf(err, err_size, "payload body read failed");
+            return false;
+        }
+        if (!isfinite(value)) {
+            snprintf(err, err_size, "payload value is non-finite");
+            return false;
+        }
+        sum[i] += value;
+    }
+    return true;
+}
+
+static bool send_reduced_payload(int fd,
+                                 int n,
+                                 const float *sum,
+                                 char *err,
+                                 size_t err_size) {
+    int32_t count = (int32_t)n;
+    if (!write_exact_local(fd, &count, sizeof(count))) {
+        snprintf(err, err_size, "reduced payload header write failed");
+        return false;
+    }
+    if (n > 0 && !write_exact_local(fd, sum, (size_t)n * sizeof(sum[0]))) {
+        snprintf(err, err_size, "reduced payload body write failed");
+        return false;
+    }
+    return true;
+}
+
+static bool recv_and_validate_reduced_payload(int fd,
+                                              int n,
+                                              char *err,
+                                              size_t err_size) {
+    int32_t count = 0;
+    if (!read_exact_local(fd, &count, sizeof(count))) {
+        snprintf(err, err_size, "reduced payload header read failed");
+        return false;
+    }
+    if (count != n) {
+        snprintf(err, err_size, "reduced payload count mismatch");
+        return false;
+    }
+    for (int i = 0; i < n; i++) {
+        float value = 0.0f;
+        if (!read_exact_local(fd, &value, sizeof(value))) {
+            snprintf(err, err_size, "reduced payload body read failed");
+            return false;
+        }
+        if (value != reduced_value(i)) {
+            snprintf(err, err_size, "reduced payload value mismatch");
+            return false;
+        }
+    }
+    return true;
 }
 
 static bool parse_args(int argc, char **argv, smoke_config *cfg) {
@@ -69,6 +212,7 @@ static bool parse_args(int argc, char **argv, smoke_config *cfg) {
     cfg->role = ROLE_NONE;
     cfg->rank = -1;
     cfg->timeout_ms = 10000;
+    cfg->payload_floats = 0;
     cfg->model_hash = 11;
     cfg->config_hash = 22;
     cfg->plan_hash = 33;
@@ -81,6 +225,7 @@ static bool parse_args(int argc, char **argv, smoke_config *cfg) {
             !strcmp(arg, "--listen") ||
             !strcmp(arg, "--connect") ||
             !strcmp(arg, "--timeout-ms") ||
+            !strcmp(arg, "--payload-floats") ||
             !strcmp(arg, "--model-hash") ||
             !strcmp(arg, "--config-hash") ||
             !strcmp(arg, "--plan-hash")) {
@@ -104,6 +249,9 @@ static bool parse_args(int argc, char **argv, smoke_config *cfg) {
             cfg->connect = value;
         } else if (!strcmp(arg, "--timeout-ms")) {
             if (!parse_int_arg(value, &cfg->timeout_ms)) return false;
+        } else if (!strcmp(arg, "--payload-floats")) {
+            if (!parse_int_arg(value, &cfg->payload_floats) ||
+                !payload_count_valid(cfg->payload_floats)) return false;
         } else if (!strcmp(arg, "--model-hash")) {
             if (!parse_u64_arg(value, &cfg->model_hash)) return false;
         } else if (!strcmp(arg, "--config-hash")) {
@@ -227,11 +375,13 @@ static int run_coordinator(const smoke_config *cfg) {
            state.tp_fabric.dcp_size,
            state.tp_fabric.rank_count);
 
+    ds4_glm52_tp4_command command = cfg->payload_floats > 0 ?
+        DS4_GLM52_TP4_COMMAND_DECODE : DS4_GLM52_TP4_COMMAND_SHUTDOWN;
     uint64_t seq = 0;
     if (!ds4_glm52_tp4_rank_group_broadcast(
                 &group,
                 0,
-                DS4_GLM52_TP4_COMMAND_SHUTDOWN,
+                command,
                 &seq,
                 err,
                 sizeof(err))) {
@@ -242,7 +392,7 @@ static int run_coordinator(const smoke_config *cfg) {
     for (int rank = 1; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
         if (!ds4_glm52_tp4_transport_send_command(
                     fds[rank],
-                    DS4_GLM52_TP4_COMMAND_SHUTDOWN,
+                    command,
                     seq,
                     err,
                     sizeof(err))) {
@@ -252,35 +402,93 @@ static int run_coordinator(const smoke_config *cfg) {
             return 11;
         }
     }
+
+    float *sum = NULL;
+    if (cfg->payload_floats > 0) {
+        sum = calloc((size_t)cfg->payload_floats, sizeof(sum[0]));
+        if (!sum) {
+            fprintf(stderr, "coordinator: payload allocation failed\n");
+            close(listen_fd);
+            return 12;
+        }
+        for (int i = 0; i < cfg->payload_floats; i++) {
+            sum[i] = partial_value(0, i);
+        }
+        for (int rank = 1; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+            if (!recv_payload_sum(fds[rank],
+                                  rank,
+                                  cfg->payload_floats,
+                                  sum,
+                                  err,
+                                  sizeof(err))) {
+                fprintf(stderr, "coordinator: recv payload rank %d failed: %s\n",
+                        rank, err);
+                free(sum);
+                close(listen_fd);
+                return 13;
+            }
+        }
+        for (int i = 0; i < cfg->payload_floats; i++) {
+            if (sum[i] != reduced_value(i)) {
+                fprintf(stderr, "coordinator: reduced payload mismatch at %d\n",
+                        i);
+                free(sum);
+                close(listen_fd);
+                return 14;
+            }
+        }
+        for (int rank = 1; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+            if (!send_reduced_payload(fds[rank],
+                                      cfg->payload_floats,
+                                      sum,
+                                      err,
+                                      sizeof(err))) {
+                fprintf(stderr, "coordinator: send reduced rank %d failed: %s\n",
+                        rank, err);
+                free(sum);
+                close(listen_fd);
+                return 15;
+            }
+        }
+        printf("coordinator: allreduce payload floats=%d first=%.1f last=%.1f\n",
+               cfg->payload_floats,
+               sum[0],
+               sum[cfg->payload_floats - 1]);
+    }
+
     if (!ds4_glm52_tp4_rank_group_ack(
                 &group,
                 0,
-                DS4_GLM52_TP4_COMMAND_SHUTDOWN,
+                command,
                 seq,
                 err,
                 sizeof(err))) {
         fprintf(stderr, "coordinator: local ack failed: %s\n", err);
+        free(sum);
         close(listen_fd);
-        return 12;
+        return 16;
     }
     for (int rank = 1; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
         if (!ds4_glm52_tp4_transport_recv_ack_and_record(
                     fds[rank], &group, err, sizeof(err))) {
             fprintf(stderr, "coordinator: recv ack rank %d failed: %s\n",
                     rank, err);
+            free(sum);
             close(listen_fd);
-            return 13;
+            return 17;
         }
         printf("coordinator: ack rank %d\n", rank);
         close(fds[rank]);
     }
+    free(sum);
     close(listen_fd);
 
     if (!ds4_glm52_tp4_rank_group_command_done(&group)) {
         fprintf(stderr, "coordinator: shutdown command incomplete\n");
-        return 14;
+        return 18;
     }
-    printf("coordinator: shutdown complete seq=%llu ack_mask=0x%x\n",
+    printf("coordinator: command %s complete seq=%llu ack_mask=0x%x\n",
+           ds4_glm52_tp4_command_name(command),
            (unsigned long long)seq,
            group.ack_mask);
     return 0;
@@ -335,11 +543,41 @@ static int run_worker(const smoke_config *cfg) {
            cfg->rank,
            ds4_glm52_tp4_command_name(command),
            (unsigned long long)seq);
+    if (cfg->payload_floats > 0) {
+        if (command != DS4_GLM52_TP4_COMMAND_DECODE) {
+            fprintf(stderr, "worker%d: expected decode payload command\n",
+                    cfg->rank);
+            close(fd);
+            return 6;
+        }
+        if (!send_payload(fd,
+                          cfg->rank,
+                          cfg->payload_floats,
+                          err,
+                          sizeof(err))) {
+            fprintf(stderr, "worker%d: send payload failed: %s\n",
+                    cfg->rank, err);
+            close(fd);
+            return 7;
+        }
+        if (!recv_and_validate_reduced_payload(fd,
+                                               cfg->payload_floats,
+                                               err,
+                                               sizeof(err))) {
+            fprintf(stderr, "worker%d: reduced payload failed: %s\n",
+                    cfg->rank, err);
+            close(fd);
+            return 8;
+        }
+        printf("worker%d: allreduce payload verified floats=%d\n",
+               cfg->rank,
+               cfg->payload_floats);
+    }
     if (!ds4_glm52_tp4_transport_send_ack(
                 fd, cfg->rank, command, seq, err, sizeof(err))) {
         fprintf(stderr, "worker%d: send ack failed: %s\n", cfg->rank, err);
         close(fd);
-        return 6;
+        return 9;
     }
     close(fd);
     printf("worker%d: ack sent\n", cfg->rank);
