@@ -185,6 +185,35 @@ work.
     `last=5092.0`, then completed decode command sequence `1` with
     `ack_mask=0xf`; every worker verified the replicated reduced payload and
     acked.
+- DCP transport payload and real four-GX10 CRS812 selected-row smoke: PASS on
+  working tree after `3d487ef`.
+  - Production payload types added:
+    `ds4_glm52_dcp_transport_payload` and
+    `ds4_glm52_dcp_transport_row`.
+  - Production conversion APIs added:
+    `ds4_glm52_dcp_transport_payload_from_bound` and
+    `ds4_glm52_dcp_transport_payload_to_bound`.
+  - Production framed transport APIs added:
+    `ds4_glm52_dcp_transport_send_payload` and
+    `ds4_glm52_dcp_transport_recv_payload`.
+  - Local unit gate: `tests/test_glm52_dcp_row_exchange` covers bound-row
+    serialization, received bound-row reconstruction, feeding reconstructed
+    rows into `ds4_glm52_dcp_selected_rows_bound_host`, and received-byte hash
+    mismatch rejection.
+  - Local four-process smoke: `tests/glm52_tp4_fabric_smoke --dcp-rows 8`
+    passed with 32 transported owner rows and 4x4 selected-row replies.
+  - Deployed the working tree to
+    `/tmp/ds4-gx10-dcp-transport-20260807221750` on all four GX10s.
+  - Per-host target build and unit check passed:
+    `make tests/glm52_tp4_fabric_smoke tests/test_glm52_dcp_row_exchange &&
+    ./tests/test_glm52_dcp_row_exchange`.
+  - CRS812 DCP run: rank0 `192.168.0.40` listened on
+    `10.100.185.3:49133`; ranks 1..3 connected from `192.168.0.240`,
+    `192.168.0.99`, and `192.168.0.39`.
+  - Rank0 received 8 owner rows from each rank, reconstructed 32 bound
+    KV/K-rope row payloads, produced complete selected-row replies for all
+    four requester ranks, and completed decode command sequence `1` with
+    `ack_mask=0xf`; every worker sent its DCP payload and acked.
 - `make cpu tests/test_tp4_rank_group tests/test_glm52_l0
   tests/test_glm52_mock tests/test_glm52_tp4_mock
   tests/test_glm52_tp4_mock_serve tests/test_glm52_tp4_allreduce

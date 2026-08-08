@@ -21,6 +21,7 @@ typedef struct {
     const char *connect;
     int timeout_ms;
     int payload_floats;
+    int dcp_rows;
     bool bad_payload_frame;
     uint64_t model_hash;
     uint64_t config_hash;
@@ -40,6 +41,7 @@ static void usage(FILE *fp, const char *prog) {
             "  --connect HOST:PORT      worker connect endpoint\n"
             "  --timeout-ms N           default 10000\n"
             "  --payload-floats N       optional fixed-size all-reduce payload\n"
+            "  --dcp-rows N             optional per-owner DCP row payload count, max 8\n"
             "  --bad-payload-frame      send a mismatched typed payload frame\n"
             "  --model-hash U64         default 11\n"
             "  --config-hash U64        default 22\n"
@@ -241,6 +243,125 @@ static bool payload_count_valid(int n) {
     return n >= 0 && n <= 4096;
 }
 
+#define SMOKE_DCP_PER_RANK_ROWS 8
+#define SMOKE_DCP_SELECTIONS 4
+#define SMOKE_DCP_KV_BYTES 8
+#define SMOKE_DCP_K_ROPE_BYTES 6
+
+static bool dcp_rows_valid(int n) {
+    return n >= 0 && n <= SMOKE_DCP_PER_RANK_ROWS;
+}
+
+static void fill_dcp_owners(
+        ds4_glm52_dcp_owner_range owners[DS4_GLM52_L0_RANK_COUNT]) {
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        owners[rank].rank = rank;
+        owners[rank].row_start = (uint64_t)(rank * SMOKE_DCP_PER_RANK_ROWS);
+        owners[rank].row_end =
+            (uint64_t)((rank + 1) * SMOKE_DCP_PER_RANK_ROWS);
+        owners[rank].present = true;
+    }
+}
+
+static void fill_dcp_selection(int rank,
+                               uint64_t selected[SMOKE_DCP_SELECTIONS]) {
+    static const uint64_t selections[DS4_GLM52_L0_RANK_COUNT]
+                                   [SMOKE_DCP_SELECTIONS] = {
+        {28, 5, 20, 2},
+        {25, 12, 3, 30},
+        {6, 18, 1, 27},
+        {23, 4, 15, 8},
+    };
+    memcpy(selected, selections[rank], sizeof(selections[rank]));
+}
+
+static ds4_glm52_dcp_exchange_request make_dcp_request(
+        const smoke_config *cfg,
+        int rank,
+        uint64_t seq,
+        int selection_count) {
+    ds4_glm52_dcp_exchange_request req;
+    memset(&req, 0, sizeof(req));
+    req.rank = rank;
+    req.dcp_size = DS4_GLM52_L0_DCP_SIZE;
+    req.rank_count = DS4_GLM52_L0_RANK_COUNT;
+    req.layer_index = 3;
+    req.seq = seq;
+    req.model_hash = cfg->model_hash;
+    req.session_hash = session_hash_for_smoke(cfg);
+    req.token_step_j = 29;
+    req.selected_row_count = selection_count;
+    req.owner_rank_mask = full_rank_mask_local();
+    req.ownership_plan_valid = true;
+    req.append_ordered_kv = true;
+    req.row_payload_ready = true;
+    req.transport_ready = true;
+    return req;
+}
+
+static void build_dcp_owner_rows(
+        int owner_rank,
+        int row_count,
+        ds4_glm52_dcp_bound_row_payload rows[SMOKE_DCP_PER_RANK_ROWS],
+        unsigned char kv[SMOKE_DCP_PER_RANK_ROWS][SMOKE_DCP_KV_BYTES],
+        unsigned char k_rope[SMOKE_DCP_PER_RANK_ROWS][SMOKE_DCP_K_ROPE_BYTES]) {
+    for (int i = 0; i < row_count; i++) {
+        const int row_id = owner_rank * SMOKE_DCP_PER_RANK_ROWS + i;
+        for (size_t j = 0; j < SMOKE_DCP_KV_BYTES; j++) {
+            kv[i][j] = (unsigned char)(row_id * 17 + (int)j);
+        }
+        for (size_t j = 0; j < SMOKE_DCP_K_ROPE_BYTES; j++) {
+            k_rope[i][j] = (unsigned char)(row_id * 31 + owner_rank + (int)j);
+        }
+        memset(&rows[i], 0, sizeof(rows[i]));
+        rows[i].row.row_id = (uint64_t)row_id;
+        rows[i].row.owner_rank = owner_rank;
+        rows[i].row.layer_index = 3;
+        rows[i].row.token_step_j = (uint64_t)row_id;
+        rows[i].row.kv_hash =
+            ds4_glm52_dcp_payload_hash_host(kv[i], SMOKE_DCP_KV_BYTES);
+        rows[i].row.k_rope_hash =
+            ds4_glm52_dcp_payload_hash_host(
+                    k_rope[i], SMOKE_DCP_K_ROPE_BYTES);
+        rows[i].row.present = true;
+        rows[i].kv_handle = kv[i];
+        rows[i].kv_byte_offset = 0;
+        rows[i].kv_byte_count = SMOKE_DCP_KV_BYTES;
+        rows[i].kv_capacity_bytes = SMOKE_DCP_KV_BYTES;
+        rows[i].k_rope_handle = k_rope[i];
+        rows[i].k_rope_byte_offset = 0;
+        rows[i].k_rope_byte_count = SMOKE_DCP_K_ROPE_BYTES;
+        rows[i].k_rope_capacity_bytes = SMOKE_DCP_K_ROPE_BYTES;
+        rows[i].ready = true;
+    }
+}
+
+static bool make_dcp_transport_payload(
+        const smoke_config *cfg,
+        int rank,
+        uint64_t seq,
+        ds4_glm52_dcp_transport_payload *payload,
+        char *err,
+        size_t err_size) {
+    uint64_t selected[SMOKE_DCP_SELECTIONS];
+    fill_dcp_selection(rank, selected);
+    ds4_glm52_dcp_bound_row_payload rows[SMOKE_DCP_PER_RANK_ROWS];
+    unsigned char kv[SMOKE_DCP_PER_RANK_ROWS][SMOKE_DCP_KV_BYTES];
+    unsigned char k_rope[SMOKE_DCP_PER_RANK_ROWS][SMOKE_DCP_K_ROPE_BYTES];
+    build_dcp_owner_rows(rank, cfg->dcp_rows, rows, kv, k_rope);
+    ds4_glm52_dcp_exchange_request req =
+        make_dcp_request(cfg, rank, seq, SMOKE_DCP_SELECTIONS);
+    return ds4_glm52_dcp_transport_payload_from_bound(
+            &req,
+            selected,
+            SMOKE_DCP_SELECTIONS,
+            rows,
+            (size_t)cfg->dcp_rows,
+            payload,
+            err,
+            err_size);
+}
+
 static bool send_payload(int fd,
                          const ds4_glm52_tp4_collective_request *req,
                          int n,
@@ -364,6 +485,7 @@ static bool parse_args(int argc, char **argv, smoke_config *cfg) {
     cfg->rank = -1;
     cfg->timeout_ms = 10000;
     cfg->payload_floats = 0;
+    cfg->dcp_rows = 0;
     cfg->bad_payload_frame = false;
     cfg->model_hash = 11;
     cfg->config_hash = 22;
@@ -382,6 +504,7 @@ static bool parse_args(int argc, char **argv, smoke_config *cfg) {
             !strcmp(arg, "--connect") ||
             !strcmp(arg, "--timeout-ms") ||
             !strcmp(arg, "--payload-floats") ||
+            !strcmp(arg, "--dcp-rows") ||
             !strcmp(arg, "--model-hash") ||
             !strcmp(arg, "--config-hash") ||
             !strcmp(arg, "--plan-hash")) {
@@ -408,6 +531,9 @@ static bool parse_args(int argc, char **argv, smoke_config *cfg) {
         } else if (!strcmp(arg, "--payload-floats")) {
             if (!parse_int_arg(value, &cfg->payload_floats) ||
                 !payload_count_valid(cfg->payload_floats)) return false;
+        } else if (!strcmp(arg, "--dcp-rows")) {
+            if (!parse_int_arg(value, &cfg->dcp_rows) ||
+                !dcp_rows_valid(cfg->dcp_rows)) return false;
         } else if (!strcmp(arg, "--model-hash")) {
             if (!parse_u64_arg(value, &cfg->model_hash)) return false;
         } else if (!strcmp(arg, "--config-hash")) {
@@ -439,7 +565,7 @@ static int rank_from_new_mask(uint32_t before, uint32_t after) {
 
 static int run_coordinator(const smoke_config *cfg) {
     char err[256] = {0};
-    if (cfg->payload_floats == 0) {
+    if (cfg->payload_floats == 0 && cfg->dcp_rows == 0) {
         ds4_glm52_tp4_fabric_ready_config ready_cfg = {
             .rank = cfg->rank,
             .endpoint = cfg->listen,
@@ -560,7 +686,8 @@ static int run_coordinator(const smoke_config *cfg) {
            state.tp_fabric.rank_count);
     fflush(stdout);
 
-    ds4_glm52_tp4_command command = cfg->payload_floats > 0 ?
+    ds4_glm52_tp4_command command =
+        (cfg->payload_floats > 0 || cfg->dcp_rows > 0) ?
         DS4_GLM52_TP4_COMMAND_DECODE : DS4_GLM52_TP4_COMMAND_SHUTDOWN;
     uint64_t seq = 0;
     if (!ds4_glm52_tp4_rank_group_broadcast(
@@ -589,6 +716,92 @@ static int run_coordinator(const smoke_config *cfg) {
     }
 
     float *sum = NULL;
+    if (cfg->dcp_rows > 0) {
+        ds4_glm52_dcp_owner_range owners[DS4_GLM52_L0_RANK_COUNT];
+        ds4_glm52_dcp_transport_payload payloads[DS4_GLM52_L0_RANK_COUNT];
+        ds4_glm52_dcp_exchange_request requests[DS4_GLM52_L0_RANK_COUNT];
+        uint64_t *selected[DS4_GLM52_L0_RANK_COUNT];
+        size_t selection_counts[DS4_GLM52_L0_RANK_COUNT];
+        ds4_glm52_dcp_bound_row_payload rows[
+            DS4_GLM52_L0_RANK_COUNT * SMOKE_DCP_PER_RANK_ROWS];
+        size_t row_count = 0;
+        ds4_glm52_dcp_row_payload reply_rows[
+            DS4_GLM52_L0_RANK_COUNT][SMOKE_DCP_SELECTIONS];
+        ds4_glm52_dcp_rank_reply replies[DS4_GLM52_L0_RANK_COUNT];
+
+        fill_dcp_owners(owners);
+        if (!make_dcp_transport_payload(
+                    cfg, 0, seq, &payloads[0], err, sizeof(err))) {
+            fprintf(stderr, "coordinator: make local DCP payload failed: %s\n",
+                    err);
+            close(listen_fd);
+            return 12;
+        }
+        for (int rank = 1; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+            if (!ds4_glm52_dcp_transport_recv_payload(
+                        fds[rank], &payloads[rank], err, sizeof(err))) {
+                fprintf(stderr, "coordinator: recv DCP payload rank %d failed: %s\n",
+                        rank, err);
+                close(listen_fd);
+                return 13;
+            }
+        }
+        for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+            size_t got_rows = 0;
+            if (!ds4_glm52_dcp_transport_payload_to_bound(
+                        &payloads[rank],
+                        &requests[rank],
+                        &selected[rank],
+                        &selection_counts[rank],
+                        &rows[row_count],
+                        (DS4_GLM52_L0_RANK_COUNT * SMOKE_DCP_PER_RANK_ROWS) -
+                            row_count,
+                        &got_rows,
+                        err,
+                        sizeof(err))) {
+                fprintf(stderr, "coordinator: decode DCP payload rank %d failed: %s\n",
+                        rank, err);
+                close(listen_fd);
+                return 14;
+            }
+            row_count += got_rows;
+        }
+        for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+            memset(reply_rows[rank], 0, sizeof(reply_rows[rank]));
+            memset(&replies[rank], 0, sizeof(replies[rank]));
+            replies[rank].requester_rank = rank;
+            replies[rank].rows = reply_rows[rank];
+            replies[rank].row_capacity = SMOKE_DCP_SELECTIONS;
+        }
+        if (!ds4_glm52_dcp_selected_rows_bound_host(
+                    requests,
+                    owners,
+                    rows,
+                    row_count,
+                    (const uint64_t *const *)selected,
+                    selection_counts,
+                    replies,
+                    err,
+                    sizeof(err))) {
+            fprintf(stderr, "coordinator: bound DCP payload exchange failed: %s\n",
+                    err);
+            close(listen_fd);
+            return 15;
+        }
+        for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+            if (!replies[rank].complete ||
+                replies[rank].row_count != SMOKE_DCP_SELECTIONS) {
+                fprintf(stderr, "coordinator: DCP reply rank %d incomplete\n",
+                        rank);
+                close(listen_fd);
+                return 16;
+            }
+        }
+        printf("coordinator: dcp payload rows=%zu replies=%d x %d\n",
+               row_count,
+               DS4_GLM52_L0_RANK_COUNT,
+               SMOKE_DCP_SELECTIONS);
+    }
     if (cfg->payload_floats > 0) {
         ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT];
         ds4_glm52_tp4_tensor_binding partial_bindings[DS4_GLM52_L0_RANK_COUNT];
@@ -726,7 +939,7 @@ static int run_coordinator(const smoke_config *cfg) {
 
 static int run_worker(const smoke_config *cfg) {
     char err[256] = {0};
-    if (cfg->payload_floats == 0) {
+    if (cfg->payload_floats == 0 && cfg->dcp_rows == 0) {
         ds4_glm52_tp4_fabric_ready_config ready_cfg = {
             .rank = cfg->rank,
             .endpoint = cfg->connect,
@@ -797,6 +1010,32 @@ static int run_worker(const smoke_config *cfg) {
            cfg->rank,
            ds4_glm52_tp4_command_name(command),
            (unsigned long long)seq);
+    if (cfg->dcp_rows > 0) {
+        if (command != DS4_GLM52_TP4_COMMAND_DECODE) {
+            fprintf(stderr, "worker%d: expected decode DCP command\n",
+                    cfg->rank);
+            close(fd);
+            return 6;
+        }
+        ds4_glm52_dcp_transport_payload payload;
+        if (!make_dcp_transport_payload(
+                    cfg, cfg->rank, seq, &payload, err, sizeof(err))) {
+            fprintf(stderr, "worker%d: make DCP payload failed: %s\n",
+                    cfg->rank, err);
+            close(fd);
+            return 7;
+        }
+        if (!ds4_glm52_dcp_transport_send_payload(
+                    fd, &payload, err, sizeof(err))) {
+            fprintf(stderr, "worker%d: send DCP payload failed: %s\n",
+                    cfg->rank, err);
+            close(fd);
+            return 8;
+        }
+        printf("worker%d: dcp payload sent rows=%llu\n",
+               cfg->rank,
+               (unsigned long long)payload.row_count);
+    }
     if (cfg->payload_floats > 0) {
         if (command != DS4_GLM52_TP4_COMMAND_DECODE) {
             fprintf(stderr, "worker%d: expected decode payload command\n",

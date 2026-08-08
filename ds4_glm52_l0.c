@@ -2415,6 +2415,155 @@ bool ds4_glm52_dcp_selected_rows_bound_host(
     return ok;
 }
 
+bool ds4_glm52_dcp_transport_payload_from_bound(
+        const ds4_glm52_dcp_exchange_request *request,
+        const uint64_t *selected_row_ids,
+        size_t selection_count,
+        const ds4_glm52_dcp_bound_row_payload *rows,
+        size_t row_count,
+        ds4_glm52_dcp_transport_payload *payload,
+        char *err,
+        size_t err_size) {
+    if (!request || !payload ||
+        (selection_count > 0 && !selected_row_ids) ||
+        (row_count > 0 && !rows)) {
+        set_error(err, err_size,
+                  "DCP transport payload requires request, selections, rows, and output storage");
+        return false;
+    }
+    if (selection_count > DS4_GLM52_DCP_TRANSPORT_MAX_SELECTIONS ||
+        row_count > DS4_GLM52_DCP_TRANSPORT_MAX_ROWS) {
+        set_error(err, err_size,
+                  "DCP transport payload exceeds fixed transport capacity");
+        return false;
+    }
+    if (request->selected_row_count < 0 ||
+        (size_t)request->selected_row_count != selection_count) {
+        set_error(err, err_size,
+                  "DCP transport payload selection count does not match request");
+        return false;
+    }
+
+    memset(payload, 0, sizeof(*payload));
+    payload->request = *request;
+    payload->selection_count = (uint64_t)selection_count;
+    payload->row_count = (uint64_t)row_count;
+    payload->present = true;
+    for (size_t i = 0; i < selection_count; i++) {
+        payload->selected_row_ids[i] = selected_row_ids[i];
+    }
+    for (size_t i = 0; i < row_count; i++) {
+        const ds4_glm52_dcp_bound_row_payload *src = &rows[i];
+        if (!src->ready ||
+            !src->row.present ||
+            src->kv_byte_count > DS4_GLM52_DCP_TRANSPORT_MAX_ROW_BYTES ||
+            src->k_rope_byte_count > DS4_GLM52_DCP_TRANSPORT_MAX_ROW_BYTES ||
+            !dcp_bound_range_ok(src->kv_handle,
+                                src->kv_byte_offset,
+                                src->kv_byte_count,
+                                src->kv_capacity_bytes) ||
+            !dcp_bound_range_ok(src->k_rope_handle,
+                                src->k_rope_byte_offset,
+                                src->k_rope_byte_count,
+                                src->k_rope_capacity_bytes)) {
+            set_error(err, err_size,
+                      "DCP transport payload row is not ready or exceeds byte capacity");
+            return false;
+        }
+        const void *kv = dcp_bound_ptr(src->kv_handle, src->kv_byte_offset);
+        const void *k_rope =
+            dcp_bound_ptr(src->k_rope_handle, src->k_rope_byte_offset);
+        if (ds4_glm52_dcp_payload_hash_host(kv, src->kv_byte_count) !=
+                src->row.kv_hash ||
+            ds4_glm52_dcp_payload_hash_host(k_rope,
+                                            src->k_rope_byte_count) !=
+                src->row.k_rope_hash) {
+            set_error(err, err_size,
+                      "DCP transport payload row hash does not match bytes");
+            return false;
+        }
+        ds4_glm52_dcp_transport_row *dst = &payload->rows[i];
+        dst->row = src->row;
+        dst->kv_byte_count = (uint64_t)src->kv_byte_count;
+        dst->k_rope_byte_count = (uint64_t)src->k_rope_byte_count;
+        memcpy(dst->kv_bytes, kv, src->kv_byte_count);
+        memcpy(dst->k_rope_bytes, k_rope, src->k_rope_byte_count);
+        dst->present = true;
+    }
+    return true;
+}
+
+bool ds4_glm52_dcp_transport_payload_to_bound(
+        ds4_glm52_dcp_transport_payload *payload,
+        ds4_glm52_dcp_exchange_request *request_out,
+        uint64_t **selected_row_ids_out,
+        size_t *selection_count_out,
+        ds4_glm52_dcp_bound_row_payload *rows_out,
+        size_t rows_out_capacity,
+        size_t *row_count_out,
+        char *err,
+        size_t err_size) {
+    if (!payload || !payload->present || !request_out ||
+        !selected_row_ids_out || !selection_count_out ||
+        !rows_out || !row_count_out) {
+        set_error(err, err_size,
+                  "DCP transport payload decode requires payload and output storage");
+        return false;
+    }
+    if (payload->selection_count > DS4_GLM52_DCP_TRANSPORT_MAX_SELECTIONS ||
+        payload->row_count > DS4_GLM52_DCP_TRANSPORT_MAX_ROWS ||
+        payload->row_count > rows_out_capacity) {
+        set_error(err, err_size,
+                  "DCP transport payload count exceeds receiver capacity");
+        return false;
+    }
+    if (payload->request.selected_row_count < 0 ||
+        (uint64_t)payload->request.selected_row_count !=
+            payload->selection_count) {
+        set_error(err, err_size,
+                  "DCP transport payload selection count does not match request");
+        return false;
+    }
+
+    *request_out = payload->request;
+    *selected_row_ids_out = payload->selected_row_ids;
+    *selection_count_out = (size_t)payload->selection_count;
+    *row_count_out = (size_t)payload->row_count;
+    for (size_t i = 0; i < (size_t)payload->row_count; i++) {
+        ds4_glm52_dcp_transport_row *src = &payload->rows[i];
+        if (!src->present ||
+            !src->row.present ||
+            src->kv_byte_count > DS4_GLM52_DCP_TRANSPORT_MAX_ROW_BYTES ||
+            src->k_rope_byte_count > DS4_GLM52_DCP_TRANSPORT_MAX_ROW_BYTES) {
+            set_error(err, err_size,
+                      "DCP transport payload row is missing or too large");
+            return false;
+        }
+        if (ds4_glm52_dcp_payload_hash_host(
+                    src->kv_bytes, (size_t)src->kv_byte_count) !=
+                src->row.kv_hash ||
+            ds4_glm52_dcp_payload_hash_host(
+                    src->k_rope_bytes, (size_t)src->k_rope_byte_count) !=
+                src->row.k_rope_hash) {
+            set_error(err, err_size,
+                      "DCP transport payload row hash does not match received bytes");
+            return false;
+        }
+        memset(&rows_out[i], 0, sizeof(rows_out[i]));
+        rows_out[i].row = src->row;
+        rows_out[i].kv_handle = src->kv_bytes;
+        rows_out[i].kv_byte_offset = 0;
+        rows_out[i].kv_byte_count = (size_t)src->kv_byte_count;
+        rows_out[i].kv_capacity_bytes = (size_t)src->kv_byte_count;
+        rows_out[i].k_rope_handle = src->k_rope_bytes;
+        rows_out[i].k_rope_byte_offset = 0;
+        rows_out[i].k_rope_byte_count = (size_t)src->k_rope_byte_count;
+        rows_out[i].k_rope_capacity_bytes = (size_t)src->k_rope_byte_count;
+        rows_out[i].ready = true;
+    }
+    return true;
+}
+
 ds4_glm52_l0_status ds4_glm52_dcp_real_row_exchange(
         const ds4_glm52_dcp_exchange_request *request,
         ds4_glm52_l0_result *result) {
@@ -3937,6 +4086,7 @@ typedef enum {
     DS4_GLM52_TP4_FRAME_HELLO = 1,
     DS4_GLM52_TP4_FRAME_COMMAND = 2,
     DS4_GLM52_TP4_FRAME_ACK = 3,
+    DS4_GLM52_TP4_FRAME_DCP_PAYLOAD = 4,
 } ds4_glm52_tp4_frame_type;
 
 typedef struct {
@@ -4699,4 +4849,50 @@ bool ds4_glm52_tp4_transport_recv_ack_and_record(
             payload.seq,
             err,
             err_size);
+}
+
+bool ds4_glm52_dcp_transport_send_payload(
+        int fd,
+        const ds4_glm52_dcp_transport_payload *payload,
+        char *err,
+        size_t err_size) {
+    if (!payload || !payload->present ||
+        payload->selection_count > DS4_GLM52_DCP_TRANSPORT_MAX_SELECTIONS ||
+        payload->row_count > DS4_GLM52_DCP_TRANSPORT_MAX_ROWS) {
+        set_error(err, err_size, "DCP transport payload is invalid");
+        return false;
+    }
+    return tp4_frame_write(fd,
+                           DS4_GLM52_TP4_FRAME_DCP_PAYLOAD,
+                           payload,
+                           sizeof(*payload),
+                           err,
+                           err_size);
+}
+
+bool ds4_glm52_dcp_transport_recv_payload(
+        int fd,
+        ds4_glm52_dcp_transport_payload *payload,
+        char *err,
+        size_t err_size) {
+    if (!payload) {
+        set_error(err, err_size, "DCP transport payload output is missing");
+        return false;
+    }
+    memset(payload, 0, sizeof(*payload));
+    if (!tp4_frame_read(fd,
+                        DS4_GLM52_TP4_FRAME_DCP_PAYLOAD,
+                        payload,
+                        sizeof(*payload),
+                        err,
+                        err_size)) {
+        return false;
+    }
+    if (!payload->present ||
+        payload->selection_count > DS4_GLM52_DCP_TRANSPORT_MAX_SELECTIONS ||
+        payload->row_count > DS4_GLM52_DCP_TRANSPORT_MAX_ROWS) {
+        set_error(err, err_size, "DCP transport payload frame is invalid");
+        return false;
+    }
+    return true;
 }

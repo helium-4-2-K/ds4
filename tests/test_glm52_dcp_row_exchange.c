@@ -350,6 +350,104 @@ static void test_l0_dcp_selected_rows_bound_host(void) {
           "L0 DCP bound exchange should allow unselected cold rows");
 }
 
+static void test_l0_dcp_transport_payload_roundtrip(void) {
+    ds4_glm52_dcp_owner_range owners[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_dcp_bound_row_payload catalog[TOTAL_L0_ROWS];
+    unsigned char kv_storage[TOTAL_L0_ROWS][KV_PAYLOAD_BYTES];
+    unsigned char k_rope_storage[TOTAL_L0_ROWS][K_ROPE_PAYLOAD_BYTES];
+    size_t catalog_count =
+        build_l0_dcp_bound_catalog(owners,
+                                   catalog,
+                                   kv_storage,
+                                   k_rope_storage);
+    const uint64_t selected0[] = {28, 5, 20, 2};
+    const uint64_t selected1[] = {25, 12, 3, 30};
+    const uint64_t selected2[] = {6, 18, 1, 27};
+    const uint64_t selected3[] = {23, 4, 15, 8};
+    const uint64_t *selected[DS4_GLM52_L0_RANK_COUNT] = {
+        selected0, selected1, selected2, selected3,
+    };
+    size_t counts[DS4_GLM52_L0_RANK_COUNT] = {4, 4, 4, 4};
+    ds4_glm52_dcp_exchange_request requests[DS4_GLM52_L0_RANK_COUNT];
+    build_l0_dcp_requests(requests, counts);
+
+    ds4_glm52_dcp_transport_payload payloads[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_dcp_bound_row_payload received[TOTAL_L0_ROWS];
+    size_t received_count = 0;
+    ds4_glm52_dcp_exchange_request received_requests[DS4_GLM52_L0_RANK_COUNT];
+    uint64_t *received_selected[DS4_GLM52_L0_RANK_COUNT];
+    size_t received_counts[DS4_GLM52_L0_RANK_COUNT];
+    char err[192] = "";
+
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        check(ds4_glm52_dcp_transport_payload_from_bound(
+                  &requests[rank],
+                  selected[rank],
+                  counts[rank],
+                  &catalog[rank * PER_RANK_ROWS],
+                  PER_RANK_ROWS,
+                  &payloads[rank],
+                  err,
+                  sizeof(err)),
+              "DCP transport should serialize bound owner rows");
+        size_t row_count = 0;
+        check(ds4_glm52_dcp_transport_payload_to_bound(
+                  &payloads[rank],
+                  &received_requests[rank],
+                  &received_selected[rank],
+                  &received_counts[rank],
+                  &received[received_count],
+                  TOTAL_L0_ROWS - received_count,
+                  &row_count,
+                  err,
+                  sizeof(err)),
+              "DCP transport should reconstruct bound row payloads");
+        received_count += row_count;
+    }
+    check(received_count == catalog_count,
+          "DCP transport should preserve the full owner-row catalog");
+
+    ds4_glm52_dcp_row_payload storage[DS4_GLM52_L0_RANK_COUNT][4];
+    ds4_glm52_dcp_rank_reply replies[DS4_GLM52_L0_RANK_COUNT];
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        memset(storage[rank], 0, sizeof(storage[rank]));
+        memset(&replies[rank], 0, sizeof(replies[rank]));
+        replies[rank].requester_rank = rank;
+        replies[rank].rows = storage[rank];
+        replies[rank].row_capacity = 4;
+    }
+    check(ds4_glm52_dcp_selected_rows_bound_host(
+              received_requests,
+              owners,
+              received,
+              received_count,
+              (const uint64_t *const *)received_selected,
+              received_counts,
+              replies,
+              err,
+              sizeof(err)),
+          "DCP transport payloads should feed the bound selected-row exchange");
+
+    payloads[2].rows[0].kv_bytes[0] ^= 1u;
+    ds4_glm52_dcp_exchange_request ignored_request;
+    uint64_t *ignored_selected = NULL;
+    size_t ignored_selection_count = 0;
+    size_t ignored_row_count = 0;
+    check(!ds4_glm52_dcp_transport_payload_to_bound(
+              &payloads[2],
+              &ignored_request,
+              &ignored_selected,
+              &ignored_selection_count,
+              received,
+              TOTAL_L0_ROWS,
+              &ignored_row_count,
+              err,
+              sizeof(err)),
+          "DCP transport should reject received payload hash mismatches");
+    check(strstr(err, "hash") != NULL,
+          "DCP transport hash rejection should name hash");
+}
+
 static void expect_exchange_invalid(const ds4_glm52_dcp_plan *plan,
                                     const ds4_glm52_dcp_row *rows,
                                     size_t row_count,
@@ -706,6 +804,7 @@ static void test_layer_position_ordering(void) {
 int main(void) {
     test_l0_dcp_selected_rows_host();
     test_l0_dcp_selected_rows_bound_host();
+    test_l0_dcp_transport_payload_roundtrip();
     test_reject_missing_owner_rank();
     test_reject_duplicate_owner();
     test_reject_out_of_range();

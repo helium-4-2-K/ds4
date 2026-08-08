@@ -445,6 +445,28 @@ typedef struct {
     bool complete;
 } ds4_glm52_dcp_rank_reply;
 
+#define DS4_GLM52_DCP_TRANSPORT_MAX_SELECTIONS 16
+#define DS4_GLM52_DCP_TRANSPORT_MAX_ROWS 16
+#define DS4_GLM52_DCP_TRANSPORT_MAX_ROW_BYTES 64
+
+typedef struct {
+    ds4_glm52_dcp_row_payload row;
+    uint64_t kv_byte_count;
+    uint64_t k_rope_byte_count;
+    unsigned char kv_bytes[DS4_GLM52_DCP_TRANSPORT_MAX_ROW_BYTES];
+    unsigned char k_rope_bytes[DS4_GLM52_DCP_TRANSPORT_MAX_ROW_BYTES];
+    bool present;
+} ds4_glm52_dcp_transport_row;
+
+typedef struct {
+    ds4_glm52_dcp_exchange_request request;
+    uint64_t selected_row_ids[DS4_GLM52_DCP_TRANSPORT_MAX_SELECTIONS];
+    uint64_t selection_count;
+    ds4_glm52_dcp_transport_row rows[DS4_GLM52_DCP_TRANSPORT_MAX_ROWS];
+    uint64_t row_count;
+    bool present;
+} ds4_glm52_dcp_transport_payload;
+
 typedef struct {
     int rank;
     int input_token;
@@ -564,6 +586,25 @@ bool ds4_glm52_dcp_selected_rows_bound_host(
 ds4_glm52_l0_status ds4_glm52_dcp_real_row_exchange(
         const ds4_glm52_dcp_exchange_request *request,
         ds4_glm52_l0_result *result);
+bool ds4_glm52_dcp_transport_payload_from_bound(
+        const ds4_glm52_dcp_exchange_request *request,
+        const uint64_t *selected_row_ids,
+        size_t selection_count,
+        const ds4_glm52_dcp_bound_row_payload *rows,
+        size_t row_count,
+        ds4_glm52_dcp_transport_payload *payload,
+        char *err,
+        size_t err_size);
+bool ds4_glm52_dcp_transport_payload_to_bound(
+        ds4_glm52_dcp_transport_payload *payload,
+        ds4_glm52_dcp_exchange_request *request_out,
+        uint64_t **selected_row_ids_out,
+        size_t *selection_count_out,
+        ds4_glm52_dcp_bound_row_payload *rows_out,
+        size_t rows_out_capacity,
+        size_t *row_count_out,
+        char *err,
+        size_t err_size);
 ds4_glm52_l0_status ds4_glm52_decode_real_step(
         const ds4_glm52_l0_config *cfg,
         const ds4_glm52_decode_real_request *request,
@@ -722,6 +763,16 @@ bool ds4_glm52_tp4_transport_send_ack(
 bool ds4_glm52_tp4_transport_recv_ack_and_record(
         int fd,
         ds4_glm52_tp4_rank_group *group,
+        char *err,
+        size_t err_size);
+bool ds4_glm52_dcp_transport_send_payload(
+        int fd,
+        const ds4_glm52_dcp_transport_payload *payload,
+        char *err,
+        size_t err_size);
+bool ds4_glm52_dcp_transport_recv_payload(
+        int fd,
+        ds4_glm52_dcp_transport_payload *payload,
         char *err,
         size_t err_size);
 bool ds4_glm52_tp4_tcp_parse_endpoint(
