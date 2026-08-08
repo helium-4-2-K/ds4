@@ -134,9 +134,21 @@ Completed implementation slices:
     host-buffer ATTN/FFN all-reduce boundary: four rank-indexed validated
     frames plus four rank-local F32 partial buffers produce identical
     replicated outputs for all four ranks;
+  - `ds4_glm52_tp4_collective_bind_tensor_buffers` validates the real backend
+    handoff for ATTN/FFN collectives: each rank must bind a ready rank-local
+    partial tensor and ready replicated-output tensor whose opaque handle,
+    rank, dtype, shape hash, byte count, dtype alignment, and byte range
+    capacity match the collective frame before backend execution may run;
   - `ds4_glm52_tp4_logits_gather_topk_f32_host` realizes the first
     host-buffer logits gather/top-k boundary: LOGITS frames plus contiguous
     rank-owned vocab shards merge deterministic global top-k entries on rank 0;
+    LOGITS frame `element_count` now names the full rank-owned vocab shard
+    width, while `candidate_count` names the local candidates already selected
+    from that shard;
+  - `ds4_glm52_tp4_logits_bind_tensor_shards` validates the real backend
+    handoff for rank-owned logits buffers: four LOGITS frames must agree on
+    identity and bind contiguous full-vocab shard tensors before global top-k
+    execution may run;
   - typed real DCP selected-row exchange validation rejects incomplete owner
     maps, invalid identity, and non-append-ordered KV evidence before
     execution;
@@ -711,8 +723,9 @@ Implementation:
   cursor, participant mask, and readiness bits must decode and validate before
   any payload execution. Hello/command/ack frames remain the smoke transport
   control format, not a versioned multi-release protocol.
-- Before binding real buffers, preserve the portable-frame payload smoke as a
-  regression gate for backend replacement and collective integration.
+- Keep the tensor-binding validators as the narrow real-buffer gate for backend
+  replacement: production code may swap in GPU/fabric execution only after the
+  same frames and tensor bindings pass unchanged.
 
 Current realization:
 

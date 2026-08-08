@@ -106,6 +106,77 @@ static void free_float_buffers(float *buffers[DS4_GLM52_L0_RANK_COUNT]) {
     }
 }
 
+static ds4_glm52_tp4_tensor_binding make_tensor_binding(
+        int rank,
+        const void *handle,
+        const ds4_glm52_tp4_collective_request *req) {
+    ds4_glm52_tp4_tensor_binding binding;
+    memset(&binding, 0, sizeof(binding));
+    binding.rank = rank;
+    binding.handle = handle;
+    binding.byte_offset = 0;
+    binding.byte_count = req->byte_count;
+    binding.capacity_bytes = req->byte_count + 64;
+    binding.dtype = req->dtype;
+    binding.shape_hash = req->shape_hash;
+    binding.ready = true;
+    return binding;
+}
+
+static void test_l0_collective_tensor_bindings(void) {
+    const size_t n = DS4_GLM52_MOCK_N_EMBD;
+    ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_tp4_tensor_binding partials[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_tp4_tensor_binding outputs[DS4_GLM52_L0_RANK_COUNT];
+    int partial_handles[DS4_GLM52_L0_RANK_COUNT];
+    int output_handles[DS4_GLM52_L0_RANK_COUNT];
+    char err[192] = "";
+
+    make_l0_requests(requests, DS4_GLM52_TP4_COLLECTIVE_ATTN, 25, 16, n);
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        partial_handles[rank] = 100 + rank;
+        output_handles[rank] = 200 + rank;
+        partials[rank] =
+            make_tensor_binding(rank, &partial_handles[rank], &requests[rank]);
+        outputs[rank] =
+            make_tensor_binding(rank, &output_handles[rank], &requests[rank]);
+    }
+    check(ds4_glm52_tp4_collective_bind_tensor_buffers(
+              requests, partials, outputs, n, err, sizeof(err)),
+          "L0 tensor binding should accept valid attention partial/output buffers");
+
+    ds4_glm52_tp4_tensor_binding bad_outputs[DS4_GLM52_L0_RANK_COUNT];
+    memcpy(bad_outputs, outputs, sizeof(bad_outputs));
+    bad_outputs[2].capacity_bytes = bad_outputs[2].byte_count - 1;
+    check(!ds4_glm52_tp4_collective_bind_tensor_buffers(
+              requests, partials, bad_outputs, n, err, sizeof(err)),
+          "L0 tensor binding should reject output capacity underruns");
+    check(strstr(err, "capacity") != NULL,
+          "L0 tensor binding capacity rejection should name capacity");
+
+    ds4_glm52_tp4_tensor_binding bad_partials[DS4_GLM52_L0_RANK_COUNT];
+    memcpy(bad_partials, partials, sizeof(bad_partials));
+    bad_partials[1].shape_hash++;
+    check(!ds4_glm52_tp4_collective_bind_tensor_buffers(
+              requests, bad_partials, outputs, n, err, sizeof(err)),
+          "L0 tensor binding should reject shape mismatches");
+    check(strstr(err, "shape") != NULL,
+          "L0 tensor binding shape rejection should name shape metadata");
+
+    make_l0_requests(requests, DS4_GLM52_TP4_COLLECTIVE_LOGITS, 26, 17, n);
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        partials[rank] =
+            make_tensor_binding(rank, &partial_handles[rank], &requests[rank]);
+        outputs[rank] =
+            make_tensor_binding(rank, &output_handles[rank], &requests[rank]);
+    }
+    check(!ds4_glm52_tp4_collective_bind_tensor_buffers(
+              requests, partials, outputs, n, err, sizeof(err)),
+          "L0 tensor binding should reject logits for all-reduce binding");
+    check(strstr(err, "attention or FFN") != NULL,
+          "L0 tensor binding kind rejection should name supported kinds");
+}
+
 static void test_l0_host_allreduce_buffers(void) {
     const size_t n = DS4_GLM52_MOCK_N_EMBD;
     ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT];
@@ -219,6 +290,75 @@ static void fill_logits_shards(
     scores[3][2] = 4.0f;
 }
 
+static void fill_logits_tensor_shards(
+        const ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT],
+        ds4_glm52_tp4_logits_tensor_shard shards[DS4_GLM52_L0_RANK_COUNT],
+        int handles[DS4_GLM52_L0_RANK_COUNT]) {
+    const int shard_width = DS4_GLM52_L0_VOCAB_SIZE / DS4_GLM52_L0_RANK_COUNT;
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        const int start = rank * shard_width;
+        const int end = (rank == DS4_GLM52_L0_RANK_COUNT - 1)
+            ? DS4_GLM52_L0_VOCAB_SIZE
+            : start + shard_width;
+        handles[rank] = 300 + rank;
+        memset(&shards[rank], 0, sizeof(shards[rank]));
+        shards[rank].rank = rank;
+        shards[rank].vocab_start = start;
+        shards[rank].vocab_end = end;
+        shards[rank].logits =
+            make_tensor_binding(rank, &handles[rank], &requests[rank]);
+        shards[rank].present = true;
+    }
+}
+
+static void test_l0_logits_tensor_bindings(void) {
+    const size_t shard_width =
+        DS4_GLM52_L0_VOCAB_SIZE / DS4_GLM52_L0_RANK_COUNT;
+    ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_tp4_logits_tensor_shard shards[DS4_GLM52_L0_RANK_COUNT];
+    int handles[DS4_GLM52_L0_RANK_COUNT];
+    char err[192] = "";
+
+    make_l0_requests(requests,
+                     DS4_GLM52_TP4_COLLECTIVE_LOGITS,
+                     32,
+                     18,
+                     shard_width);
+    fill_logits_tensor_shards(requests, shards, handles);
+    check(ds4_glm52_tp4_logits_bind_tensor_shards(
+              requests, shards, err, sizeof(err)),
+          "L0 logits tensor binding should accept full contiguous vocab shards");
+
+    ds4_glm52_tp4_logits_tensor_shard bad_shards[DS4_GLM52_L0_RANK_COUNT];
+    memcpy(bad_shards, shards, sizeof(bad_shards));
+    bad_shards[1].vocab_start++;
+    check(!ds4_glm52_tp4_logits_bind_tensor_shards(
+              requests, bad_shards, err, sizeof(err)),
+          "L0 logits tensor binding should reject vocab coverage gaps");
+    check(strstr(err, "vocab shards") != NULL,
+          "L0 logits tensor binding coverage rejection should name vocab shards");
+
+    memcpy(bad_shards, shards, sizeof(bad_shards));
+    bad_shards[3].logits.capacity_bytes =
+        bad_shards[3].logits.byte_count - 1;
+    check(!ds4_glm52_tp4_logits_bind_tensor_shards(
+              requests, bad_shards, err, sizeof(err)),
+          "L0 logits tensor binding should reject undersized logits buffers");
+    check(strstr(err, "capacity") != NULL,
+          "L0 logits tensor binding capacity rejection should name capacity");
+
+    requests[2].element_count--;
+    requests[2].byte_count =
+        requests[2].element_count *
+        ds4_glm52_tp4_tensor_dtype_size(requests[2].dtype);
+    check(!ds4_glm52_tp4_logits_bind_tensor_shards(
+              requests, shards, err, sizeof(err)),
+          "L0 logits tensor binding should reject metadata that no longer matches shard width");
+    check(strstr(err, "identity") != NULL ||
+          strstr(err, "shard width") != NULL,
+          "L0 logits tensor binding width rejection should name identity or shard width");
+}
+
 static void test_l0_logits_gather_topk(void) {
     ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT];
     ds4_glm52_tp4_logits_rank_candidates shards[DS4_GLM52_L0_RANK_COUNT];
@@ -228,7 +368,11 @@ static void test_l0_logits_gather_topk(void) {
     char err[192] = "";
 
     fill_logits_shards(shards, token_ids, scores);
-    make_l0_requests(requests, DS4_GLM52_TP4_COLLECTIVE_LOGITS, 31, 15, 3);
+    make_l0_requests(requests,
+                     DS4_GLM52_TP4_COLLECTIVE_LOGITS,
+                     31,
+                     15,
+                     DS4_GLM52_L0_VOCAB_SIZE / DS4_GLM52_L0_RANK_COUNT);
     check(ds4_glm52_tp4_logits_gather_topk_f32_host(
               requests,
               shards,
@@ -581,7 +725,9 @@ static void test_allreduce_rejects_shape_dtype_and_nonfinite(void) {
 
 int main(void) {
     test_l0_host_allreduce_buffers();
+    test_l0_collective_tensor_bindings();
     test_l0_logits_gather_topk();
+    test_l0_logits_tensor_bindings();
     test_allreduce_sums_in_rank_order();
     test_allreduce_rejects_missing_and_duplicate_ranks();
     test_allreduce_rejects_identity_mismatches();

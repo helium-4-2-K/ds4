@@ -1376,6 +1376,137 @@ bool ds4_glm52_tp4_collective_allreduce_f32_host(
     return true;
 }
 
+static bool tensor_binding_range_ok(const ds4_glm52_tp4_tensor_binding *binding,
+                                    size_t dtype_size) {
+    if (!binding || dtype_size == 0) return false;
+    if (binding->byte_count == 0 || binding->capacity_bytes == 0) return false;
+    if ((binding->byte_offset % dtype_size) != 0 ||
+        (binding->byte_count % dtype_size) != 0) {
+        return false;
+    }
+    if (binding->byte_offset > binding->capacity_bytes) return false;
+    return binding->byte_count <= binding->capacity_bytes - binding->byte_offset;
+}
+
+static bool validate_tp4_tensor_binding(
+        const char *name,
+        const ds4_glm52_tp4_tensor_binding *binding,
+        int rank,
+        ds4_glm52_tp4_tensor_dtype dtype,
+        uint64_t shape_hash,
+        size_t byte_count,
+        char *err,
+        size_t err_size) {
+    const size_t dtype_size = ds4_glm52_tp4_tensor_dtype_size(dtype);
+    if (!binding || !binding->handle || !binding->ready) {
+        char msg[192];
+        snprintf(msg, sizeof(msg),
+                 "%s tensor binding requires a non-null ready tensor handle",
+                 name ? name : "TP4");
+        set_error(err, err_size, msg);
+        return false;
+    }
+    if (binding->rank != rank) {
+        char msg[192];
+        snprintf(msg, sizeof(msg),
+                 "%s tensor binding must be indexed by rank",
+                 name ? name : "TP4");
+        set_error(err, err_size, msg);
+        return false;
+    }
+    if (binding->dtype != dtype ||
+        binding->shape_hash != shape_hash ||
+        binding->byte_count != byte_count) {
+        char msg[192];
+        snprintf(msg, sizeof(msg),
+                 "%s tensor binding dtype, shape, or byte count does not match collective metadata",
+                 name ? name : "TP4");
+        set_error(err, err_size, msg);
+        return false;
+    }
+    if (!tensor_binding_range_ok(binding, dtype_size)) {
+        char msg[192];
+        snprintf(msg, sizeof(msg),
+                 "%s tensor binding byte range exceeds tensor capacity or is not dtype-aligned",
+                 name ? name : "TP4");
+        set_error(err, err_size, msg);
+        return false;
+    }
+    return true;
+}
+
+bool ds4_glm52_tp4_collective_bind_tensor_buffers(
+        const ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_tp4_tensor_binding partials[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_tp4_tensor_binding outputs[DS4_GLM52_L0_RANK_COUNT],
+        size_t element_count,
+        char *err,
+        size_t err_size) {
+    if (!requests || !partials || !outputs || element_count == 0) {
+        set_error(err, err_size,
+                  "TP4 tensor binding requires frames, partial tensors, output tensors, and nonzero elements");
+        return false;
+    }
+
+    const ds4_glm52_tp4_collective_request *ref = &requests[0];
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        const ds4_glm52_tp4_collective_request *req = &requests[rank];
+        if (!ds4_glm52_tp4_collective_frame_validate(
+                    req, err, err_size)) {
+            return false;
+        }
+        if (req->rank != rank) {
+            set_error(err, err_size,
+                      "TP4 tensor binding request array must be indexed by rank");
+            return false;
+        }
+        if (!collective_f32_allreduce_kind(req->kind)) {
+            set_error(err, err_size,
+                      "TP4 tensor binding only accepts attention or FFN collectives");
+            return false;
+        }
+        if (!req->topology_ready ||
+            !req->transport_ready ||
+            !req->rank_local_partial_ready ||
+            !req->replicated_output_ready) {
+            set_error(err, err_size,
+                      "TP4 tensor binding requires topology, transport, rank-local partial, and replicated output readiness");
+            return false;
+        }
+        if (req->element_count != element_count) {
+            set_error(err, err_size,
+                      "TP4 tensor binding element count does not match frame metadata");
+            return false;
+        }
+        if (rank != 0 && !same_collective_identity(ref, req)) {
+            set_error(err, err_size,
+                      "TP4 tensor binding rank frames disagree on collective identity");
+            return false;
+        }
+        if (!validate_tp4_tensor_binding("TP4 rank-local partial",
+                                         &partials[rank],
+                                         rank,
+                                         req->dtype,
+                                         req->shape_hash,
+                                         req->byte_count,
+                                         err,
+                                         err_size)) {
+            return false;
+        }
+        if (!validate_tp4_tensor_binding("TP4 replicated output",
+                                         &outputs[rank],
+                                         rank,
+                                         req->dtype,
+                                         req->shape_hash,
+                                         req->byte_count,
+                                         err,
+                                         err_size)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static bool logits_candidate_better(
         const ds4_glm52_tp4_logits_topk_entry *a,
         const ds4_glm52_tp4_logits_topk_entry *b) {
@@ -1448,9 +1579,16 @@ bool ds4_glm52_tp4_logits_gather_topk_f32_host(
             !shard->token_ids ||
             !shard->scores ||
             shard->candidate_count == 0 ||
-            shard->candidate_count != req->element_count) {
+            shard->candidate_count > req->element_count) {
             set_error(err, err_size,
                       "TP4 logits gather/top-k requires contiguous rank vocab shards and score candidates");
+            return false;
+        }
+        const size_t shard_width =
+            (size_t)(shard->vocab_end - shard->vocab_start);
+        if (req->element_count != shard_width) {
+            set_error(err, err_size,
+                      "TP4 logits gather/top-k frame element count must describe the full rank-owned vocab shard");
             return false;
         }
         expected_vocab_start = shard->vocab_end;
@@ -1506,6 +1644,85 @@ bool ds4_glm52_tp4_logits_gather_topk_f32_host(
                       "TP4 logits gather/top-k failed to fill requested output");
             return false;
         }
+    }
+    return true;
+}
+
+bool ds4_glm52_tp4_logits_bind_tensor_shards(
+        const ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_tp4_logits_tensor_shard shards[DS4_GLM52_L0_RANK_COUNT],
+        char *err,
+        size_t err_size) {
+    if (!requests || !shards) {
+        set_error(err, err_size,
+                  "TP4 logits tensor binding requires frames and rank-local logits shards");
+        return false;
+    }
+
+    const ds4_glm52_tp4_collective_request *ref = &requests[0];
+    int expected_vocab_start = 0;
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        const ds4_glm52_tp4_collective_request *req = &requests[rank];
+        const ds4_glm52_tp4_logits_tensor_shard *shard = &shards[rank];
+        if (!ds4_glm52_tp4_collective_frame_validate(
+                    req, err, err_size)) {
+            return false;
+        }
+        if (req->rank != rank || req->kind != DS4_GLM52_TP4_COLLECTIVE_LOGITS) {
+            set_error(err, err_size,
+                      "TP4 logits tensor binding requires LOGITS frames indexed by rank");
+            return false;
+        }
+        if (req->dtype != DS4_GLM52_TP4_TENSOR_DTYPE_F32) {
+            set_error(err, err_size,
+                      "TP4 logits tensor binding currently requires f32 logits shards");
+            return false;
+        }
+        if (!req->topology_ready ||
+            !req->transport_ready ||
+            !req->rank_local_partial_ready ||
+            !req->replicated_output_ready) {
+            set_error(err, err_size,
+                      "TP4 logits tensor binding requires topology, transport, rank-local logits, and coordinator output readiness");
+            return false;
+        }
+        if (rank != 0 && !same_collective_identity(ref, req)) {
+            set_error(err, err_size,
+                      "TP4 logits tensor binding rank frames disagree on collective identity");
+            return false;
+        }
+        if (!shard->present ||
+            shard->rank != rank ||
+            shard->vocab_start != expected_vocab_start ||
+            shard->vocab_end <= shard->vocab_start ||
+            shard->vocab_end > DS4_GLM52_L0_VOCAB_SIZE) {
+            set_error(err, err_size,
+                      "TP4 logits tensor binding requires contiguous rank vocab shards indexed by rank");
+            return false;
+        }
+        const size_t shard_width =
+            (size_t)(shard->vocab_end - shard->vocab_start);
+        if (req->element_count != shard_width) {
+            set_error(err, err_size,
+                      "TP4 logits tensor binding frame element count must match the rank vocab shard width");
+            return false;
+        }
+        if (!validate_tp4_tensor_binding("TP4 rank-local logits",
+                                         &shard->logits,
+                                         rank,
+                                         req->dtype,
+                                         req->shape_hash,
+                                         req->byte_count,
+                                         err,
+                                         err_size)) {
+            return false;
+        }
+        expected_vocab_start = shard->vocab_end;
+    }
+    if (expected_vocab_start != DS4_GLM52_L0_VOCAB_SIZE) {
+        set_error(err, err_size,
+                  "TP4 logits tensor binding vocab shard coverage is incomplete");
+        return false;
     }
     return true;
 }

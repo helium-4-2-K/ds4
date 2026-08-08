@@ -47,7 +47,16 @@ work.
     identical replicated hidden outputs in deterministic rank order.
   - Host-buffer LOGITS helper validates four rank-indexed LOGITS frames and
     contiguous vocab shard coverage, then merges rank-local candidates into a
-    deterministic global top-k list.
+    deterministic global top-k list. The LOGITS frame element count now names
+    the full rank-owned vocab shard width; `candidate_count` is only the
+    already-local candidate list consumed by host top-k.
+  - Tensor-binding validators:
+    `ds4_glm52_tp4_collective_bind_tensor_buffers` and
+    `ds4_glm52_tp4_logits_bind_tensor_shards`.
+  - Binding evidence validates the real backend handoff metadata before any
+    execution: opaque tensor/storage handle presence, rank indexing, readiness,
+    dtype, shape hash, byte count, dtype-aligned byte range, capacity, full
+    frame identity, and LOGITS contiguous vocab coverage.
 
 - DCP selected-row real boundary
   - Code: `ds4_glm52_dcp_real_row_exchange`.
@@ -89,9 +98,9 @@ work.
 - `make -B tests/test_glm52_l0 && ./tests/test_glm52_l0`: PASS.
 - `make -B tests/glm52_tp4_fabric_smoke`: PASS.
 - BCD lint:
-  `dev-artifacts/validation/lint-after-host-collectives.result.json`: PASS.
+  `dev-artifacts/validation/lint-after-buffer-bindings.result.json`: PASS.
 - BCD TP4 leaf validation:
-  `dev-artifacts/validation/validate-tp4-leaves-after-host-collectives.result.json`:
+  `dev-artifacts/validation/validate-tp4-leaves-after-buffer-bindings.result.json`:
   PASS.
 - BCD decode full-trace simulation:
   `dev-artifacts/validation/simulate-decode-after-host-collectives.result.json`:
@@ -109,7 +118,9 @@ work.
   tests/test_engine_mgpu_placement tests/test_gpu_args` plus direct execution
   of those tests and `tests/test_gpu_args_cli.sh`: PASS.
 - `tests/test_glm52_tp4_allreduce`: PASS. Covers L0 host-buffer ATTN/FFN
-  all-reduce and L0 host-buffer logits gather/top-k.
+  all-reduce, tensor binding validation for all-reduce partial/output buffers,
+  L0 host-buffer logits gather/top-k, and tensor binding validation for
+  rank-owned logits shards.
 - `tests/test_glm52_dcp_row_exchange`: PASS. Covers L0 host-buffer DCP
   selected-row exchange plus the existing DCP mock exchange.
 - New `tests/test_glm52_l0.c` coverage:
@@ -125,6 +136,7 @@ work.
 - Real mmap handles and tensor object publication from model-load.
 - Real GPU-resident GLM 5.2 QKV/MLA/MoE/logits kernels.
 - GPU/NCCL or fabric-native tensor all-reduce and logits gather/top-k across
-  four GX10 ranks using actual GLM buffers.
+  four GX10 ranks using the validated tensor binding descriptors as the real
+  payload handoff.
 - GPU/fabric-backed DCP selected-row network exchange for compact KV payloads.
 - Cross-GX10 launch, endpoint files, failure deadlines, and deployment smoke.
