@@ -27,10 +27,12 @@ work.
 - TP4 collective real boundary
   - Code: `ds4_glm52_tp4_real_collective_allreduce`.
   - Type: `ds4_glm52_tp4_collective_request`.
-  - Validates collective kind, rank in `[0,4)`, TP4/DCP4/rank_count=4, full
-    participant mask, nonzero sequence/model/session identity, layer, dtype,
-    element count, topology readiness, tensor transport readiness, rank-local
-    partial readiness, and replicated output buffer readiness.
+  - Validates collective frame version, collective kind, rank in `[0,4)`,
+    TP4/DCP4/rank_count=4, supported tensor dtype, full participant mask,
+    nonzero sequence/model/session identity, layer, shape hash, element count,
+    byte count matching `element_count * dtype_size`, topology readiness,
+    tensor transport readiness, rank-local partial readiness, and replicated
+    output buffer readiness.
   - Returns `NOT_READY` after validation because real tensor all-reduce
     execution is not implemented behind this boundary yet.
 
@@ -69,7 +71,9 @@ work.
 - `make -B tests/test_glm52_l0 && ./tests/test_glm52_l0`: PASS.
 - New `tests/test_glm52_l0.c` coverage:
   - `test_model_load_layout_reaches_ready_rank_engines`;
-  - `test_real_collective_frontier_fails_closed`;
+  - `test_real_collective_frontier_fails_closed`, including frame-version,
+    dtype, shape-hash, byte-count, participant, transport, and fail-closed
+    execution checks;
   - `test_real_dcp_exchange_frontier_fails_closed`;
   - `test_real_decode_frontier_preserves_cursor`.
 

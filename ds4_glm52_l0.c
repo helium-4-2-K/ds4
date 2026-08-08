@@ -1000,10 +1000,51 @@ const char *ds4_glm52_tp4_collective_kind_name(
     }
 }
 
+const char *ds4_glm52_tp4_tensor_dtype_name(
+        ds4_glm52_tp4_tensor_dtype dtype) {
+    switch (dtype) {
+    case DS4_GLM52_TP4_TENSOR_DTYPE_F32:
+        return "f32";
+    case DS4_GLM52_TP4_TENSOR_DTYPE_BF16:
+        return "bf16";
+    case DS4_GLM52_TP4_TENSOR_DTYPE_FP8_E4M3:
+        return "fp8_e4m3";
+    default:
+        return "invalid";
+    }
+}
+
+size_t ds4_glm52_tp4_tensor_dtype_size(
+        ds4_glm52_tp4_tensor_dtype dtype) {
+    switch (dtype) {
+    case DS4_GLM52_TP4_TENSOR_DTYPE_F32:
+        return 4;
+    case DS4_GLM52_TP4_TENSOR_DTYPE_BF16:
+        return 2;
+    case DS4_GLM52_TP4_TENSOR_DTYPE_FP8_E4M3:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
 static bool valid_collective_kind(ds4_glm52_tp4_collective_kind kind) {
     return kind == DS4_GLM52_TP4_COLLECTIVE_ATTN ||
            kind == DS4_GLM52_TP4_COLLECTIVE_FFN ||
            kind == DS4_GLM52_TP4_COLLECTIVE_LOGITS;
+}
+
+static bool valid_tensor_dtype(ds4_glm52_tp4_tensor_dtype dtype) {
+    return ds4_glm52_tp4_tensor_dtype_size(dtype) != 0;
+}
+
+static bool collective_byte_count_ok(size_t element_count,
+                                     ds4_glm52_tp4_tensor_dtype dtype,
+                                     size_t byte_count) {
+    const size_t dtype_size = ds4_glm52_tp4_tensor_dtype_size(dtype);
+    if (element_count == 0 || dtype_size == 0) return false;
+    if (element_count > SIZE_MAX / dtype_size) return false;
+    return byte_count == element_count * dtype_size;
 }
 
 ds4_glm52_l0_status ds4_glm52_tp4_real_collective_allreduce(
@@ -1014,6 +1055,13 @@ ds4_glm52_l0_status ds4_glm52_tp4_real_collective_allreduce(
                    DS4_GLM52_L0_STATUS_INVALID,
                    DS4_GLM52_L0_ACTION_DECODE_TOKEN,
                    "real TP4 collective request is missing");
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+    if (request->frame_version != DS4_GLM52_TP4_COLLECTIVE_FRAME_VERSION) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_INVALID,
+                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+                   "real TP4 collective requires collective frame version 1");
         return DS4_GLM52_L0_STATUS_INVALID;
     }
     if (!valid_collective_kind(request->kind)) {
@@ -1034,6 +1082,13 @@ ds4_glm52_l0_status ds4_glm52_tp4_real_collective_allreduce(
                    "real TP4 collective requires rank in [0,4) with TP4/DCP4/rank_count=4");
         return DS4_GLM52_L0_STATUS_INVALID;
     }
+    if (!valid_tensor_dtype(request->dtype)) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_INVALID,
+                   DS4_GLM52_L0_ACTION_DECODE_TOKEN,
+                   "real TP4 collective requires a supported tensor dtype");
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
     if (request->participant_mask != l0_full_rank_mask()) {
         set_result(result,
                    DS4_GLM52_L0_STATUS_INVALID,
@@ -1045,12 +1100,16 @@ ds4_glm52_l0_status ds4_glm52_tp4_real_collective_allreduce(
         request->model_hash == 0 ||
         request->session_hash == 0 ||
         request->element_count == 0 ||
+        request->shape_hash == 0 ||
+        request->byte_count == 0 ||
         request->layer_index < 0 ||
-        request->dtype == 0) {
+        !collective_byte_count_ok(request->element_count,
+                                  request->dtype,
+                                  request->byte_count)) {
         set_result(result,
                    DS4_GLM52_L0_STATUS_INVALID,
                    DS4_GLM52_L0_ACTION_DECODE_TOKEN,
-                   "real TP4 collective requires nonzero identity, dtype, layer, and tensor shape evidence");
+                   "real TP4 collective requires nonzero identity, layer, shape hash, element count, and matching dtype byte count");
         return DS4_GLM52_L0_STATUS_INVALID;
     }
     if (!request->topology_ready || !request->transport_ready) {

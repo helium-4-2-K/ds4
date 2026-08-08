@@ -1696,18 +1696,22 @@ static uint32_t full_rank_mask(void) {
 static ds4_glm52_tp4_collective_request valid_real_collective_request(void) {
     ds4_glm52_tp4_collective_request req;
     memset(&req, 0, sizeof(req));
+    req.frame_version = DS4_GLM52_TP4_COLLECTIVE_FRAME_VERSION;
     req.kind = DS4_GLM52_TP4_COLLECTIVE_ATTN;
     req.rank = 2;
     req.tp_size = DS4_GLM52_L0_TP_SIZE;
     req.dcp_size = DS4_GLM52_L0_DCP_SIZE;
     req.rank_count = DS4_GLM52_L0_RANK_COUNT;
     req.layer_index = 7;
-    req.dtype = 1;
+    req.dtype = DS4_GLM52_TP4_TENSOR_DTYPE_F32;
     req.seq = 44;
     req.model_hash = 55;
     req.session_hash = 66;
     req.token_step_j = 19;
     req.element_count = 6144;
+    req.shape_hash = 0x6144f32u;
+    req.byte_count =
+        req.element_count * ds4_glm52_tp4_tensor_dtype_size(req.dtype);
     req.participant_mask = full_rank_mask();
     req.topology_ready = true;
     req.transport_ready = true;
@@ -1721,9 +1725,48 @@ static void test_real_collective_frontier_fails_closed(void) {
     ds4_glm52_tp4_collective_request req =
         valid_real_collective_request();
 
-    req.participant_mask = 0x7u;
+    check(strcmp(ds4_glm52_tp4_tensor_dtype_name(
+                     DS4_GLM52_TP4_TENSOR_DTYPE_BF16), "bf16") == 0,
+          "tensor dtype names should be stable");
+    check(ds4_glm52_tp4_tensor_dtype_size(
+              DS4_GLM52_TP4_TENSOR_DTYPE_FP8_E4M3) == 1,
+          "tensor dtype byte sizes should be stable");
+
+    req.frame_version = 99;
     ds4_glm52_l0_status status =
         ds4_glm52_tp4_real_collective_allreduce(&req, &result);
+    check(status == DS4_GLM52_L0_STATUS_INVALID,
+          "real collective should reject unknown frame versions");
+    check(strstr(result.message, "frame version") != NULL,
+          "frame version rejection should name the metadata frame");
+
+    req = valid_real_collective_request();
+    req.dtype = DS4_GLM52_TP4_TENSOR_DTYPE_INVALID;
+    status = ds4_glm52_tp4_real_collective_allreduce(&req, &result);
+    check(status == DS4_GLM52_L0_STATUS_INVALID,
+          "real collective should reject unsupported dtype");
+    check(strstr(result.message, "dtype") != NULL,
+          "dtype rejection should name tensor dtype");
+
+    req = valid_real_collective_request();
+    req.shape_hash = 0;
+    status = ds4_glm52_tp4_real_collective_allreduce(&req, &result);
+    check(status == DS4_GLM52_L0_STATUS_INVALID,
+          "real collective should reject missing shape hash");
+    check(strstr(result.message, "shape hash") != NULL,
+          "shape-hash rejection should name tensor shape evidence");
+
+    req = valid_real_collective_request();
+    req.byte_count--;
+    status = ds4_glm52_tp4_real_collective_allreduce(&req, &result);
+    check(status == DS4_GLM52_L0_STATUS_INVALID,
+          "real collective should reject mismatched dtype byte count");
+    check(strstr(result.message, "byte count") != NULL,
+          "byte-count rejection should name byte-count evidence");
+
+    req = valid_real_collective_request();
+    req.participant_mask = 0x7u;
+    status = ds4_glm52_tp4_real_collective_allreduce(&req, &result);
     check(status == DS4_GLM52_L0_STATUS_INVALID,
           "real collective should reject missing rank participants");
     check(strstr(result.message, "all four rank participants") != NULL,

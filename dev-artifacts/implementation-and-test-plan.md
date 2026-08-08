@@ -123,8 +123,9 @@ Completed implementation slices:
     and TP all-reduce seams.
 - Production execution frontiers:
   - typed real TP4 all-reduce request validation rejects wrong ranks,
-    participant masks, identity, dtype, layer, and tensor shape evidence before
-    execution;
+    frame versions, participant masks, identity, unsupported dtype, layer,
+    missing shape hash, and byte counts inconsistent with dtype/element count
+    before execution;
   - typed real DCP selected-row exchange validation rejects incomplete owner
     maps, invalid identity, and non-append-ordered KV evidence before
     execution;
@@ -430,7 +431,9 @@ layer, cursor, or shape.
 Active in `tests/test_glm52_l0.c` and DCP tests:
 
 - real TP4 collective frontier rejects missing rank participants and missing
-  tensor transport before execution;
+  tensor transport before execution, and rejects stale frame versions,
+  unsupported dtype, missing shape hash, and inconsistent byte counts before
+  a backend can run;
 - real DCP row-exchange frontier rejects incomplete owner maps and missing row
   payload/transport before execution;
 - DCP row-exchange mock rejects invalid selection counts, never publishes
@@ -673,6 +676,10 @@ Implementation:
 - Bind collectives to real GLM dimensions: hidden `6144`, `64` heads,
   `16` Q heads per rank, `kv_lora = 512`, and GLM sparse indexer top-k.
 - Add per-collective sequence numbers tied to layer id and token cursor.
+- Preserve the typed collective frame contract: version, kind, rank topology,
+  dtype, element count, byte count, shape hash, model/session identity, layer,
+  token cursor, participant mask, and readiness bits must validate before any
+  payload execution.
 
 Tests:
 

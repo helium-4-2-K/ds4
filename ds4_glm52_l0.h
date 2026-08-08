@@ -32,6 +32,7 @@
 #define DS4_GLM52_LAYOUT_MAX_LINE 1024
 #define DS4_GLM52_LAYOUT_FIELD_MAX 256
 #define DS4_GLM52_L0_FABRIC_DATA_PLANE "crs812-200g"
+#define DS4_GLM52_TP4_COLLECTIVE_FRAME_VERSION 1u
 
 typedef enum {
     DS4_GLM52_L0_STATUS_OK = 0,
@@ -322,19 +323,29 @@ typedef enum {
     DS4_GLM52_TP4_COLLECTIVE_LOGITS = 3,
 } ds4_glm52_tp4_collective_kind;
 
+typedef enum {
+    DS4_GLM52_TP4_TENSOR_DTYPE_INVALID = 0,
+    DS4_GLM52_TP4_TENSOR_DTYPE_F32 = 1,
+    DS4_GLM52_TP4_TENSOR_DTYPE_BF16 = 2,
+    DS4_GLM52_TP4_TENSOR_DTYPE_FP8_E4M3 = 3,
+} ds4_glm52_tp4_tensor_dtype;
+
 typedef struct {
+    uint32_t frame_version;
     ds4_glm52_tp4_collective_kind kind;
     int rank;
     int tp_size;
     int dcp_size;
     int rank_count;
     int layer_index;
-    int dtype;
+    ds4_glm52_tp4_tensor_dtype dtype;
     uint64_t seq;
     uint64_t model_hash;
     uint64_t session_hash;
     uint64_t token_step_j;
     size_t element_count;
+    uint64_t shape_hash;
+    size_t byte_count;
     uint32_t participant_mask;
     bool topology_ready;
     bool transport_ready;
@@ -373,6 +384,10 @@ typedef struct {
 
 const char *ds4_glm52_tp4_collective_kind_name(
         ds4_glm52_tp4_collective_kind kind);
+const char *ds4_glm52_tp4_tensor_dtype_name(
+        ds4_glm52_tp4_tensor_dtype dtype);
+size_t ds4_glm52_tp4_tensor_dtype_size(
+        ds4_glm52_tp4_tensor_dtype dtype);
 ds4_glm52_l0_status ds4_glm52_tp4_real_collective_allreduce(
         const ds4_glm52_tp4_collective_request *request,
         ds4_glm52_l0_result *result);
