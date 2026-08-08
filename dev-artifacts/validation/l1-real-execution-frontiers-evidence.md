@@ -57,6 +57,16 @@ work.
     execution: opaque tensor/storage handle presence, rank indexing, readiness,
     dtype, shape hash, byte count, dtype-aligned byte range, capacity, full
     frame identity, and LOGITS contiguous vocab coverage.
+  - Bound-host executors:
+    `ds4_glm52_tp4_collective_allreduce_f32_bound_host` and
+    `ds4_glm52_tp4_logits_gather_topk_f32_bound_host`.
+  - Bound-host ATTN/FFN execution first validates the same tensor bindings,
+    then reads rank-local partials from bound byte ranges and writes replicated
+    outputs to bound output byte ranges.
+  - Bound-host LOGITS execution first validates full rank-owned vocab shard
+    bindings, then scans the bound shard tensors directly for deterministic
+    global top-k. This proves the full-shard handoff, not just preselected
+    candidate arrays.
 
 - DCP selected-row real boundary
   - Code: `ds4_glm52_dcp_real_row_exchange`.
@@ -98,19 +108,20 @@ work.
 - `make -B tests/test_glm52_l0 && ./tests/test_glm52_l0`: PASS.
 - `make -B tests/glm52_tp4_fabric_smoke`: PASS.
 - BCD lint:
-  `dev-artifacts/validation/lint-after-buffer-bindings.result.json`: PASS.
+  `dev-artifacts/validation/lint-after-bound-host-exec.result.json`: PASS.
 - BCD TP4 leaf validation:
-  `dev-artifacts/validation/validate-tp4-leaves-after-buffer-bindings.result.json`:
+  `dev-artifacts/validation/validate-tp4-leaves-after-bound-host-exec.result.json`:
   PASS.
 - BCD decode full-trace simulation:
   `dev-artifacts/validation/simulate-decode-after-host-collectives.result.json`:
   PASS. The corresponding request explicitly records CRS812 `s-tp`
   `data_plane`, `fabric_addrs`, `fabric_switch`, and `management_addrs` field
   flows from the same TP state provenance used by the other `s-tp` fields.
-- Local and CRS812 portable-frame payload smoke and bad-frame rejection smoke:
-  PASS. Latest positive CRS812 run used `10.100.185.3:49061` with the shared
-  host-buffer all-reduce helper; latest bad-frame CRS812 run used
-  `10.100.185.3:49062` and rejected rank 1 before reduction.
+- Local portable-frame payload smoke and bad-frame rejection smoke: PASS.
+  Latest local positive run used four processes on `127.0.0.1:59556` with the
+  bound-host all-reduce executor and verified 16 payload floats on all worker
+  ranks. Latest local bad-frame run used `127.0.0.1:59453` and rejected rank 1
+  before reduction.
 - `make cpu tests/test_tp4_rank_group tests/test_glm52_l0
   tests/test_glm52_mock tests/test_glm52_tp4_mock
   tests/test_glm52_tp4_mock_serve tests/test_glm52_tp4_allreduce
@@ -119,8 +130,9 @@ work.
   of those tests and `tests/test_gpu_args_cli.sh`: PASS.
 - `tests/test_glm52_tp4_allreduce`: PASS. Covers L0 host-buffer ATTN/FFN
   all-reduce, tensor binding validation for all-reduce partial/output buffers,
-  L0 host-buffer logits gather/top-k, and tensor binding validation for
-  rank-owned logits shards.
+  bound-host all-reduce execution from tensor bindings, L0 host-buffer logits
+  gather/top-k, tensor binding validation for rank-owned logits shards, and
+  bound-host full-shard logits top-k.
 - `tests/test_glm52_dcp_row_exchange`: PASS. Covers L0 host-buffer DCP
   selected-row exchange plus the existing DCP mock exchange.
 - New `tests/test_glm52_l0.c` coverage:
@@ -137,6 +149,7 @@ work.
 - Real GPU-resident GLM 5.2 QKV/MLA/MoE/logits kernels.
 - GPU/NCCL or fabric-native tensor all-reduce and logits gather/top-k across
   four GX10 ranks using the validated tensor binding descriptors as the real
-  payload handoff.
+  payload handoff. The bound-host executor is an executable reference backend
+  and transport smoke path, not the final GPU-resident collective backend.
 - GPU/fabric-backed DCP selected-row network exchange for compact KV payloads.
 - Cross-GX10 launch, endpoint files, failure deadlines, and deployment smoke.

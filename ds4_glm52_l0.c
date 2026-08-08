@@ -1507,6 +1507,43 @@ bool ds4_glm52_tp4_collective_bind_tensor_buffers(
     return true;
 }
 
+static void *tensor_binding_ptr(const ds4_glm52_tp4_tensor_binding *binding) {
+    return (void *)((unsigned char *)binding->handle + binding->byte_offset);
+}
+
+bool ds4_glm52_tp4_collective_allreduce_f32_bound_host(
+        const ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_tp4_tensor_binding partials[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_tp4_tensor_binding outputs[DS4_GLM52_L0_RANK_COUNT],
+        size_t element_count,
+        char *err,
+        size_t err_size) {
+    if (!ds4_glm52_tp4_collective_bind_tensor_buffers(
+                requests, partials, outputs, element_count, err, err_size)) {
+        return false;
+    }
+    const float *partial_ptrs[DS4_GLM52_L0_RANK_COUNT];
+    float *output_ptrs[DS4_GLM52_L0_RANK_COUNT];
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        if (requests[rank].dtype != DS4_GLM52_TP4_TENSOR_DTYPE_F32) {
+            set_error(err, err_size,
+                      "TP4 bound host all-reduce requires f32 tensor bindings");
+            return false;
+        }
+        partial_ptrs[rank] =
+            (const float *)tensor_binding_ptr(&partials[rank]);
+        output_ptrs[rank] =
+            (float *)tensor_binding_ptr(&outputs[rank]);
+    }
+    return ds4_glm52_tp4_collective_allreduce_f32_host(
+            requests,
+            partial_ptrs,
+            output_ptrs,
+            element_count,
+            err,
+            err_size);
+}
+
 static bool logits_candidate_better(
         const ds4_glm52_tp4_logits_topk_entry *a,
         const ds4_glm52_tp4_logits_topk_entry *b) {
@@ -1724,6 +1761,93 @@ bool ds4_glm52_tp4_logits_bind_tensor_shards(
                   "TP4 logits tensor binding vocab shard coverage is incomplete");
         return false;
     }
+    return true;
+}
+
+bool ds4_glm52_tp4_logits_gather_topk_f32_bound_host(
+        const ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_tp4_logits_tensor_shard shards[DS4_GLM52_L0_RANK_COUNT],
+        size_t k,
+        ds4_glm52_tp4_logits_topk_entry *out,
+        size_t out_count,
+        char *err,
+        size_t err_size) {
+    if (!out || k == 0 || out_count < k) {
+        set_error(err, err_size,
+                  "TP4 bound host logits top-k requires output storage and nonzero k");
+        return false;
+    }
+    if (!ds4_glm52_tp4_logits_bind_tensor_shards(
+                requests, shards, err, err_size)) {
+        return false;
+    }
+    ds4_glm52_tp4_logits_topk_entry *staging =
+        calloc(k, sizeof(staging[0]));
+    if (!staging) {
+        set_error(err, err_size,
+                  "TP4 bound host logits top-k could not allocate staging output");
+        return false;
+    }
+    for (size_t i = 0; i < k; i++) {
+        staging[i].present = false;
+        staging[i].token_id = -1;
+        staging[i].score = 0.0f;
+        staging[i].owner_rank = -1;
+    }
+
+    size_t total_logits = 0;
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        const size_t shard_width =
+            (size_t)(shards[rank].vocab_end - shards[rank].vocab_start);
+        total_logits += shard_width;
+        const float *scores =
+            (const float *)tensor_binding_ptr(&shards[rank].logits);
+        for (size_t i = 0; i < shard_width; i++) {
+            if (!isfinite(scores[i])) {
+                free(staging);
+                set_error(err, err_size,
+                          "TP4 bound host logits top-k score is non-finite");
+                return false;
+            }
+            ds4_glm52_tp4_logits_topk_entry cand = {
+                .token_id = shards[rank].vocab_start + (int)i,
+                .score = scores[i],
+                .owner_rank = rank,
+                .present = true,
+            };
+            for (size_t pos = 0; pos < k; pos++) {
+                if (logits_candidate_better(&cand, &staging[pos])) {
+                    for (size_t shift = k - 1; shift > pos; shift--) {
+                        staging[shift] = staging[shift - 1];
+                    }
+                    staging[pos] = cand;
+                    break;
+                }
+            }
+        }
+    }
+    if (k > total_logits) {
+        free(staging);
+        set_error(err, err_size,
+                  "TP4 bound host logits top-k requires k within vocab coverage");
+        return false;
+    }
+    for (size_t i = 0; i < k; i++) {
+        if (!staging[i].present) {
+            free(staging);
+            set_error(err, err_size,
+                      "TP4 bound host logits top-k failed to fill requested output");
+            return false;
+        }
+    }
+    for (size_t i = 0; i < out_count; i++) {
+        out[i].present = false;
+        out[i].token_id = -1;
+        out[i].score = 0.0f;
+        out[i].owner_rank = -1;
+    }
+    memcpy(out, staging, k * sizeof(out[0]));
+    free(staging);
     return true;
 }
 

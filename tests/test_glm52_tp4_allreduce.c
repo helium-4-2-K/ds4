@@ -108,7 +108,7 @@ static void free_float_buffers(float *buffers[DS4_GLM52_L0_RANK_COUNT]) {
 
 static ds4_glm52_tp4_tensor_binding make_tensor_binding(
         int rank,
-        const void *handle,
+        void *handle,
         const ds4_glm52_tp4_collective_request *req) {
     ds4_glm52_tp4_tensor_binding binding;
     memset(&binding, 0, sizeof(binding));
@@ -175,6 +175,50 @@ static void test_l0_collective_tensor_bindings(void) {
           "L0 tensor binding should reject logits for all-reduce binding");
     check(strstr(err, "attention or FFN") != NULL,
           "L0 tensor binding kind rejection should name supported kinds");
+}
+
+static void test_l0_bound_host_allreduce(void) {
+    const size_t n = DS4_GLM52_MOCK_N_EMBD;
+    ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT];
+    float *partials_data[DS4_GLM52_L0_RANK_COUNT] = {0};
+    float *outputs_data[DS4_GLM52_L0_RANK_COUNT] = {0};
+    ds4_glm52_tp4_tensor_binding partials[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_tp4_tensor_binding outputs[DS4_GLM52_L0_RANK_COUNT];
+    char err[192] = "";
+
+    make_l0_requests(requests, DS4_GLM52_TP4_COLLECTIVE_FFN, 27, 19, n);
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        partials_data[rank] = malloc(n * sizeof(partials_data[rank][0]));
+        outputs_data[rank] = calloc(n, sizeof(outputs_data[rank][0]));
+        check(partials_data[rank] != NULL && outputs_data[rank] != NULL,
+              "bound host all-reduce buffers should allocate");
+        partials[rank] =
+            make_tensor_binding(rank, partials_data[rank], &requests[rank]);
+        outputs[rank] =
+            make_tensor_binding(rank, outputs_data[rank], &requests[rank]);
+    }
+    fill_nonassoc_partials(partials_data, n);
+    check(ds4_glm52_tp4_collective_allreduce_f32_bound_host(
+              requests, partials, outputs, n, err, sizeof(err)),
+          "bound host all-reduce should execute from tensor bindings");
+    check(outputs_data[0][0] == 3.0f,
+          "bound host all-reduce should sum in rank order");
+    for (int rank = 1; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        check(memcmp(outputs_data[0],
+                     outputs_data[rank],
+                     n * sizeof(outputs_data[0][0])) == 0,
+              "bound host all-reduce output should be replicated");
+    }
+
+    outputs[1].ready = false;
+    check(!ds4_glm52_tp4_collective_allreduce_f32_bound_host(
+              requests, partials, outputs, n, err, sizeof(err)),
+          "bound host all-reduce should reject unready output bindings");
+    check(strstr(err, "ready") != NULL,
+          "bound host readiness rejection should name ready state");
+
+    free_float_buffers(partials_data);
+    free_float_buffers(outputs_data);
 }
 
 static void test_l0_host_allreduce_buffers(void) {
@@ -357,6 +401,76 @@ static void test_l0_logits_tensor_bindings(void) {
     check(strstr(err, "identity") != NULL ||
           strstr(err, "shard width") != NULL,
           "L0 logits tensor binding width rejection should name identity or shard width");
+}
+
+static void test_l0_bound_host_logits_topk(void) {
+    const size_t shard_width =
+        DS4_GLM52_L0_VOCAB_SIZE / DS4_GLM52_L0_RANK_COUNT;
+    ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_tp4_logits_tensor_shard shards[DS4_GLM52_L0_RANK_COUNT];
+    float *logits[DS4_GLM52_L0_RANK_COUNT] = {0};
+    int handles[DS4_GLM52_L0_RANK_COUNT];
+    ds4_glm52_tp4_logits_topk_entry top[4];
+    char err[192] = "";
+
+    make_l0_requests(requests,
+                     DS4_GLM52_TP4_COLLECTIVE_LOGITS,
+                     33,
+                     20,
+                     shard_width);
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        logits[rank] = malloc(shard_width * sizeof(logits[rank][0]));
+        check(logits[rank] != NULL,
+              "bound host logits shard should allocate");
+        for (size_t i = 0; i < shard_width; i++) {
+            logits[rank][i] = -1000.0f - (float)i;
+        }
+    }
+    fill_logits_tensor_shards(requests, shards, handles);
+    for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+        shards[rank].logits.handle = logits[rank];
+    }
+    logits[3][7] = 12.0f;
+    logits[1][4] = 11.0f;
+    logits[2][3] = 11.0f;
+    logits[0][2] = 10.0f;
+    check(ds4_glm52_tp4_logits_gather_topk_f32_bound_host(
+              requests,
+              shards,
+              4,
+              top,
+              sizeof(top) / sizeof(top[0]),
+              err,
+              sizeof(err)),
+          "bound host logits top-k should scan full rank-local shard tensors");
+    check(top[0].owner_rank == 3 && top[0].score == 12.0f,
+          "bound host logits top-k should select the highest score first");
+    check(top[1].owner_rank == 1 && top[1].score == 11.0f,
+          "bound host logits top-k ties should prefer lower token id");
+    check(top[2].owner_rank == 2 && top[2].score == 11.0f,
+          "bound host logits top-k should retain the second tied token");
+    check(top[3].owner_rank == 0 && top[3].score == 10.0f,
+          "bound host logits top-k should include rank 0 candidate");
+
+    ds4_glm52_tp4_logits_topk_entry before_bad[4];
+    memcpy(before_bad, top, sizeof(before_bad));
+    uint32_t qnan_bits = UINT32_C(0x7fc00000);
+    memcpy(&logits[2][0], &qnan_bits, sizeof(qnan_bits));
+    check(!ds4_glm52_tp4_logits_gather_topk_f32_bound_host(
+              requests,
+              shards,
+              4,
+              top,
+              sizeof(top) / sizeof(top[0]),
+              err,
+              sizeof(err)),
+          "bound host logits top-k should reject non-finite shard scores");
+    check(strstr(err, "non-finite") != NULL,
+          "bound host logits non-finite rejection should name non-finite");
+    check(memcmp(before_bad, top, sizeof(before_bad)) == 0,
+          "bound host logits failure should not publish partial top-k output");
+
+    free_float_buffers(logits);
 }
 
 static void test_l0_logits_gather_topk(void) {
@@ -726,8 +840,10 @@ static void test_allreduce_rejects_shape_dtype_and_nonfinite(void) {
 int main(void) {
     test_l0_host_allreduce_buffers();
     test_l0_collective_tensor_bindings();
+    test_l0_bound_host_allreduce();
     test_l0_logits_gather_topk();
     test_l0_logits_tensor_bindings();
+    test_l0_bound_host_logits_topk();
     test_allreduce_sums_in_rank_order();
     test_allreduce_rejects_missing_and_duplicate_ranks();
     test_allreduce_rejects_identity_mismatches();

@@ -139,6 +139,10 @@ Completed implementation slices:
     partial tensor and ready replicated-output tensor whose opaque handle,
     rank, dtype, shape hash, byte count, dtype alignment, and byte range
     capacity match the collective frame before backend execution may run;
+  - `ds4_glm52_tp4_collective_allreduce_f32_bound_host` is the executable
+    reference backend for that handoff: it validates the same bindings, reads
+    partials from bound byte ranges, and writes the replicated hidden result
+    into bound output byte ranges;
   - `ds4_glm52_tp4_logits_gather_topk_f32_host` realizes the first
     host-buffer logits gather/top-k boundary: LOGITS frames plus contiguous
     rank-owned vocab shards merge deterministic global top-k entries on rank 0;
@@ -149,6 +153,10 @@ Completed implementation slices:
     handoff for rank-owned logits buffers: four LOGITS frames must agree on
     identity and bind contiguous full-vocab shard tensors before global top-k
     execution may run;
+  - `ds4_glm52_tp4_logits_gather_topk_f32_bound_host` is the executable
+    reference backend for full-shard logits: it validates the same bindings and
+    scans the bound rank-local vocab tensors directly to produce deterministic
+    global top-k entries;
   - typed real DCP selected-row exchange validation rejects incomplete owner
     maps, invalid identity, and non-append-ordered KV evidence before
     execution;
@@ -734,8 +742,8 @@ Current realization:
   deterministic merge/reduction boundaries, not GPU kernels and not the final
   high-throughput collective backend.
 - `tests/glm52_tp4_fabric_smoke --payload-floats` now uses
-  `ds4_glm52_tp4_collective_allreduce_f32_host` instead of a smoke-local
-  coordinator sum.
+  `ds4_glm52_tp4_collective_allreduce_f32_bound_host` over validated tensor
+  bindings instead of a smoke-local coordinator sum.
 
 Tests:
 

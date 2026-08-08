@@ -277,6 +277,23 @@ static bool recv_payload_partial(int fd,
     return true;
 }
 
+static ds4_glm52_tp4_tensor_binding payload_binding(
+        int rank,
+        float *buffer,
+        const ds4_glm52_tp4_collective_request *req) {
+    ds4_glm52_tp4_tensor_binding binding;
+    memset(&binding, 0, sizeof(binding));
+    binding.rank = rank;
+    binding.handle = buffer;
+    binding.byte_offset = 0;
+    binding.byte_count = req->byte_count;
+    binding.capacity_bytes = req->byte_count;
+    binding.dtype = req->dtype;
+    binding.shape_hash = req->shape_hash;
+    binding.ready = true;
+    return binding;
+}
+
 static void free_rank_buffers(float *buffers[DS4_GLM52_L0_RANK_COUNT]) {
     if (!buffers) return;
     for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
@@ -529,7 +546,8 @@ static int run_coordinator(const smoke_config *cfg) {
     float *sum = NULL;
     if (cfg->payload_floats > 0) {
         ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT];
-        const float *partial_inputs[DS4_GLM52_L0_RANK_COUNT] = {0};
+        ds4_glm52_tp4_tensor_binding partial_bindings[DS4_GLM52_L0_RANK_COUNT];
+        ds4_glm52_tp4_tensor_binding output_bindings[DS4_GLM52_L0_RANK_COUNT];
         float *partials[DS4_GLM52_L0_RANK_COUNT] = {0};
         float *outputs[DS4_GLM52_L0_RANK_COUNT] = {0};
         const size_t n = (size_t)cfg->payload_floats;
@@ -550,7 +568,6 @@ static int run_coordinator(const smoke_config *cfg) {
         for (int i = 0; i < cfg->payload_floats; i++) {
             partials[0][i] = partial_value(0, i);
         }
-        partial_inputs[0] = partials[0];
         for (int rank = 1; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
             if (!recv_payload_partial(fds[rank],
                                       rank,
@@ -565,16 +582,22 @@ static int run_coordinator(const smoke_config *cfg) {
                 close(listen_fd);
                 return 13;
             }
-            partial_inputs[rank] = partials[rank];
         }
-        if (!ds4_glm52_tp4_collective_allreduce_f32_host(
+        for (int rank = 0; rank < DS4_GLM52_L0_RANK_COUNT; rank++) {
+            partial_bindings[rank] =
+                payload_binding(rank, partials[rank], &requests[rank]);
+            output_bindings[rank] =
+                payload_binding(rank, outputs[rank], &requests[rank]);
+        }
+        if (!ds4_glm52_tp4_collective_allreduce_f32_bound_host(
                     requests,
-                    partial_inputs,
-                    outputs,
+                    partial_bindings,
+                    output_bindings,
                     n,
                     err,
                     sizeof(err))) {
-            fprintf(stderr, "coordinator: allreduce payload failed: %s\n", err);
+            fprintf(stderr, "coordinator: bound allreduce payload failed: %s\n",
+                    err);
             free_rank_buffers(partials);
             free_rank_buffers(outputs);
             close(listen_fd);

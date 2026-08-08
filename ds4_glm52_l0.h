@@ -366,7 +366,7 @@ typedef struct {
 
 typedef struct {
     int rank;
-    const void *handle;
+    void *handle;
     size_t byte_offset;
     size_t byte_count;
     size_t capacity_bytes;
@@ -480,6 +480,13 @@ bool ds4_glm52_tp4_collective_bind_tensor_buffers(
         size_t element_count,
         char *err,
         size_t err_size);
+bool ds4_glm52_tp4_collective_allreduce_f32_bound_host(
+        const ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_tp4_tensor_binding partials[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_tp4_tensor_binding outputs[DS4_GLM52_L0_RANK_COUNT],
+        size_t element_count,
+        char *err,
+        size_t err_size);
 bool ds4_glm52_tp4_logits_gather_topk_f32_host(
         const ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT],
         const ds4_glm52_tp4_logits_rank_candidates shards[DS4_GLM52_L0_RANK_COUNT],
@@ -491,6 +498,14 @@ bool ds4_glm52_tp4_logits_gather_topk_f32_host(
 bool ds4_glm52_tp4_logits_bind_tensor_shards(
         const ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT],
         const ds4_glm52_tp4_logits_tensor_shard shards[DS4_GLM52_L0_RANK_COUNT],
+        char *err,
+        size_t err_size);
+bool ds4_glm52_tp4_logits_gather_topk_f32_bound_host(
+        const ds4_glm52_tp4_collective_request requests[DS4_GLM52_L0_RANK_COUNT],
+        const ds4_glm52_tp4_logits_tensor_shard shards[DS4_GLM52_L0_RANK_COUNT],
+        size_t k,
+        ds4_glm52_tp4_logits_topk_entry *out,
+        size_t out_count,
         char *err,
         size_t err_size);
 ds4_glm52_l0_status ds4_glm52_tp4_real_collective_allreduce(
