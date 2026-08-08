@@ -1,0 +1,35 @@
+{
+  "action": "validate_contract",
+  "artifact_integrity": {
+    "blueprint_sha256": "42dbee87440b94020645d6199dbe1bd3e833f8f2ff82e200710d9566cf98c444",
+    "semantic_sha256": "e3ed5548523714b653b8ef81d2411a93a983322fc19734281e7cd35dcab4ae7a"
+  },
+  "error_count": 0,
+  "errors": [],
+  "graph_ids": [
+    "serve"
+  ],
+  "profile": "l0",
+  "request_id": "validate-serve-after-real-rank0-layout",
+  "schema": "blueprint-contract-validation/v4",
+  "snapshot": {
+    "artifact_integrity": {
+      "blueprint_sha256": "42dbee87440b94020645d6199dbe1bd3e833f8f2ff82e200710d9566cf98c444",
+      "semantic_sha256": "e3ed5548523714b653b8ef81d2411a93a983322fc19734281e7cd35dcab4ae7a"
+    },
+    "covered_graphs": [
+      {
+        "graph_contract_sha256": "1810ae29741a6c83e1673cc61b6395d4be5661689bff0368cd244d83935539db",
+        "graph_id": "serve",
+        "role": "selected",
+        "type_schema_sha256": "30f49b45e889237b5bb310b878ab4e6706809d614eedd39946a3bc723ce1c6d4"
+      }
+    ],
+    "selected_graph_ids": [
+      "serve"
+    ]
+  },
+  "status": "PASS",
+  "warning_count": 0,
+  "warnings": []
+}

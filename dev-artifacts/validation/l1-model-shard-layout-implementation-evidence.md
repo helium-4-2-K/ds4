@@ -27,10 +27,11 @@ code unit function in `ds4_glm52_l0.c`:
 - Validates: replicated tensors visible on all ranks, rank-local entries only
   visible on owning rank, no foreign-rank entries, no foreign-rank file paths,
   sha256 present for every entry, byte_length non-empty, Q-head coverage
-  exactly once per rank (expected span [R*16, (R+1)*16)), expert coverage
-  exactly once per rank (expected span [R*64, (R+1)*64)), vocab coverage
-  exactly once per rank (expected span based on 154880 / 4), and no overlapping
-  or out-of-rank ownership spans.
+  exactly once per rank (expected span [R*16, (R+1)*16)), expert-id coverage
+  `[0,256)` on each rank (Bird/vLLM GLM 5.2 TP4 shards expert matrix
+  dimensions, not the expert-id dimension), vocab coverage exactly once per
+  rank (expected span based on 154880 / 4), and no overlapping or out-of-rank
+  ownership spans.
 - Produces a `ds4_glm52_layout_ownership_plan` with coverage_complete,
   overlaps_present, missing_spans_present flags plus Q-head/expert/vocab span
   bindings for the rank plan.
@@ -89,6 +90,14 @@ gate is TP4/DCP4 fabric readiness, not model-load readiness.
 - Help: `--glm52-tp4-layout` documented in `ds4_help.c`.
 - Manifest format: `ds4-shard-layout/v1` key=value text format with `[entry]`
   section headers.
+- Bird import helper: `misc/glm52_bird_layout.py` reads a per-rank
+  `integrity-manifest.json`, emits a DS4 rank plan and DS4 layout manifest,
+  verifies all 20 base shards plus one MTP shard by full-file SHA-256, and
+  binds rank Q-head, `[0,256)` expert-id, and vocab spans for L0 loading.
+- Fabric binding: rank plans now declare `fabric_data_plane=crs812-200g`.
+  Model-load and TP-group validation distinguish CRS812 200G fabric addresses
+  from management SSH addresses and reject `192.168.0.x` for TP/DCP
+  collective traffic.
 
 ## Validation
 
@@ -101,6 +110,15 @@ gate is TP4/DCP4 fabric readiness, not model-load readiness.
   `tests/test_glm52_mock`, `tests/test_glm52_tp4_mock`,
   `tests/test_glm52_tp4_mock_serve`, `tests/test_glm52_tp4_mock_process`,
   `tests/test_glm52_tp4_allreduce`, `tests/test_glm52_dcp_row_exchange`).
+- `python3 -m py_compile misc/glm52_bird_layout.py`: PASS.
+- Rank-0 GX10 real layout dry run: PASS through `serve/action-serve-open`;
+  stopped at expected `serve/action-tp-group` real fabric boundary. Evidence:
+  `dev-artifacts/validation/rank0-gx10-real-layout-dry-run.md`.
+- Rank-1 and rank-2 GX10 real layout dry runs: PASS through
+  `serve/action-serve-open` with `fabric_data_plane=crs812-200g`; stopped at
+  expected `serve/action-tp-group` real fabric boundary. Rank 3 is pending SSH
+  access restoration. Evidence:
+  `dev-artifacts/validation/gx10-real-layout-dry-runs-crs812.md`.
 - `git diff --check`: PASS.
 
 ### Test cases (10 required scenarios)
@@ -120,18 +138,26 @@ gate is TP4/DCP4 fabric readiness, not model-load readiness.
 
 ### BCD mechanical validation
 
-- Lint (complete): PASS, 10 graphs, 0 errors, 0 warnings.
+- Lint (complete): PASS, 18 graphs, 0 errors, 0 warnings
+  (`dev-artifacts/validation/lint-after-crs812-fabric.result.json`).
 - model-shard-layout leaf validation: PASS, 0 errors, 0 warnings
-  (`dev-artifacts/validation/validate-model-shard-layout-current-real-loader.result.json`).
-- model-load composite validation: PASS, 0 errors.
+  (`dev-artifacts/validation/validate-model-shard-layout-after-crs812-fabric.result.json`).
+- serve L0 validation: PASS, 0 errors, 0 warnings
+  (`dev-artifacts/validation/validate-serve-after-crs812-fabric.result.json`).
 - model-shard-layout simulation (map-rank-local-ds4-layout-success): PASS,
-  simulation_sha256 `a5cabe3d7bf7a2bd9a2829d8c30572cbd3c241d20b60fce1bdb09610ebbc9ce0`.
+  simulation_sha256 `7623d73ff1f026ef87a7c56a2bcb89396fc01e6731c438076df210a8ebf826e3`
+  (`dev-artifacts/validation/simulate-model-shard-layout-after-crs812-fabric.result.json`).
 
 ### Current digests
 
-- blueprint_sha256: `f5090c2f97f06122067f4b3c840bb2e6e581e52bccdbaf370c5a4bec47aa31ed`
-- semantic_sha256: `d90ce8a6de0e834c605c043318e3806cf1b8186cac93a897698438f64da2b538`
-- model-shard-layout graph_contract_sha256: `eb05725c27670f0c0d9c3b90044c040e3ee5e6130eca1e09e8d1b26a202b911e`
+- blueprint_sha256: `8ec5da05227296565218f7972ebddb4425bcd39236be31574468543b12a70b60`
+- semantic_sha256: `7a2383c123331d59637c8128cdbb5fa40e7ed667b8d2045c1882536c9befaf04`
+- model-load graph_contract_sha256: `083ff1b8ab754f0fe11170f32c449b6777b2944c9156de43a105f0836d89b2d5`
+- model-load type_schema_sha256: `0aa0c0c7dfc43caabc5f745e1e1d6c0a82aae418e40a141221cb94ffe2b1696f`
+- model-shard-layout graph_contract_sha256: `b426dd592e67a1784cbf09253ec0e8c450dc58a97ee922907445b17c6da15154`
+- model-shard-layout type_schema_sha256: `4f68b4a96f18a59411e0dd7cc6ac4725c60f4f2ce354be997d2867ad29772a44`
+- serve graph_contract_sha256: `e86e9e8efe3ad48fdda966be2e1723b862adfd62176e7a45defabfa67b50720a`
+- serve type_schema_sha256: `3f4be1b144e1cee44727789840835951678fede862e9ccde1a2c91d025010a46`
 
 ## Remaining Gaps
 

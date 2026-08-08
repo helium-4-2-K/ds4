@@ -723,7 +723,7 @@ graph {
 }
 canonical {
   schema_sha256: "9de5a18221a33a9379092d084dbae946af604b979dfe7caf07bdd65701b5ea9d"
-  type_schema_sha256: "268948e2d93680375e897bead2676d872928ebafd97a91928bb363de642ebcc6"
+  type_schema_sha256: "0e857104e8b9d8fce63f022fbc589220ad56aec7b8ca028b3a35f666a6e6d944"
   graph_sha256: "9e8338f0f84f7a1d3ed5f07c5cc92ed0dc502780f4895163d60e48df52ed9ee0"
-  graph_contract_sha256: "79f4d3207121b675cb0e16411cad0da3cb2833d8a3d2b4eca6aa2b5737da42cb"
+  graph_contract_sha256: "ba3b89e9dccc89973f2e7c2cd5dfa9714e99dea35630cc69a7f70128684cf62c"
 }

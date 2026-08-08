@@ -111,6 +111,7 @@ static void init_state_from_config(const ds4_glm52_l0_config *cfg,
     state->tp_fabric.dcp_size = cfg->dcp_size;
     state->tp_fabric.pp_size = cfg->pp_size;
     state->tp_fabric.fabric_addr = cfg->fabric_addr;
+    state->tp_fabric.fabric_data_plane = NULL;
     state->tp_fabric.rank_count = DS4_GLM52_L0_RANK_COUNT;
     state->tp_fabric.local_rank = cfg->rank;
     state->kv.tp_aware = true;
@@ -256,8 +257,9 @@ static ds4_glm52_l0_status model_load_fail(
         ds4_glm52_model_load_action action,
         const char *message) {
     char msg[192];
-    snprintf(msg, sizeof(msg), "%s: %s",
-             ds4_glm52_model_load_action_id(action), message);
+    snprintf(msg, sizeof(msg), "%s: %.128s",
+             ds4_glm52_model_load_action_id(action),
+             message ? message : "");
     set_result(result, status, DS4_GLM52_L0_ACTION_SERVE_OPEN, msg);
     return status;
 }
@@ -324,6 +326,15 @@ static bool fabric_addr_valid(const char *addr) {
     return has_non_space && has_addr_char;
 }
 
+static bool fabric_addr_is_management_network(const char *addr) {
+    return addr && !strncmp(addr, "192.168.0.", strlen("192.168.0."));
+}
+
+static bool fabric_data_plane_valid(const char *data_plane) {
+    return data_plane &&
+           !strcmp(data_plane, DS4_GLM52_L0_FABRIC_DATA_PLANE);
+}
+
 static ds4_glm52_l0_status bind_tp_group(
         const ds4_glm52_l0_config *cfg,
         ds4_glm52_l0_state *state,
@@ -343,6 +354,20 @@ static ds4_glm52_l0_status bind_tp_group(
                    DS4_GLM52_L0_STATUS_INVALID,
                    DS4_GLM52_L0_ACTION_TP_GROUP,
                    "TP group formation requires --glm52-tp4-fabric or rank-plan fabric_addr without whitespace");
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+    if (fabric_addr_is_management_network(fabric_addr)) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_INVALID,
+                   DS4_GLM52_L0_ACTION_TP_GROUP,
+                   "TP group formation requires the CRS812 200G fabric address, not the 192.168.0.x management network");
+        return DS4_GLM52_L0_STATUS_INVALID;
+    }
+    if (!fabric_data_plane_valid(state->launch_plan.fabric_data_plane)) {
+        set_result(result,
+                   DS4_GLM52_L0_STATUS_INVALID,
+                   DS4_GLM52_L0_ACTION_TP_GROUP,
+                   "TP group formation requires rank-plan fabric_data_plane=crs812-200g");
         return DS4_GLM52_L0_STATUS_INVALID;
     }
 
@@ -380,6 +405,7 @@ static ds4_glm52_l0_status bind_tp_group(
     state->tp_fabric.rank_count = DS4_GLM52_L0_RANK_COUNT;
     state->tp_fabric.local_rank = cfg->rank;
     state->tp_fabric.fabric_addr = fabric_addr;
+    state->tp_fabric.fabric_data_plane = state->launch_plan.fabric_data_plane;
     state->tp_fabric.topology_bound = true;
     state->tp_fabric.transport_ready = false;
     state->tp_fabric.group_ready = false;
@@ -460,6 +486,11 @@ static ds4_glm52_l0_status load_plan_and_manifest(
                         value);
         } else if (!strcmp(key, "fabric_addr")) {
             copy_string(plan.fabric_addr, sizeof(plan.fabric_addr), value);
+        } else if (!strcmp(key, "fabric_data_plane") ||
+                   !strcmp(key, "data_plane")) {
+            copy_string(plan.fabric_data_plane,
+                        sizeof(plan.fabric_data_plane),
+                        value);
         } else if (key_for_rank(key, cfg->rank, "checkpoint_root")) {
             copy_string(plan.checkpoint_root,
                         sizeof(plan.checkpoint_root),
@@ -530,19 +561,26 @@ bad_int:
 
     const char *model_name =
         plan.model_name[0] ? plan.model_name : cfg->model_root;
+    const char *effective_fabric_addr =
+        cfg->fabric_addr && cfg->fabric_addr[0] ?
+        cfg->fabric_addr : plan.fabric_addr;
     if (plan.tp_size != DS4_GLM52_L0_TP_SIZE ||
         plan.dcp_size != DS4_GLM52_L0_DCP_SIZE ||
         plan.pp_size != DS4_GLM52_L0_PP_SIZE ||
         plan.rank_count != DS4_GLM52_L0_RANK_COUNT ||
         plan.host_count != DS4_GLM52_L0_RANK_COUNT ||
         plan.rank != cfg->rank ||
+        !fabric_addr_valid(effective_fabric_addr) ||
+        fabric_addr_is_management_network(effective_fabric_addr) ||
+        !fabric_data_plane_valid(plan.fabric_data_plane) ||
         !model_root_looks_like_glm52(model_name)) {
         return model_load_fail(
                 result,
                 DS4_GLM52_L0_STATUS_INVALID,
                 DS4_GLM52_MODEL_LOAD_VALIDATE_LAUNCH_PLAN,
-                "rank plan must declare GLM 5.2 TP4/DCP4/PP1 over four GX10 ranks and match local rank");
+                "rank plan must declare GLM 5.2 TP4/DCP4/PP1 over four GX10 ranks, local rank, and CRS812 200G fabric data plane");
     }
+    copy_string(plan.fabric_addr, sizeof(plan.fabric_addr), effective_fabric_addr);
     plan.validated = true;
 
     if (manifest.base_shard_count != DS4_GLM52_L0_EXPECTED_BASE_SHARDS ||
@@ -704,8 +742,9 @@ static ds4_glm52_l0_status prefill_fail(ds4_glm52_l0_result *result,
                                         int action_index,
                                         const char *message) {
     char msg[192];
-    snprintf(msg, sizeof(msg), "%s: %s",
-             ds4_glm52_prefill_action_id(action_index), message);
+    snprintf(msg, sizeof(msg), "%s: %.128s",
+             ds4_glm52_prefill_action_id(action_index),
+             message ? message : "");
     set_result(result, status, DS4_GLM52_L0_ACTION_PREFILL, msg);
     return status;
 }
@@ -1374,8 +1413,9 @@ static ds4_glm52_l0_status layout_fail(ds4_glm52_l0_result *result,
                                        int action_index,
                                        const char *message) {
     char msg[192];
-    snprintf(msg, sizeof(msg), "%s: %s",
-             k_layout_action_ids[action_index], message);
+    snprintf(msg, sizeof(msg), "%s: %.128s",
+             k_layout_action_ids[action_index],
+             message ? message : "");
     set_result(result, status, DS4_GLM52_L0_ACTION_SERVE_OPEN, msg);
     return status;
 }
@@ -1837,7 +1877,7 @@ ds4_glm52_l0_status ds4_glm52_layout_read_manifest(
     if (strcmp(spec->format_version, DS4_GLM52_LAYOUT_FORMAT_VERSION) != 0) {
         char msg[192];
         snprintf(msg, sizeof(msg),
-                 "unsupported layout format version '%s'; expected '%s'",
+                 "unsupported layout format version '%.80s'; expected '%s'",
                  spec->format_version[0] ? spec->format_version : "(missing)",
                  DS4_GLM52_LAYOUT_FORMAT_VERSION);
         return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 0, msg);
@@ -2101,10 +2141,10 @@ ds4_glm52_l0_status ds4_glm52_layout_validate_ownership(
         plan->missing_spans_present = true;
     }
 
-    int expected_expert_start =
-        current_rank * DS4_GLM52_L0_EXPERTS_PER_RANK;
-    int expected_expert_end =
-        expected_expert_start + DS4_GLM52_L0_EXPERTS_PER_RANK;
+    /* Bird/vLLM GLM 5.2 TP4 keeps the full routed-expert id dimension on
+     * every rank and shards expert matrices along tensor dimensions. */
+    int expected_expert_start = 0;
+    int expected_expert_end = DS4_GLM52_L0_EXPERTS;
     if (any_expert) {
         for (int expert = expected_expert_start;
              expert < expected_expert_end;
@@ -2219,7 +2259,7 @@ ds4_glm52_l0_status ds4_glm52_layout_mmap_rank_tensors(
         if (!existing_regular_file_size(resolved, &file_size)) {
             char msg[192];
             snprintf(msg, sizeof(msg),
-                     "missing required shard file '%s' for entry '%s'",
+                     "missing required shard file '%.96s' for entry '%.48s'",
                      resolved,
                      e->tensor_name[0] ? e->tensor_name : "(unnamed)");
             return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 2, msg);

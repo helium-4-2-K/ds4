@@ -28,8 +28,8 @@ message tensor_shard_entry {
   bool replicated = 9 [(blueprint.v1.field_contract) = { meaning: "true when every rank must map identical bytes" }];
   int32 q_head_start = 10 [(blueprint.v1.field_contract) = { meaning: "first owned Q head or -1" }];
   int32 q_head_end = 11 [(blueprint.v1.field_contract) = { meaning: "exclusive end owned Q head or -1" }];
-  int32 expert_start = 12 [(blueprint.v1.field_contract) = { meaning: "first owned routed expert or -1" }];
-  int32 expert_end = 13 [(blueprint.v1.field_contract) = { meaning: "exclusive end routed expert or -1" }];
+  int32 expert_start = 12 [(blueprint.v1.field_contract) = { meaning: "first routed expert id present in this rank-local expert tensor shard, or -1; Bird GLM 5.2 TP4 uses [0,256) on every rank" }];
+  int32 expert_end = 13 [(blueprint.v1.field_contract) = { meaning: "exclusive end routed expert id present in this rank-local expert tensor shard, or -1; Bird GLM 5.2 TP4 uses [0,256) on every rank" }];
   int32 vocab_start = 14 [(blueprint.v1.field_contract) = { meaning: "first owned vocab/output row or -1" }];
   int32 vocab_end = 15 [(blueprint.v1.field_contract) = { meaning: "exclusive end vocab/output row or -1" }];
 }

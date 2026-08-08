@@ -494,7 +494,7 @@ graph {
 }
 canonical {
   schema_sha256: "9de5a18221a33a9379092d084dbae946af604b979dfe7caf07bdd65701b5ea9d"
-  type_schema_sha256: "677de272efd37402cfe5506bae588520379cedba5a52cdcbeb1980da994494af"
+  type_schema_sha256: "b58512fd86eff1e3e86162412e2613ece227cd48bd4be353c4b3d046117ec7b4"
   graph_sha256: "7f8a6e69940a903ce69391a4e6baef757f4fe434bc34e8aed7394d3fa98577ec"
-  graph_contract_sha256: "dceb0eea23489b200ec73819147b62ba311a246353a02fd00d023dd06d85e550"
+  graph_contract_sha256: "dacbd1f54108a0d626d4581c4d51d2c33e8212d457c611db0c07fcc17b618832"
 }

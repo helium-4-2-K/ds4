@@ -1,0 +1,13 @@
+{
+  "action": "lint",
+  "blueprint_id": "ds4-arch",
+  "blueprint_sha256": "42dbee87440b94020645d6199dbe1bd3e833f8f2ff82e200710d9566cf98c444",
+  "errors": [],
+  "graph_count": 18,
+  "request_id": "lint-after-real-rank0-layout",
+  "schema": "blueprint-lint-result/v3",
+  "semantic_sha256": "e3ed5548523714b653b8ef81d2411a93a983322fc19734281e7cd35dcab4ae7a",
+  "status": "PASS",
+  "validation_stage": "complete",
+  "warnings": []
+}

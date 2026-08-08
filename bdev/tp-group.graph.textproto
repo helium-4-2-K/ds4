@@ -114,7 +114,7 @@ graph {
   semantics {
     entry_id: "tp-bird-ref"
     key: "implementation_reference"
-    value: "Use Bird/vLLM NCCL/RoCE topology as the concrete four-node TP collective reference: TP4, PP1, DCP4, NCCL 2.30.4, four channels, both RoCE HCAs."
+    value: "Use Bird/vLLM NCCL/RoCE topology as the concrete four-node TP collective reference: TP4, PP1, DCP4, NCCL 2.30.4, four channels, both RoCE HCAs, carried on the CRS812 200G data-plane fabric rather than the 192.168.0.x management network."
     support_refs {
       node_id: "a-establish-collective-fabric"
     }
@@ -245,7 +245,7 @@ graph {
     semantics {
       entry_id: "a-establish-collective-fabric-ov"
       key: "overview"
-      value: "Create or attach the four-rank transport group used for broadcast, all-reduce, logits gather/top-k, and DCP row exchange."
+      value: "Create or attach the four-rank CRS812 200G data-plane transport group used for broadcast, all-reduce, logits gather/top-k, and DCP row exchange."
       status: SUPPORTED
     }
     semantics {
@@ -263,7 +263,7 @@ graph {
     semantics {
       entry_id: "a-establish-collective-fabric-effect"
       key: "effect"
-      value: "Create or attach the four-rank transport group used for broadcast, all-reduce, logits gather/top-k, and DCP row exchange."
+      value: "Create or attach the four-rank CRS812 200G data-plane transport group used for broadcast, all-reduce, logits gather/top-k, and DCP row exchange."
       support_refs {
         node_id: "a-establish-collective-fabric"
       }
@@ -285,6 +285,12 @@ graph {
       status: SUPPORTED
     }
     semantics {
+      entry_id: "a-establish-collective-fabric-data-plane"
+      key: "data_plane"
+      value: "The effective collective endpoint for each rank must be its 10.100.185.x CRS812 200G fabric address; 192.168.0.x management addresses are rejected for TP/DCP traffic."
+      status: SUPPORTED
+    }
+    semantics {
       entry_id: "a-establish-collective-fabric-impl"
       key: "implementation_choice"
       value: "fixed_by_child_contract_from_parent_action"
@@ -299,7 +305,7 @@ graph {
     state_set {
       state_node_id: "s-rank-plan"
       access: "read"
-      meaning: "read rank ids and endpoints"
+      meaning: "read rank ids and CRS812 200G fabric endpoints"
     }
     state_set {
       state_node_id: "s-tp"
@@ -574,7 +580,7 @@ graph {
     semantics {
       entry_id: "s-tp-role"
       key: "data_role"
-      value: "replicated TP4/DCP4 collective fabric readiness"
+      value: "replicated TP4/DCP4 collective fabric readiness over the CRS812 200G data plane"
       status: SUPPORTED
     }
     semantics {
@@ -861,7 +867,7 @@ graph {
 }
 canonical {
   schema_sha256: "9de5a18221a33a9379092d084dbae946af604b979dfe7caf07bdd65701b5ea9d"
-  type_schema_sha256: "c9b92e83a751264b322323f0c8a3f2282fe07d4f31182dcf70b5e3a4a058d900"
-  graph_sha256: "f3282cf7e787c0a8f2822ce2a6e48e162c0d9fc9f55f12a0dde10010ec415284"
-  graph_contract_sha256: "941a792f839175e512f1d44f4d4010401fd289930184b302c9a436f568f6e4fa"
+  type_schema_sha256: "439ecb1547e94993df1188fae5c6ea858c0a27402086c07d2c5f6f18d5d9f0f4"
+  graph_sha256: "9d95b696505a12c5ebae27e4ff6c103328ee56fad74bd994512c950a0a120809"
+  graph_contract_sha256: "e16efe1ce533c80984bea7ffbc055655e890d1411d88c121b377769a70495634"
 }

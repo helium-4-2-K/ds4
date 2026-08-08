@@ -114,7 +114,7 @@ graph {
   semantics {
     entry_id: "serve-scenario"
     key: "operating_scenario"
-    value: "Four GX10 ranks form one TP group. Rank0 coordinates API/sampling; all ranks run every layer in lockstep with rank-owned tensor shards and collectives."
+    value: "Four GX10 ranks form one TP group over the CRS812 200G data plane. Rank0 coordinates API/sampling over the control plane; all ranks run every layer in lockstep with rank-owned tensor shards and collectives on the fabric addresses."
     support_refs {
       node_id: "action-decode-token"
     }
@@ -126,7 +126,7 @@ graph {
   semantics {
     entry_id: "serve-bird-operational-topology"
     key: "operational_baseline"
-    value: "Bird/vLLM launch uses rank0 at 192.168.0.40, ranks1-3 at 192.168.0.240/0.99/0.39, fabric rail-A 10.100.185.3/1/2/4, and local per-rank sharded checkpoints."
+    value: "Bird/vLLM launch uses management SSH addresses rank0 192.168.0.40 and ranks1-3 192.168.0.240/0.99/0.39, but TP/DCP collective traffic uses the separate CRS812 200G fabric rail-A addresses 10.100.185.3/1/2/4, with local per-rank sharded checkpoints."
     support_refs {
       node_id: "action-serve-open"
     }
@@ -761,7 +761,7 @@ graph {
     semantics {
       entry_id: "tp-bird-ref"
       key: "implementation_reference"
-      value: "Use Bird/vLLM NCCL/RoCE topology as the concrete four-node TP collective reference: TP4, PP1, DCP4, NCCL 2.30.4, four channels, both RoCE HCAs."
+      value: "Use Bird/vLLM NCCL/RoCE topology as the concrete four-node TP collective reference: TP4, PP1, DCP4, NCCL 2.30.4, four channels, both RoCE HCAs, carried on the CRS812 200G data-plane fabric rather than the 192.168.0.x management network."
       status: SUPPORTED
     }
     semantics {
@@ -1810,13 +1810,13 @@ graph {
     }
   }
   architecture {
-    overview: "Four GX10 machines host one GLM 5.2 tensor-parallel serving group. Rank 0 hosts the public API, sampling coordinator, and NCCL master endpoint; ranks 1-3 host headless worker processes. Every rank stores its rank-specific model shard files, TP-owned QKV/MLA/head/expert/vocab shards for every layer, and rank-owned KV/MLA cache slices."
+    overview: "Four GX10 machines host one GLM 5.2 tensor-parallel serving group. Rank 0 hosts the public API, sampling coordinator, and NCCL master endpoint; ranks 1-3 host headless worker processes. Every rank stores its rank-specific model shard files, TP-owned QKV/MLA/head/vocab shards for every layer, expert tensor-dimension shards covering all routed expert ids, and rank-owned KV/MLA cache slices."
     rationale: "The deployment is TP4, not pipeline parallelism: no machine owns a contiguous layer range. Each rank runs every layer in lockstep over its tensor shards, then explicit broadcast/all-reduce/gather collectives convert rank-local shards or partials into replicated or coordinator-visible values."
     components {
       component_id: "cmp-rank0"
       name: "rank 0 GX10 API/master 192.168.0.40"
       kind: "tp-rank-api-master"
-      overview: "Hosts the rank 0 vLLM/Bird-compatible worker, public API on port 8216, NCCL master endpoint on fabric IP 10.100.185.3, rank0 sharded-state checkpoint files under glm52-full-tp4-mtp-rank0, rank0 QKV/MLA/head/expert/vocab shards for every GLM 5.2 layer, rank0 KV/MLA cache slices, and coordinator-visible logits/top-k sampling state."
+      overview: "Hosts the rank 0 vLLM/Bird-compatible worker, public API on port 8216, NCCL master endpoint on fabric IP 10.100.185.3, rank0 sharded-state checkpoint files under glm52-full-tp4-mtp-rank0, rank0 QKV/MLA/head/vocab shards for every GLM 5.2 layer, rank0 expert tensor-dimension shards covering all routed expert ids, rank0 KV/MLA cache slices, and coordinator-visible logits/top-k sampling state."
       member_refs {
         node_id: "data-request"
       }
@@ -1888,7 +1888,7 @@ graph {
       component_id: "cmp-rank1"
       name: "rank 1 GX10 worker 192.168.0.240"
       kind: "tp-rank-headless-worker"
-      overview: "Hosts the rank 1 headless vLLM/Bird-compatible worker on fabric IP 10.100.185.1, rank1 sharded-state checkpoint files under glm52-full-tp4-mtp-rank1, rank1 QKV/MLA/head/expert/vocab shards for every GLM 5.2 layer, and rank1 KV/MLA cache slices."
+      overview: "Hosts the rank 1 headless vLLM/Bird-compatible worker on fabric IP 10.100.185.1, rank1 sharded-state checkpoint files under glm52-full-tp4-mtp-rank1, rank1 QKV/MLA/head/vocab shards for every GLM 5.2 layer, rank1 expert tensor-dimension shards covering all routed expert ids, and rank1 KV/MLA cache slices."
       member_refs {
         node_id: "state-kv"
       }
@@ -1951,7 +1951,7 @@ graph {
       component_id: "cmp-rank2"
       name: "rank 2 GX10 worker 192.168.0.99"
       kind: "tp-rank-headless-worker"
-      overview: "Hosts the rank 2 headless vLLM/Bird-compatible worker on fabric IP 10.100.185.2, rank2 sharded-state checkpoint files under glm52-full-tp4-mtp-rank2, rank2 QKV/MLA/head/expert/vocab shards for every GLM 5.2 layer, and rank2 KV/MLA cache slices."
+      overview: "Hosts the rank 2 headless vLLM/Bird-compatible worker on fabric IP 10.100.185.2, rank2 sharded-state checkpoint files under glm52-full-tp4-mtp-rank2, rank2 QKV/MLA/head/vocab shards for every GLM 5.2 layer, rank2 expert tensor-dimension shards covering all routed expert ids, and rank2 KV/MLA cache slices."
       member_refs {
         node_id: "state-kv"
       }
@@ -2014,7 +2014,7 @@ graph {
       component_id: "cmp-rank3"
       name: "rank 3 GX10 worker 192.168.0.39"
       kind: "tp-rank-headless-worker"
-      overview: "Hosts the rank 3 headless vLLM/Bird-compatible worker on fabric IP 10.100.185.4, rank3 sharded-state checkpoint files under glm52-full-tp4-mtp-rank3, rank3 QKV/MLA/head/expert/vocab shards for every GLM 5.2 layer, and rank3 KV/MLA cache slices."
+      overview: "Hosts the rank 3 headless vLLM/Bird-compatible worker on fabric IP 10.100.185.4, rank3 sharded-state checkpoint files under glm52-full-tp4-mtp-rank3, rank3 QKV/MLA/head/vocab shards for every GLM 5.2 layer, rank3 expert tensor-dimension shards covering all routed expert ids, and rank3 KV/MLA cache slices."
       member_refs {
         node_id: "state-kv"
       }
@@ -2249,7 +2249,7 @@ evidence_sources {
 }
 canonical {
   schema_sha256: "9de5a18221a33a9379092d084dbae946af604b979dfe7caf07bdd65701b5ea9d"
-  type_schema_sha256: "30f49b45e889237b5bb310b878ab4e6706809d614eedd39946a3bc723ce1c6d4"
-  graph_sha256: "85e05f5805e2d92e52c9e79f8ffb38fb0f65ac1d1f9e550ee1566f2877735345"
-  graph_contract_sha256: "5f60910a22c5a998817974978a85a088a6de5c8a3482d6696840bfe5999c51ac"
+  type_schema_sha256: "3f4be1b144e1cee44727789840835951678fede862e9ccde1a2c91d025010a46"
+  graph_sha256: "bbe6d312279d1bda1ddec025c66aadedc2ddc936e2e48e04cfacc44036cad60c"
+  graph_contract_sha256: "e86e9e8efe3ad48fdda966be2e1723b862adfd62176e7a45defabfa67b50720a"
 }

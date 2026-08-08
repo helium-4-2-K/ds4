@@ -53,6 +53,7 @@ static void write_rank_plan(const char *path, int rank,
     fprintf(fp, "rank=%d\n", rank);
     fprintf(fp, "model_name=glm-5.2\n");
     fprintf(fp, "checkpoint_root=%s\n", g_model_root);
+    fprintf(fp, "fabric_data_plane=%s\n", DS4_GLM52_L0_FABRIC_DATA_PLANE);
     for (int i = 0; i < base_count; i++) {
         if (foreign_first && i == 0) {
             fprintf(fp, "rank%d.base_shard=rank3/base-00.safetensors\n",
@@ -176,6 +177,10 @@ static void mark_resident_shards(ds4_glm52_l0_state *state) {
     state->resident_shards.mapped_bytes = 21;
     state->resident_shards.no_foreign_rank_shard = true;
     state->resident_shards.mapped = true;
+    snprintf(state->launch_plan.fabric_data_plane,
+             sizeof(state->launch_plan.fabric_data_plane),
+             "%s",
+             DS4_GLM52_L0_FABRIC_DATA_PLANE);
 }
 
 static void mark_tp_group(ds4_glm52_l0_state *state) {
@@ -442,6 +447,10 @@ static void test_tp_group_binding(void) {
               state.tp_fabric.local_rank == 2 &&
               strcmp(state.tp_fabric.fabric_addr, "10.100.185.2") == 0,
           "TP fabric should record local rank and fabric address");
+    check(state.tp_fabric.fabric_data_plane &&
+              strcmp(state.tp_fabric.fabric_data_plane,
+                     DS4_GLM52_L0_FABRIC_DATA_PLANE) == 0,
+          "TP fabric should record CRS812 data-plane identity");
 
     memset(&state, 0, sizeof(state));
     mark_resident_shards(&state);
@@ -454,6 +463,36 @@ static void test_tp_group_binding(void) {
           "TP group should reject missing fabric address");
     check(strstr(result.message, "fabric") != NULL,
           "missing fabric rejection should name fabric address");
+
+    cfg = valid_config();
+    cfg.fabric_addr = "192.168.0.99";
+    memset(&state, 0, sizeof(state));
+    mark_resident_shards(&state);
+    snprintf(state.launch_plan.fabric_data_plane,
+             sizeof(state.launch_plan.fabric_data_plane),
+             "%s",
+             DS4_GLM52_L0_FABRIC_DATA_PLANE);
+    status = ds4_glm52_l0_stub_action(DS4_GLM52_L0_ACTION_TP_GROUP,
+                                      &cfg,
+                                      &state,
+                                      &result);
+    check(status == DS4_GLM52_L0_STATUS_INVALID,
+          "TP group should reject management-network fabric addresses");
+    check(strstr(result.message, "management network") != NULL,
+          "management-network rejection should be explicit");
+
+    cfg = valid_config();
+    memset(&state, 0, sizeof(state));
+    mark_resident_shards(&state);
+    state.launch_plan.fabric_data_plane[0] = '\0';
+    status = ds4_glm52_l0_stub_action(DS4_GLM52_L0_ACTION_TP_GROUP,
+                                      &cfg,
+                                      &state,
+                                      &result);
+    check(status == DS4_GLM52_L0_STATUS_INVALID,
+          "TP group should reject missing fabric data-plane identity");
+    check(strstr(result.message, "fabric_data_plane") != NULL,
+          "missing data-plane rejection should name rank-plan field");
 
     cfg = valid_config();
     memset(&state, 0, sizeof(state));
@@ -696,7 +735,7 @@ static void ensure_layout_fixture(void) {
                            -1, -1, -1, -1, -1, -1);
         write_layout_entry(fp, "expert_0", "expert", "rank_local_shard",
                            2, "rank2/shard-02.bin", 0, 32, k_sha256_x32,
-                           -1, -1, 128, 192, -1, -1);
+                           -1, -1, 0, 256, -1, -1);
         write_layout_entry(fp, "vocab_w", "vocab", "rank_local_shard",
                            2, "rank2/shard-03.bin", 0, 32, k_sha256_x32,
                            -1, -1, -1, -1, 77440, 116160);
@@ -789,7 +828,7 @@ static void ensure_layout_fixture(void) {
                            -1, -1, -1, -1, -1, -1);
         write_layout_entry(fp, "expert_0", "expert", "rank_local_shard",
                            2, "rank2/shard-02.bin", 0, 32, k_sha256_x32,
-                           -1, -1, 128, 192, -1, -1);
+                           -1, -1, 0, 256, -1, -1);
         write_layout_entry(fp, "vocab_w", "vocab", "rank_local_shard",
                            2, "rank2/shard-03.bin", 0, 32, k_sha256_x32,
                            -1, -1, -1, -1, 77440, 116160);
@@ -809,7 +848,7 @@ static void ensure_layout_fixture(void) {
                            32, 48, -1, -1, -1, -1);
         write_layout_entry(fp, "expert_0", "expert", "rank_local_shard",
                            2, "rank2/shard-02.bin", 0, 32, k_sha256_x32,
-                           -1, -1, 128, 192, -1, -1);
+                           -1, -1, 0, 256, -1, -1);
         write_layout_entry(fp, "vocab_w", "vocab", "rank_local_shard",
                            2, "rank2/shard-03.bin", 0, 32, k_sha256_x32,
                            -1, -1, -1, -1, 77440, 116160);
@@ -840,8 +879,8 @@ static void test_layout_valid_manifest_passes(void) {
     check(!plan.missing_spans_present, "valid layout should have no missing spans");
     check(plan.q_head_start == 32, "rank 2 Q-head start should be 32");
     check(plan.q_head_end == 48, "rank 2 Q-head end should be 48");
-    check(plan.expert_start == 128, "rank 2 expert start should be 128");
-    check(plan.expert_end == 192, "rank 2 expert end should be 192");
+    check(plan.expert_start == 0, "rank 2 expert start should be 0");
+    check(plan.expert_end == 256, "rank 2 expert end should be 256");
     check(plan.vocab_start == 77440, "rank 2 vocab start should be 77440");
     check(plan.vocab_end == 116160, "rank 2 vocab end should be 116160");
     check(plan.entry_count == 5, "valid plan should have 5 visible entries");
@@ -869,9 +908,9 @@ static void test_layout_valid_manifest_passes(void) {
           "publish should set no_foreign_rank_shard");
     check(state.rank_plan.q_head_start == 32, "publish should set q_head_start");
     check(state.rank_plan.q_head_end == 48, "publish should set q_head_end");
-    check(state.rank_plan.expert_start == 128,
+    check(state.rank_plan.expert_start == 0,
           "publish should set expert_start");
-    check(state.rank_plan.expert_end == 192,
+    check(state.rank_plan.expert_end == 256,
           "publish should set expert_end");
     check(state.rank_plan.vocab_start == 77440,
           "publish should set vocab_start");
@@ -913,8 +952,8 @@ static void test_model_load_layout_reaches_ready_rank_engines(void) {
               state.rank_plan.rank == 2 &&
               state.rank_plan.q_head_start == 32 &&
               state.rank_plan.q_head_end == 48 &&
-              state.rank_plan.expert_start == 128 &&
-              state.rank_plan.expert_end == 192 &&
+              state.rank_plan.expert_start == 0 &&
+              state.rank_plan.expert_end == 256 &&
               state.rank_plan.vocab_start == 77440 &&
               state.rank_plan.vocab_end == 116160,
           "serve-open should bind the rank-local Q-head/expert/vocab layout");
@@ -1046,11 +1085,8 @@ static void test_layout_replicated_visible_all_ranks(void) {
                         entry->q_head_start +
                         DS4_GLM52_L0_Q_HEADS_PER_RANK;
                 } else if (entry->role == DS4_GLM52_LAYOUT_ROLE_EXPERT) {
-                    entry->expert_start =
-                        r * DS4_GLM52_L0_EXPERTS_PER_RANK;
-                    entry->expert_end =
-                        entry->expert_start +
-                        DS4_GLM52_L0_EXPERTS_PER_RANK;
+                    entry->expert_start = 0;
+                    entry->expert_end = DS4_GLM52_L0_EXPERTS;
                 } else if (entry->role == DS4_GLM52_LAYOUT_ROLE_VOCAB) {
                     entry->vocab_start =
                         (DS4_GLM52_L0_VOCAB_SIZE * r) /

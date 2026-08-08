@@ -31,6 +31,7 @@
 #define DS4_GLM52_LAYOUT_MAX_ENTRIES 512
 #define DS4_GLM52_LAYOUT_MAX_LINE 1024
 #define DS4_GLM52_LAYOUT_FIELD_MAX 256
+#define DS4_GLM52_L0_FABRIC_DATA_PLANE "crs812-200g"
 
 typedef enum {
     DS4_GLM52_L0_STATUS_OK = 0,
@@ -84,6 +85,7 @@ typedef struct {
     char model_name[64];
     char checkpoint_root[256];
     char fabric_addr[128];
+    char fabric_data_plane[64];
     bool validated;
 } ds4_glm52_l0_launch_plan;
 
@@ -132,6 +134,7 @@ typedef struct {
     int dcp_size;
     int pp_size;
     const char *fabric_addr;
+    const char *fabric_data_plane;
     int rank_count;
     int local_rank;
     bool topology_bound;

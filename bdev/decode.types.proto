@@ -143,8 +143,8 @@ message rank_plan {
   int32 q_head_start = 3 [(blueprint.v1.field_contract) = { meaning: "first owned query head" }];
   int32 q_head_end = 4 [(blueprint.v1.field_contract) = { meaning: "exclusive end of owned query heads" }];
   int32 dcp_rank = 5 [(blueprint.v1.field_contract) = { meaning: "decode-context partition id" }];
-  int32 expert_start = 6 [(blueprint.v1.field_contract) = { meaning: "first owned routed expert id" }];
-  int32 expert_end = 7 [(blueprint.v1.field_contract) = { meaning: "exclusive end of owned routed experts" }];
+  int32 expert_start = 6 [(blueprint.v1.field_contract) = { meaning: "first routed expert id present in this rank-local expert tensor shard; Bird GLM 5.2 TP4 keeps all expert ids on every rank and shards expert matrix dimensions" }];
+  int32 expert_end = 7 [(blueprint.v1.field_contract) = { meaning: "exclusive end of routed expert ids present in this rank-local expert tensor shard; expected [0,256) for Bird GLM 5.2 TP4" }];
   int32 vocab_start = 8 [(blueprint.v1.field_contract) = { meaning: "first owned vocabulary row" }];
   int32 vocab_end = 9 [(blueprint.v1.field_contract) = { meaning: "exclusive end of owned vocabulary rows" }];
 }
@@ -204,5 +204,5 @@ message expert_selection {
   int32 position = 3 [(blueprint.v1.field_contract) = { meaning: "token position j" }];
   repeated int32 selected_expert_ids = 4 [(blueprint.v1.field_contract) = { meaning: "top-8 routed expert ids plus shared-expert marker when present" }];
   repeated float selected_expert_weights = 5 [(blueprint.v1.field_contract) = { meaning: "router weights for selected experts" }];
-  repeated bool owned_mask = 6 [(blueprint.v1.field_contract) = { meaning: "true for expert ids resident on this rank" }];
+  repeated bool owned_mask = 6 [(blueprint.v1.field_contract) = { meaning: "true for expert ids present in this rank's tensor shard; for Bird GLM 5.2 TP4 every rank can mark all expert ids present while compute remains tensor-sharded" }];
 }

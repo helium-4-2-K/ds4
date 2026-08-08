@@ -21,6 +21,9 @@ message launch_plan {
   string model_name = 3 [(blueprint.v1.field_contract) = { meaning: "served GLM 5.2 model identifier" }];
   string checkpoint_root = 4 [(blueprint.v1.field_contract) = { meaning: "checkpoint directory visible to every rank" }];
   string dwarfstart_command = 5 [(blueprint.v1.field_contract) = { meaning: "DwarfStar launch command and environment" }];
+  string fabric_addr = 6 [(blueprint.v1.field_contract) = { meaning: "rank-local TP/DCP data-plane address on the CRS812 200G fabric, not the management SSH address" }];
+  string fabric_data_plane = 7 [(blueprint.v1.field_contract) = { meaning: "data-plane identity for collective traffic, fixed to crs812-200g for the four GX10 deployment" }];
+  string management_addr = 8 [(blueprint.v1.field_contract) = { meaning: "management/control-plane SSH address; must not be used for TP/DCP collective traffic" }];
 }
 
 message shard_manifest {
@@ -57,8 +60,8 @@ message loaded_rank_shard {
   uint64 mapped_bytes = 3 [(blueprint.v1.field_contract) = { meaning: "resident mapped weight bytes" }];
   int32 q_head_start = 4 [(blueprint.v1.field_contract) = { meaning: "first owned query head" }];
   int32 q_head_end = 5 [(blueprint.v1.field_contract) = { meaning: "exclusive end of owned query heads" }];
-  int32 expert_start = 6 [(blueprint.v1.field_contract) = { meaning: "first owned routed expert" }];
-  int32 expert_end = 7 [(blueprint.v1.field_contract) = { meaning: "exclusive end of owned routed experts" }];
+  int32 expert_start = 6 [(blueprint.v1.field_contract) = { meaning: "first routed expert id present in this rank's expert tensor shard; Bird GLM 5.2 TP4 keeps all expert ids on every rank and shards expert matrix dimensions" }];
+  int32 expert_end = 7 [(blueprint.v1.field_contract) = { meaning: "exclusive end of routed expert ids present in this rank's expert tensor shard; expected [0,256) for Bird GLM 5.2 TP4" }];
   int32 vocab_start = 8 [(blueprint.v1.field_contract) = { meaning: "first owned vocab row" }];
   int32 vocab_end = 9 [(blueprint.v1.field_contract) = { meaning: "exclusive end of owned vocab rows" }];
 }

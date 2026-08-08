@@ -1,0 +1,35 @@
+{
+  "action": "validate_contract",
+  "artifact_integrity": {
+    "blueprint_sha256": "8ec5da05227296565218f7972ebddb4425bcd39236be31574468543b12a70b60",
+    "semantic_sha256": "7a2383c123331d59637c8128cdbb5fa40e7ed667b8d2045c1882536c9befaf04"
+  },
+  "error_count": 0,
+  "errors": [],
+  "graph_ids": [
+    "serve"
+  ],
+  "profile": "l0",
+  "request_id": "validate-serve-after-l1-children",
+  "schema": "blueprint-contract-validation/v4",
+  "snapshot": {
+    "artifact_integrity": {
+      "blueprint_sha256": "8ec5da05227296565218f7972ebddb4425bcd39236be31574468543b12a70b60",
+      "semantic_sha256": "7a2383c123331d59637c8128cdbb5fa40e7ed667b8d2045c1882536c9befaf04"
+    },
+    "covered_graphs": [
+      {
+        "graph_contract_sha256": "e86e9e8efe3ad48fdda966be2e1723b862adfd62176e7a45defabfa67b50720a",
+        "graph_id": "serve",
+        "role": "selected",
+        "type_schema_sha256": "3f4be1b144e1cee44727789840835951678fede862e9ccde1a2c91d025010a46"
+      }
+    ],
+    "selected_graph_ids": [
+      "serve"
+    ]
+  },
+  "status": "PASS",
+  "warning_count": 0,
+  "warnings": []
+}

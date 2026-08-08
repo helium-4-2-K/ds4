@@ -76,7 +76,10 @@ Completed implementation slices:
     layout ownership and file/byte-range residency evidence.
 - `serve/action-tp-group` topology-binding skeleton:
   - binds TP4/DCP4/PP1;
-  - binds local rank, Q-head span, DCP rank, rank count, and fabric address;
+  - binds local rank, Q-head span, DCP rank, rank count, and CRS812 200G
+    fabric address;
+  - rejects `192.168.0.x` management addresses for TP/DCP collective traffic
+    and requires rank plans to declare `fabric_data_plane=crs812-200g`;
   - leaves real four-rank transport readiness unresolved.
 - TP4 no-model rank-group smoke:
   - validates ranks 0..3 exactly once;
@@ -353,7 +356,9 @@ Active in `tests/test_glm52_l0.c`:
 - Q-head ownership covers the current rank's 16-head span exactly once;
 - missing Q-head span fails;
 - overlapping Q-head span fails;
-- expert ownership covers the current rank's 64-expert span exactly once;
+- expert ownership covers the full routed-expert id span `[0,256)` on each
+  rank, matching the observed Bird/vLLM GLM 5.2 TP4 artifact where expert
+  matrices are tensor-dimension sharded rather than expert-id sharded;
 - vocab ownership covers the current rank's 38,720-token shard exactly once;
 - every mapped file slice recomputes and verifies the entry sha256;
 - sha256 mismatch fails before resident shard readiness is published;
@@ -519,7 +524,8 @@ Implementation must preserve these user-visible and graph-visible obligations:
 - Four ranks load one GLM 5.2 model plan with matching model/config/shard
   identity before serving.
 - DwarfStar launch settings match the four-rank Bird/vLLM baseline: TP4, PP1,
-  DCP4, rank-specific sharded checkpoint directories, and fabric endpoints.
+  DCP4, rank-specific sharded checkpoint directories, and CRS812 200G fabric
+  endpoints distinct from the management SSH network.
 - Every token step has an explicit token position and KV cursor.
 - Prefill commits prompt KV rows and leaves decode at the next cursor position.
 - Decode advances the replicated cursor by exactly one accepted token.

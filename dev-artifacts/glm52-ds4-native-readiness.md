@@ -123,7 +123,10 @@ Minimum target:
 New or changed seams:
 
 - Extend `ds4_tp_options` or introduce `ds4_rank_options`.
-- Add `--tp-size 4`, `--rank N`, `--master-addr`, `--master-port`, and local fabric address options.
+- Add `--tp-size 4`, `--rank N`, `--master-addr`, `--master-port`, and local
+  fabric address options. For the four-GX10 target, the collective endpoint is
+  the CRS812 200G data-plane address (`10.100.185.x`), not the `192.168.0.x`
+  management SSH address.
 - Replace leader/worker-only `ds4_tp_create()` with a four-member rendezvous.
 - Keep `ds4_distributed.c` separate; it is layer pipeline, not this target.
 
@@ -234,17 +237,20 @@ Do not infer correctness from local tensor shapes only. The contract must declar
 
 ### 7. MoE TP4
 
-Current GLM Metal TP does 50/50 expert ownership. TP4 needs 4-way expert ownership.
+Current GLM Metal TP does 50/50 expert ownership. The observed Bird/vLLM
+GLM 5.2 TP4 artifact does not split the routed-expert id dimension four ways:
+each rank-local shard keeps all 256 expert ids and shards expert matrix
+dimensions. The native DS4 contract should therefore treat expert ids as
+present on every rank, while FFN computation remains tensor parallel and
+requires an all-reduce to restore replicated hidden.
 
 Minimum first split:
 
-- Rank 0 owns experts 0-63.
-- Rank 1 owns experts 64-127.
-- Rank 2 owns experts 128-191.
-- Rank 3 owns experts 192-255.
-- Shared expert remains replicated first; shard it later only if memory requires.
+- Every rank has expert-id coverage `[0,256)`.
+- Each rank owns its local tensor-dimension shard of routed/shared expert
+  matrices.
 - Router selection is replicated on all ranks.
-- Each rank computes output for selected experts it owns, zero for others.
+- Each rank computes its tensor partial for selected experts.
 - FFN all-reduce sum restores replicated hidden.
 
 Code seams:

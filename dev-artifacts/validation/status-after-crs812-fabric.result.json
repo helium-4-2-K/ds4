@@ -1,0 +1,101 @@
+{
+  "artifact_integrity": {
+    "blueprint_sha256": "8ec5da05227296565218f7972ebddb4425bcd39236be31574468543b12a70b60",
+    "semantic_sha256": "7a2383c123331d59637c8128cdbb5fa40e7ed667b8d2045c1882536c9befaf04"
+  },
+  "blueprint_id": "ds4-arch",
+  "graphs": [
+    {
+      "graph_contract_sha256": "b93f17489a529e3e978315192766824b9fc85d745b030a115e2fbbb5cc8eff74",
+      "graph_id": "decode",
+      "type_schema_sha256": "275f7e1fbd151e30dfa166610d865a78c47f36c1ddd38d43ac8159ad7c122d97"
+    },
+    {
+      "graph_contract_sha256": "34edbcdcbc65b8efa156e71c0b4652c13732bea0620557c746a20701a9482195",
+      "graph_id": "decode-attn-allreduce-sum",
+      "type_schema_sha256": "99684015c793c2a55ffbde749fb99fa6e2bac82dd1e0648d6c823effdfc4b42c"
+    },
+    {
+      "graph_contract_sha256": "4d29e030e5f5eb113dcd5c924983d7aa0c6a805846405064de89becc3f53bb89",
+      "graph_id": "decode-dcp-row-exchange",
+      "type_schema_sha256": "dec82e16d316c00858e4b33a1f27179e5315937d2d5a1b970bde07409f2473b4"
+    },
+    {
+      "graph_contract_sha256": "0641a0c8d36a047a12b5d6b5a2aba12f939efca745742a513096e4c25713a9f4",
+      "graph_id": "decode-dcp-topk",
+      "type_schema_sha256": "706710b33d899ac4dc46ed2cf67c4164c6ca7003d5e714791a37b746aacc77da"
+    },
+    {
+      "graph_contract_sha256": "dacbd1f54108a0d626d4581c4d51d2c33e8212d457c611db0c07fcc17b618832",
+      "graph_id": "decode-expert-route",
+      "type_schema_sha256": "b58512fd86eff1e3e86162412e2613ece227cd48bd4be353c4b3d046117ec7b4"
+    },
+    {
+      "graph_contract_sha256": "b0cc61d217bbc67dd57da335109963232be8eb8587519bc23f3ccfe1512adb06",
+      "graph_id": "decode-ffn-allreduce-sum",
+      "type_schema_sha256": "03b9e9783cb3a0257a8daa1505737ef805d2f09f7a7f3031d0372d6c38044ca1"
+    },
+    {
+      "graph_contract_sha256": "e99c7f864d262149ed1265563d058e4884f2474c9140f719e59d49b5797afbf8",
+      "graph_id": "decode-ffn-local",
+      "type_schema_sha256": "3114190b1883a23b6e57c7657f09b7b746f5058ea36654481b943e6e282bc2dc"
+    },
+    {
+      "graph_contract_sha256": "517ec3e5bb0f51738073ce1e2e7cf66a1595d762a2476921772d22e4acfb9fa7",
+      "graph_id": "decode-logits-gather-topk",
+      "type_schema_sha256": "2ed27add9a997ce21222e72bff8584c39f96cf325603632d4a8bb169060b4544"
+    },
+    {
+      "graph_contract_sha256": "a2ebb6647571087f881121b8503fe23d85bdbd39c26f5508103051838aa821ff",
+      "graph_id": "decode-qkv-mla",
+      "type_schema_sha256": "454dced41c1632a0aba41bab9fd7d85cfbb130a63b2900d7d1bcd72b8c9e0efd"
+    },
+    {
+      "graph_contract_sha256": "9f0e64e050643ba5354453f642fe53059ff15a32e7ca29beeb1c0e924fe82782",
+      "graph_id": "decode-sparse-attention",
+      "type_schema_sha256": "5ac69a939562c82228f43ac489a7b4652cd1c32dbe706743a98f37f9a516f36f"
+    },
+    {
+      "graph_contract_sha256": "ba3b89e9dccc89973f2e7c2cd5dfa9714e99dea35630cc69a7f70128684cf62c",
+      "graph_id": "kv-checkpoint",
+      "type_schema_sha256": "0e857104e8b9d8fce63f022fbc589220ad56aec7b8ca028b3a35f666a6e6d944"
+    },
+    {
+      "graph_contract_sha256": "083ff1b8ab754f0fe11170f32c449b6777b2944c9156de43a105f0836d89b2d5",
+      "graph_id": "model-load",
+      "type_schema_sha256": "0aa0c0c7dfc43caabc5f745e1e1d6c0a82aae418e40a141221cb94ffe2b1696f"
+    },
+    {
+      "graph_contract_sha256": "b426dd592e67a1784cbf09253ec0e8c450dc58a97ee922907445b17c6da15154",
+      "graph_id": "model-shard-layout",
+      "type_schema_sha256": "4f68b4a96f18a59411e0dd7cc6ac4725c60f4f2ce354be997d2867ad29772a44"
+    },
+    {
+      "graph_contract_sha256": "0ab53f7fc62866936cf67dec8ad37a01c450c04c4c7b92bbd8426a49f904d9e1",
+      "graph_id": "prefill",
+      "type_schema_sha256": "dfda6e7a973743cbc7e9f214feb3887f92200825ed1423e0a0af5110971680d1"
+    },
+    {
+      "graph_contract_sha256": "735fd084d7cf75429637c02aafa2544afd65fd610cda30a3300928b14ccf9eb8",
+      "graph_id": "request-session",
+      "type_schema_sha256": "ec6d4e0512c6682f40930e99c40cfbad7bd1a601dfa202267d58c34a17498770"
+    },
+    {
+      "graph_contract_sha256": "e86e9e8efe3ad48fdda966be2e1723b862adfd62176e7a45defabfa67b50720a",
+      "graph_id": "serve",
+      "type_schema_sha256": "3f4be1b144e1cee44727789840835951678fede862e9ccde1a2c91d025010a46"
+    },
+    {
+      "graph_contract_sha256": "ef262627ad84c55551bf9e068aa025e7dd3e32a7c4ce57df10f864c352550c59",
+      "graph_id": "stream-token",
+      "type_schema_sha256": "3db5b23041c9737944380aaf2851b609257e4d1b4e2b77c8d16a7c70ab36e885"
+    },
+    {
+      "graph_contract_sha256": "e16efe1ce533c80984bea7ffbc055655e890d1411d88c121b377769a70495634",
+      "graph_id": "tp-group",
+      "type_schema_sha256": "439ecb1547e94993df1188fae5c6ea858c0a27402086c07d2c5f6f18d5d9f0f4"
+    }
+  ],
+  "schema": "blueprint-write-status/v4",
+  "status": "PASS"
+}

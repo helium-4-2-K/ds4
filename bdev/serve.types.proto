@@ -89,11 +89,11 @@ message kv {
 message distlink {
   option (blueprint.v1.type_contract) = {
     type_id: "blueprint.work.ds4_arch.distlink"
-    represents: "TP=4 collective fabric over four GX10 machines, with Bird/vLLM NCCL/RoCE settings as baseline"
+    represents: "TP=4 collective fabric over the CRS812 200G data plane across four GX10 machines, with Bird/vLLM NCCL/RoCE settings as baseline"
     semantics {
       entry_id: "t-distlink"
       key: "meaning"
-      value: "TP=4 collective fabric over four GX10 machines, with Bird/vLLM NCCL/RoCE settings as baseline"
+      value: "TP=4 collective fabric over the CRS812 200G data plane across four GX10 machines, with Bird/vLLM NCCL/RoCE settings as baseline"
       status: SUPPORTED
     }
   };
@@ -110,6 +110,10 @@ message distlink {
   string nccl_version = 11 [(blueprint.v1.field_contract) = { meaning: "2.30.4 in Bird/vLLM baseline" }];
   int32 nccl_channels = 12 [(blueprint.v1.field_contract) = { meaning: "four NCCL channels in Bird/vLLM baseline" }];
   repeated string roce_hcas = 13 [(blueprint.v1.field_contract) = { meaning: "RoCE HCA names used by NCCL" }];
+  string fabric_switch = 14 [(blueprint.v1.field_contract) = { meaning: "CRS812 switch carrying the 200G collective data plane" }];
+  string data_plane = 15 [(blueprint.v1.field_contract) = { meaning: "fabric identity, fixed to crs812-200g for GLM 5.2 TP4/DCP4 collectives" }];
+  repeated string fabric_addrs = 16 [(blueprint.v1.field_contract) = { meaning: "rank fabric addresses 10.100.185.3, 10.100.185.1, 10.100.185.2, 10.100.185.4 for ranks 0..3" }];
+  repeated string management_addrs = 17 [(blueprint.v1.field_contract) = { meaning: "rank management SSH addresses 192.168.0.40, 192.168.0.240, 192.168.0.99, 192.168.0.39; not valid for collective transport" }];
 }
 
 message kv_cursor {
