@@ -167,6 +167,30 @@ rank1 `192.168.0.240`, rank2 `192.168.0.99`, and rank3 `192.168.0.39`.
 `make tests/test_glm52_l0 && ./tests/test_glm52_l0` passed on all four Linux
 GX10 hosts.
 
+### GPU upload/binding slice
+
+- Added `ds4_glm52_layout_upload_resident_gpu_tensors`, an explicit
+  backend-injected upload boundary that reads the retained resident mmap
+  tensor table, requires validated dtype/shape/element_count/shape_hash
+  metadata, allocates one rank-owned device tensor per mapped tensor, uploads
+  the exact mmap payload bytes, and records ready GPU tensor bindings in
+  `state->resident_shards`.
+- Cleanup is fail-closed: any allocation, device ownership, metadata, or copy
+  failure releases partial GPU allocations and leaves `gpu_resident=false`.
+- `test_layout_valid_manifest_passes` now verifies uploaded tensor count,
+  device id, byte count, dtype, shape hash, payload bytes, and cleanup. Added
+  `test_layout_gpu_upload_missing_metadata_fails` to prove missing runtime
+  metadata blocks GPU residency before allocation.
+- This is still a backend boundary, not a CUDA implementation: tests use an
+  injected fake GPU runtime, and production CUDA upload/wiring remains a
+  follow-up behind the same API.
+- GX10 target run for this slice: deployed current source to
+  `/tmp/ds4-gx10-gpu-upload-binding-20260808073416` on rank0 `192.168.0.40`,
+  rank1 `192.168.0.240`, rank2 `192.168.0.99`, and rank3 `192.168.0.39`.
+  `make tests/test_glm52_l0 && ./tests/test_glm52_l0` passed on all four
+  Linux GX10 hosts. The Linux compiler emitted the known test-fixture
+  `snprintf` truncation warnings; the target exited 0 on every host.
+
 ### BCD mechanical validation
 
 - Lint (complete): PASS, 18 graphs, 0 errors, 0 warnings
@@ -178,15 +202,24 @@ GX10 hosts.
 - model-shard-layout simulation (map-rank-local-ds4-layout-success): PASS,
   simulation_sha256 `0d62c846706f3a5061058c22314313e5503cecbf3689813833267e0bd0e3024e`
   (`dev-artifacts/validation/simulate-model-shard-layout-after-runtime-tensor-metadata.result.json`).
+- GPU upload/binding lint: PASS, 18 graphs, 0 errors, 0 warnings
+  (`dev-artifacts/validation/lint-after-gpu-upload-binding.result.json`).
+- GPU upload/binding model-shard-layout leaf validation: PASS, 0 errors,
+  0 warnings
+  (`dev-artifacts/validation/validate-model-shard-layout-after-gpu-upload-binding.result.json`).
+- GPU upload/binding simulation: PASS for mapped-state publication and GPU
+  upload success cases, simulation_sha256
+  `d4039d04353210e65ca30cc9a32afdb4c9176a8883f309a2fb0ffa94f6d3c58d`
+  (`dev-artifacts/validation/simulate-model-shard-layout-after-gpu-upload-binding.result.json`).
 
 ### Current digests
 
-- blueprint_sha256: `35a59fbba4347862df3f2f50f269a1f6a8e951d5aecb3210c6403a83352f0ee1`
-- semantic_sha256: `3bfdecba885bd5f0bb442195112d5bc5106f663b2933edc2faae689d2098a954`
-- model-load graph_contract_sha256: `083ff1b8ab754f0fe11170f32c449b6777b2944c9156de43a105f0836d89b2d5`
-- model-load type_schema_sha256: `0aa0c0c7dfc43caabc5f745e1e1d6c0a82aae418e40a141221cb94ffe2b1696f`
-- model-shard-layout graph_contract_sha256: `02eac4c71742fc979fd644e595afd791b49dc6c6a50e7faff20da038f61ff9ca`
-- model-shard-layout type_schema_sha256: `aa33ec3ae3a40ac468691f0fb786c052d10c1ece1e28b8ab04a80fadc728b2c6`
+- blueprint_sha256: `25cfd9d6bad30a9b9163857f4df866da258fc6ffc09ff2445bfef0cba554669b`
+- semantic_sha256: `e8c2bcf10d15c04139b4cc38b6b55b4a35ce7d48140a2dee72f57f8e31792952`
+- model-load graph_contract_sha256: `9dbc3e9a385d4fe634eace00c2a1a9745dd571854d8ea38f81af4fcb5de54078`
+- model-load type_schema_sha256: `9d632a15b05a694407b465f8d592366a941b035cc99ead4b69626a9e9f520431`
+- model-shard-layout graph_contract_sha256: `2cb594a34ade6be64bbb10e147e6f012c3b4e3554d2399dae097288660eae35e`
+- model-shard-layout type_schema_sha256: `38e336f9f776ff0f281abe0dac6e02a1989c03c01c6b4fc56c2f15af3595a2ef`
 - serve graph_contract_sha256: `e86e9e8efe3ad48fdda966be2e1723b862adfd62176e7a45defabfa67b50720a`
 - serve type_schema_sha256: `3f4be1b144e1cee44727789840835951678fede862e9ccde1a2c91d025010a46`
 
@@ -198,10 +231,10 @@ GX10 hosts.
    `resident_shards_ready` check but should be derived from the ownership
    plan's actual entry roles.
 
-2. **GPU upload is still deferred.** The parent-visible ready state now retains
-   real mmap slice handles plus DS4-native manifest-derived dtype/shape
-   metadata for validated rank-local and replicated files. It still does not
-   upload those tensors to GPU or bind them to real GLM 5.2 kernels.
+2. **Production CUDA upload is still deferred.** The L0 upload/binding API is
+   implemented and validated with an injected runtime, but no production CUDA
+   caller yet wires `ds4_gpu_tensor_alloc_on` plus host-to-device copy into
+   DwarfStar model load.
 
 3. **Production checkpoint header decode is still deferred.** The runtime trusts
    the DS4-native layout manifest for dtype/shape metadata after validating it

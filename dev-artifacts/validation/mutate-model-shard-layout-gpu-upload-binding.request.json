@@ -1,0 +1,751 @@
+{
+  "schema": "blueprint-write-request/v11",
+  "action": "mutate",
+  "request_id": "mutate-model-shard-layout-gpu-upload-binding",
+  "root": "/Users/helium/src/ds4-gb10x4-bcd/bdev",
+  "record_dir": "/Users/helium/src/ds4-gb10x4-bcd/dev-artifacts/03_record",
+  "expected_blueprint_sha256": "35a59fbba4347862df3f2f50f269a1f6a8e951d5aecb3210c6403a83352f0ee1",
+  "validation_stage": "draft",
+  "operations": [
+    {
+      "verb": "add",
+      "entity": "message_type",
+      "graph_id": "model-load",
+      "params": {
+        "name": "gpu_resident_tensor_binding",
+        "contract": {
+          "type_id": "blueprint.work.ds4_arch.gpu_resident_tensor_binding",
+          "represents": "One rank-local GPU-resident model tensor produced from a validated mmap slice.",
+          "semantics": [
+            {
+              "entry_id": "t-gpu-resident-tensor-binding",
+              "key": "meaning",
+              "value": "One rank-local GPU-resident model tensor produced from a validated mmap slice.",
+              "status": "supported"
+            }
+          ],
+          "operations": []
+        },
+        "fields": [
+          {
+            "name": "tensor_name",
+            "number": 1,
+            "type_ref": "string",
+            "contract": {
+              "meaning": "canonical DS4 tensor name copied from the validated mapped slice",
+              "semantics": []
+            }
+          },
+          {
+            "name": "tensor_role",
+            "number": 2,
+            "type_ref": "string",
+            "contract": {
+              "meaning": "accepted tensor role such as q_head, mla_kv, expert, vocab, output, or replicated",
+              "semantics": []
+            }
+          },
+          {
+            "name": "distribution_scope",
+            "number": 3,
+            "type_ref": "string",
+            "contract": {
+              "meaning": "rank_local_shard or replicated scope retained from the mapped slice",
+              "semantics": []
+            }
+          },
+          {
+            "name": "rank",
+            "number": 4,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "owning TP rank for this resident tensor",
+              "semantics": []
+            }
+          },
+          {
+            "name": "device_id",
+            "number": 5,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "rank-local physical/logical GPU device that owns the resident tensor allocation",
+              "semantics": []
+            }
+          },
+          {
+            "name": "byte_length",
+            "number": 6,
+            "type_ref": "uint64",
+            "contract": {
+              "meaning": "device allocation payload bytes copied from the validated mapped slice",
+              "semantics": []
+            }
+          },
+          {
+            "name": "dtype",
+            "number": 7,
+            "type_ref": "string",
+            "contract": {
+              "meaning": "validated storage dtype for the resident tensor bytes",
+              "semantics": []
+            }
+          },
+          {
+            "name": "shape",
+            "number": 8,
+            "type_ref": "uint64",
+            "label": "repeated",
+            "contract": {
+              "meaning": "validated rank-local logical tensor shape dimensions",
+              "semantics": []
+            }
+          },
+          {
+            "name": "element_count",
+            "number": 9,
+            "type_ref": "uint64",
+            "contract": {
+              "meaning": "validated element count derived from shape",
+              "semantics": []
+            }
+          },
+          {
+            "name": "shape_hash",
+            "number": 10,
+            "type_ref": "uint64",
+            "contract": {
+              "meaning": "stable runtime hash binding dtype and shape for kernel identity checks",
+              "semantics": []
+            }
+          },
+          {
+            "name": "ready",
+            "number": 11,
+            "type_ref": "bool",
+            "contract": {
+              "meaning": "true only after allocation, device ownership validation, and upload copy succeed",
+              "semantics": []
+            }
+          }
+        ],
+        "oneofs": [],
+        "reserved_numbers": [],
+        "reserved_names": []
+      }
+    },
+    {
+      "verb": "replace",
+      "entity": "message_type",
+      "graph_id": "model-load",
+      "params": {
+        "name": "loaded_rank_shard",
+        "contract": {
+          "type_id": "blueprint.work.ds4_arch.loaded_rank_shard",
+          "represents": "Resident mapped and optionally GPU-backed weights for one TP4 rank after DwarfStar model load",
+          "semantics": [
+            {
+              "entry_id": "t-loaded-rank-shard",
+              "key": "meaning",
+              "value": "Resident mapped and optionally GPU-backed weights for one TP4 rank after DwarfStar model load",
+              "status": "supported"
+            }
+          ],
+          "operations": []
+        },
+        "fields": [
+          {
+            "name": "rank",
+            "number": 1,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "rank id 0..3",
+              "semantics": []
+            }
+          },
+          {
+            "name": "layer_count",
+            "number": 2,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "number of GLM decoder layers loaded",
+              "semantics": []
+            }
+          },
+          {
+            "name": "mapped_bytes",
+            "number": 3,
+            "type_ref": "uint64",
+            "contract": {
+              "meaning": "resident mapped weight bytes",
+              "semantics": []
+            }
+          },
+          {
+            "name": "q_head_start",
+            "number": 4,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "first owned query head",
+              "semantics": []
+            }
+          },
+          {
+            "name": "q_head_end",
+            "number": 5,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "exclusive end of owned query heads",
+              "semantics": []
+            }
+          },
+          {
+            "name": "expert_start",
+            "number": 6,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "first routed expert id present in this rank's expert tensor shard; Bird GLM 5.2 TP4 keeps all expert ids on every rank and shards expert matrix dimensions",
+              "semantics": []
+            }
+          },
+          {
+            "name": "expert_end",
+            "number": 7,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "exclusive end of routed expert ids present in this rank's expert tensor shard; expected [0,256) for Bird GLM 5.2 TP4",
+              "semantics": []
+            }
+          },
+          {
+            "name": "vocab_start",
+            "number": 8,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "first owned vocab row",
+              "semantics": []
+            }
+          },
+          {
+            "name": "vocab_end",
+            "number": 9,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "exclusive end of owned vocab rows",
+              "semantics": []
+            }
+          },
+          {
+            "name": "gpu_resident",
+            "number": 10,
+            "type_ref": "bool",
+            "contract": {
+              "meaning": "true only when every mapped tensor has a rank-owned GPU-resident binding",
+              "semantics": []
+            }
+          },
+          {
+            "name": "gpu_bytes",
+            "number": 11,
+            "type_ref": "uint64",
+            "contract": {
+              "meaning": "total device-resident payload bytes copied from mapped tensor slices",
+              "semantics": []
+            }
+          },
+          {
+            "name": "gpu_tensors",
+            "number": 12,
+            "type_ref": "blueprint.work.ds4_arch.gpu_resident_tensor_binding",
+            "label": "repeated",
+            "contract": {
+              "meaning": "per-tensor GPU residency bindings and metadata retained for real GLM kernel dispatch",
+              "semantics": []
+            }
+          }
+        ],
+        "oneofs": [],
+        "reserved_numbers": [],
+        "reserved_names": []
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "data",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "d-gpu-resident-tensor-bindings",
+        "kind": "DATA",
+        "label": "GPU-resident tensor bindings",
+        "data_type": "blueprint.work.ds4_arch.gpu_resident_tensor_binding",
+        "sources": [],
+        "same_state_as": [],
+        "semantics": [
+          {
+            "entry_id": "d-gpu-resident-tensor-bindings-data-role",
+            "key": "data_role",
+            "value": "rank-local GPU device tensor bindings created from validated mapped slice bytes",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-gpu-resident-tensor-bindings-dist",
+            "key": "distribution_scope",
+            "value": "rank_local_shard",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-gpu-resident-tensor-bindings-identity",
+            "key": "identity",
+            "value": "d-gpu-resident-tensor-bindings is the named occurrence for uploaded resident model tensors in this graph.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-gpu-resident-tensor-bindings-no-ordering",
+            "key": "no_ordering",
+            "value": "not a stream-ordered data item; upload order follows mapped tensor table order only for deterministic metadata retention.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-gpu-resident-tensor-bindings-presence",
+            "key": "presence",
+            "value": "present only after every mapped tensor slice has a ready rank-owned GPU binding.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "d-gpu-resident-tensor-bindings-provenance",
+            "key": "provenance",
+            "value": "produced by a-upload-gpu-resident-tensors from d-loaded-rank-shard resident state and its retained mmap handles.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "action",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "a-upload-gpu-resident-tensors",
+        "kind": "ACTION",
+        "label": "05 upload resident GPU tensors",
+        "input_ports": [
+          {
+            "port_id": "loaded-shard-in",
+            "node_id": "d-loaded-rank-shard",
+            "type_ref": "blueprint.work.ds4_arch.loaded_rank_shard",
+            "cardinality": "exactly_one"
+          }
+        ],
+        "output_ports": [
+          {
+            "port_id": "gpu-bindings-out",
+            "node_id": "d-gpu-resident-tensor-bindings",
+            "type_ref": "blueprint.work.ds4_arch.gpu_resident_tensor_binding",
+            "cardinality": "one_or_more"
+          }
+        ],
+        "state_set": [
+          {
+            "state_node_id": "state-model-worker",
+            "access": "update",
+            "meaning": "attach rank-owned GPU tensor bindings to resident worker model state after mapped shard publication"
+          }
+        ],
+        "preconditions": [
+          {
+            "condition_id": "pre-gpu-upload-loaded-shard",
+            "text": "Resident mapped tensor state exists and each mapped tensor retains validated dtype, shape, element_count, shape_hash, byte count, and readable mmap bytes."
+          }
+        ],
+        "postconditions": [
+          {
+            "condition_id": "post-gpu-upload-resident",
+            "text": "Every mapped tensor has exactly one ready rank-owned GPU tensor binding with matching dtype, shape_hash, and byte length, and stale partial bindings are released on failure."
+          }
+        ],
+        "semantics": [
+          {
+            "entry_id": "a-upload-gpu-resident-tensors-ov",
+            "key": "overview",
+            "value": "Allocate rank-local GPU tensors for every validated resident mapped tensor slice, copy the exact mmap payload bytes through the backend upload boundary, verify device ownership and metadata match, and update resident worker model state with GPU bindings for later GLM kernel dispatch.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "loaded-shard-in",
+            "key": "input_use",
+            "value": "Consumes d-loaded-rank-shard and the same state-model-worker resident mmap handles published by a-publish-loaded-shard.",
+            "object_ref": {
+              "node_id": "d-loaded-rank-shard"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-upload-gpu-resident-tensors"
+                  },
+                  "direction": "input",
+                  "port_id": "loaded-shard-in"
+                }
+              }
+            ],
+            "status": "supported"
+          },
+          {
+            "entry_id": "gpu-bindings-out",
+            "key": "output",
+            "value": "Produces one ready d-gpu-resident-tensor-bindings entry for each mapped tensor slice, preserving tensor name, role, distribution scope, rank, dtype, shape, element_count, shape_hash, and byte length.",
+            "object_ref": {
+              "node_id": "d-gpu-resident-tensor-bindings"
+            },
+            "support_refs": [
+              {
+                "port": {
+                  "owner": {
+                    "node_id": "a-upload-gpu-resident-tensors"
+                  },
+                  "direction": "output",
+                  "port_id": "gpu-bindings-out"
+                }
+              }
+            ],
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-upload-gpu-resident-tensors-state-output",
+            "key": "state_transition",
+            "value": "Updates state-model-worker.gpu_tensors, gpu_tensor_count, gpu_bytes, and gpu_resident only after every upload succeeds; failure releases any partial allocations and leaves gpu_resident false.",
+            "object_ref": {
+              "node_id": "state-model-worker"
+            },
+            "status": "supported",
+            "support_refs": [
+              {
+                "edge_id": "e-gpu-upload-state"
+              }
+            ]
+          },
+          {
+            "entry_id": "a-upload-gpu-resident-tensors-ef",
+            "key": "effect",
+            "value": "Creates rank-local GPU device allocations and copies model tensor bytes from retained mmap handles through an explicit backend upload callback.",
+            "support_refs": [
+              {
+                "node_id": "a-upload-gpu-resident-tensors"
+              }
+            ],
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-upload-gpu-resident-tensors-exit",
+            "key": "exit",
+            "value": "a-upload-gpu-resident-tensors-done or invalid when resident mapped tensors, metadata, device ownership, allocation, or upload copy validation fails.",
+            "support_refs": [
+              {
+                "node_id": "a-upload-gpu-resident-tensors"
+              }
+            ],
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-upload-gpu-resident-tensors-cu",
+            "key": "code_unit",
+            "value": "ds4_glm52_layout_upload_resident_gpu_tensors",
+            "support_refs": [
+              {
+                "node_id": "a-upload-gpu-resident-tensors"
+              }
+            ],
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-upload-gpu-resident-tensors-ordering",
+            "key": "ordering",
+            "value": "Runs only after a-publish-loaded-shard has transferred mmap ownership into state-model-worker, and before real GLM kernels may read resident weight tensors.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-upload-gpu-resident-tensors-determinism",
+            "key": "determinism",
+            "value": "GPU binding table order follows the resident mapped tensor table order; no tensor entry is derived from graph adjacency or missing metadata.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-upload-gpu-resident-tensors-cleanup",
+            "key": "cleanup",
+            "value": "On allocation, ownership, or upload failure, any GPU tensors allocated during this attempt are released before returning failure.",
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-upload-gpu-resident-tensors-im",
+            "key": "implementation_choice",
+            "value": "backend upload runtime is injected at this boundary; allocation, upload, device ownership validation, and cleanup semantics are fixed by ds4_glm52_layout_upload_resident_gpu_tensors",
+            "support_refs": [
+              {
+                "node_id": "a-upload-gpu-resident-tensors"
+              }
+            ],
+            "status": "supported"
+          },
+          {
+            "entry_id": "a-upload-gpu-resident-tensors-nd",
+            "key": "no_diagnostic",
+            "value": "none",
+            "support_refs": [
+              {
+                "node_id": "a-upload-gpu-resident-tensors"
+              }
+            ],
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "e-loaded-to-gpu-upload",
+        "source_node_id": "d-loaded-rank-shard",
+        "target_node_id": "a-upload-gpu-resident-tensors",
+        "family": "dataflow",
+        "kind": "input",
+        "label": "loaded shard state authorizes GPU tensor upload",
+        "semantics": [
+          {
+            "entry_id": "e-loaded-to-gpu-upload-r",
+            "key": "relationship",
+            "value": "loaded shard state authorizes GPU tensor upload",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-loaded-to-gpu-upload-field",
+            "key": "field_flow",
+            "value": "loaded_rank_shard mapped bytes and tensor metadata are checked against state-model-worker resident mapped tensors before upload.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "e-publish-before-gpu-upload",
+        "source_node_id": "a-publish-loaded-shard",
+        "target_node_id": "a-upload-gpu-resident-tensors",
+        "family": "causal",
+        "kind": "ordering",
+        "label": "resident mapped state exists before GPU upload",
+        "semantics": [
+          {
+            "entry_id": "e-publish-before-gpu-upload-r",
+            "key": "relationship",
+            "value": "resident mapped state exists before GPU upload",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "e-gpu-upload-out",
+        "source_node_id": "a-upload-gpu-resident-tensors",
+        "target_node_id": "d-gpu-resident-tensor-bindings",
+        "family": "dataflow",
+        "kind": "output",
+        "label": "GPU upload produces resident tensor bindings",
+        "semantics": [
+          {
+            "entry_id": "e-gpu-upload-out-r",
+            "key": "relationship",
+            "value": "GPU upload produces resident tensor bindings",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-gpu-upload-out-field",
+            "key": "field_flow",
+            "value": "Each output binding preserves tensor_name, tensor_role, distribution_scope, rank, dtype, shape, element_count, shape_hash, and byte_length from the accepted mapped tensor and adds device_id plus ready=true after copy succeeds.",
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "e-gpu-upload-state",
+        "source_node_id": "a-upload-gpu-resident-tensors",
+        "target_node_id": "state-model-worker",
+        "family": "state",
+        "kind": "state-access",
+        "label": "GPU upload updates resident model worker state",
+        "semantics": [
+          {
+            "entry_id": "e-gpu-upload-state-r",
+            "key": "relationship",
+            "value": "GPU upload updates resident model worker state",
+            "status": "supported"
+          },
+          {
+            "entry_id": "e-gpu-upload-state-s",
+            "key": "state_update",
+            "value": "state-model-worker records gpu_tensors, gpu_tensor_count, gpu_bytes, and gpu_resident only after all mapped tensors have ready rank-owned GPU bindings.",
+            "object_ref": {
+              "node_id": "state-model-worker"
+            },
+            "status": "supported"
+          }
+        ]
+      }
+    },
+    {
+      "verb": "replace",
+      "entity": "operation",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "operation_id": "op-model-shard-layout",
+        "name": "Define and map DS4-native rank shard layout",
+        "overview": "Read the DS4-native GLM 5.2 TP4 layout manifest, validate tensor ownership and hashes, mmap current-rank tensor slices, publish the loaded rank shard map, and bind uploaded rank-local GPU tensors for later kernel dispatch.",
+        "members": [
+          {
+            "ref": {
+              "node_id": "a-load-rank-tensors"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "a-publish-loaded-shard"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "a-read-layout-spec"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "a-upload-gpu-resident-tensors"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "a-validate-tensor-ownership"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "d-gpu-resident-tensor-bindings"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "d-layout-spec"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "d-loaded-rank-shard"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "d-mapped-tensor-slices"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "d-ownership-plan"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "d-shard-manifest"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "state-model-worker"
+            },
+            "role": "member"
+          }
+        ],
+        "data_flow_ids": [],
+        "semantics": [
+          {
+            "entry_id": "op-model-shard-layout-goal",
+            "key": "target_state",
+            "value": "current rank has only validated DS4-native tensor slices mapped, parent-visible loaded_rank_shard produced, and GPU bindings attached when a backend upload runtime is supplied",
+            "support_refs": [
+              {
+                "node_id": "d-loaded-rank-shard"
+              },
+              {
+                "node_id": "d-gpu-resident-tensor-bindings"
+              }
+            ],
+            "status": "supported"
+          }
+        ],
+        "end_goals": [
+          {
+            "goal_id": "goal-layout-mapped",
+            "intent": "Current rank maps exactly its GLM 5.2 TP4 tensor slices plus required replicated tensors, with complete coverage, no foreign-rank mappings, and ready GPU-resident bindings when upload is requested.",
+            "bindings": [
+              {
+                "ref": {
+                  "node_id": "d-loaded-rank-shard"
+                },
+                "role": "parent output",
+                "semantics": [
+                  {
+                    "entry_id": "goal-loaded-rank-shard",
+                    "key": "target_state",
+                    "value": "loaded_rank_shard reflects the accepted DS4-native layout, mapped byte total, and GPU residency fields when uploaded",
+                    "status": "supported"
+                  }
+                ]
+              },
+              {
+                "ref": {
+                  "node_id": "d-gpu-resident-tensor-bindings"
+                },
+                "role": "GPU upload output",
+                "semantics": [
+                  {
+                    "entry_id": "goal-gpu-resident-tensor-bindings",
+                    "key": "target_state",
+                    "value": "every uploaded binding is rank-owned, byte-count checked, metadata matched, and ready for later kernel lookup",
+                    "status": "supported"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "contract_validation": {
+    "profile": "leaf",
+    "graph_ids": [
+      "model-shard-layout"
+    ]
+  }
+}

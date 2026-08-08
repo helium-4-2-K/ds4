@@ -24,6 +24,8 @@ static char g_model_root[PATH_MAX];
 static char g_plan_path[PATH_MAX];
 static char g_missing_plan_path[PATH_MAX];
 static char g_foreign_plan_path[PATH_MAX];
+static int g_fake_gpu_allocs;
+static int g_fake_gpu_frees;
 
 static void fail(const char *msg) {
     fprintf(stderr, "test_glm52_l0: %s\n", msg);
@@ -33,6 +35,46 @@ static void fail(const char *msg) {
 static void check(bool ok, const char *msg) {
     if (!ok) fail(msg);
 }
+
+static int fake_gpu_alloc(ds4_gpu_tensor *tensor,
+                          int device_id,
+                          uint64_t bytes) {
+    if (!tensor || device_id < 0 || bytes == 0) return 0;
+    void *ptr = malloc((size_t)bytes);
+    if (!ptr) return 0;
+    tensor->ptr = ptr;
+    tensor->bytes = bytes;
+    tensor->owner = 1;
+    tensor->device_id = device_id;
+    g_fake_gpu_allocs++;
+    return 1;
+}
+
+static int fake_gpu_upload(ds4_gpu_tensor *tensor,
+                           uint64_t offset,
+                           const void *data,
+                           uint64_t bytes) {
+    if (!tensor || !tensor->ptr || !data ||
+        offset > tensor->bytes ||
+        bytes > tensor->bytes - offset) {
+        return 0;
+    }
+    memcpy((unsigned char *)tensor->ptr + offset, data, (size_t)bytes);
+    return 1;
+}
+
+static void fake_gpu_free(ds4_gpu_tensor *tensor) {
+    if (!tensor) return;
+    free(tensor->ptr);
+    memset(tensor, 0, sizeof(*tensor));
+    g_fake_gpu_frees++;
+}
+
+static const ds4_glm52_gpu_tensor_runtime k_fake_gpu_runtime = {
+    .alloc = fake_gpu_alloc,
+    .upload = fake_gpu_upload,
+    .free = fake_gpu_free,
+};
 
 static void create_file(const char *path) {
     FILE *fp = fopen(path, "wb");
@@ -992,10 +1034,84 @@ static void test_layout_valid_manifest_passes(void) {
               state.resident_shards.tensors[0].shape_hash ==
                   spec.entries[0].shape_hash,
           "resident mapped tensor should retain readable bytes and metadata");
+
+    g_fake_gpu_allocs = 0;
+    g_fake_gpu_frees = 0;
+    st = ds4_glm52_layout_upload_resident_gpu_tensors(
+            &state, 7, &k_fake_gpu_runtime, &result);
+    check(st == DS4_GLM52_L0_STATUS_OK,
+          "resident GPU tensor upload should succeed");
+    check(state.resident_shards.gpu_resident &&
+              state.resident_shards.gpu_tensor_count ==
+                  state.resident_shards.tensor_count &&
+              state.resident_shards.gpu_bytes ==
+                  state.resident_shards.mapped_bytes,
+          "GPU upload should publish one ready device tensor per mapped tensor");
+    check(state.resident_shards.gpu_tensors[0].ready &&
+              state.resident_shards.gpu_tensors[0].device_id == 7 &&
+              state.resident_shards.gpu_tensors[0].rank == 2 &&
+              state.resident_shards.gpu_tensors[0].byte_count == 32 &&
+              state.resident_shards.gpu_tensors[0].dtype ==
+                  DS4_GLM52_TP4_TENSOR_DTYPE_BF16 &&
+              state.resident_shards.gpu_tensors[0].shape_hash ==
+                  spec.entries[0].shape_hash,
+          "GPU tensor should retain rank, device, byte, dtype, and shape metadata");
+    check(((unsigned char *)state.resident_shards.gpu_tensors[0].tensor.ptr)[0] == 'x' &&
+              ((unsigned char *)state.resident_shards.gpu_tensors[0].tensor.ptr)[31] == 'x',
+          "GPU upload should copy the exact mapped tensor payload");
+    check(g_fake_gpu_allocs == state.resident_shards.gpu_tensor_count,
+          "GPU upload should allocate one tensor per mapped tensor");
     ds4_glm52_l0_unmap_resident_rank_shards(&state);
     check(!state.resident_shards.mapped &&
-              state.resident_shards.tensor_count == 0,
-          "resident unmap should clear mapped tensor records");
+              state.resident_shards.tensor_count == 0 &&
+              !state.resident_shards.gpu_resident &&
+              state.resident_shards.gpu_tensor_count == 0,
+          "resident unmap should clear mapped and GPU tensor records");
+    check(g_fake_gpu_frees == g_fake_gpu_allocs,
+          "resident unmap should release uploaded GPU tensors");
+}
+
+static void test_layout_gpu_upload_missing_metadata_fails(void) {
+    ensure_layout_fixture();
+    ds4_glm52_layout_spec spec;
+    ds4_glm52_l0_result result;
+    ds4_glm52_l0_status st =
+        ds4_glm52_layout_read_manifest(g_layout_valid_path, &spec, &result);
+    check(st == DS4_GLM52_L0_STATUS_OK,
+          "valid layout manifest should parse");
+
+    ds4_glm52_layout_ownership_plan plan;
+    st = ds4_glm52_layout_validate_ownership(&spec, 2, &plan, &result);
+    check(st == DS4_GLM52_L0_STATUS_OK,
+          "valid ownership should parse before corrupting metadata");
+    ds4_glm52_layout_mapped_slices mapped;
+    st = ds4_glm52_layout_mmap_rank_tensors(
+            &plan, g_model_root, &mapped, &result);
+    check(st == DS4_GLM52_L0_STATUS_OK,
+          "valid layout mmap should succeed before corrupting metadata");
+
+    ds4_glm52_l0_state state = {0};
+    st = ds4_glm52_layout_publish_loaded_rank_shard(
+            &mapped, &plan, &state, &result);
+    check(st == DS4_GLM52_L0_STATUS_OK,
+          "valid layout publish should succeed before corrupting metadata");
+
+    state.resident_shards.tensors[0].shape_hash = 0;
+    g_fake_gpu_allocs = 0;
+    g_fake_gpu_frees = 0;
+    st = ds4_glm52_layout_upload_resident_gpu_tensors(
+            &state, 7, &k_fake_gpu_runtime, &result);
+    check(st == DS4_GLM52_L0_STATUS_INVALID,
+          "GPU upload should reject missing runtime tensor metadata");
+    check(strstr(result.message, "shape hash") != NULL ||
+              strstr(result.message, "metadata") != NULL,
+          "GPU upload metadata rejection should name metadata");
+    check(!state.resident_shards.gpu_resident &&
+              state.resident_shards.gpu_tensor_count == 0 &&
+              g_fake_gpu_allocs == 0 &&
+              g_fake_gpu_frees == 0,
+          "failed GPU upload should not leave resident device tensors");
+    ds4_glm52_l0_unmap_resident_rank_shards(&state);
 }
 
 static void test_model_load_layout_reaches_ready_rank_engines(void) {
@@ -2083,6 +2199,7 @@ int main(void) {
     test_layout_sha256_mismatch_fails();
     test_layout_missing_metadata_fails();
     test_layout_metadata_byte_count_mismatch_fails();
+    test_layout_gpu_upload_missing_metadata_fails();
     /* prefill child graph tests */
     test_prefill_action_order_and_phase_names();
     test_prefill_set_prompt_validation();

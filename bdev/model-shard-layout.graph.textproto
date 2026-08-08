@@ -412,6 +412,149 @@ graph {
     }
   }
   nodes {
+    id: "a-upload-gpu-resident-tensors"
+    kind: "ACTION"
+    label: "05 upload resident GPU tensors"
+    input_ports {
+      port_id: "loaded-shard-in"
+      node_id: "d-loaded-rank-shard"
+      type_ref: "blueprint.work.ds4_arch.loaded_rank_shard"
+      cardinality: PORT_CARDINALITY_EXACTLY_ONE
+    }
+    output_ports {
+      port_id: "gpu-bindings-out"
+      node_id: "d-gpu-resident-tensor-bindings"
+      type_ref: "blueprint.work.ds4_arch.gpu_resident_tensor_binding"
+      cardinality: PORT_CARDINALITY_ONE_OR_MORE
+    }
+    semantics {
+      entry_id: "a-upload-gpu-resident-tensors-ov"
+      key: "overview"
+      value: "Allocate rank-local GPU tensors for every validated resident mapped tensor slice, copy the exact mmap payload bytes through the backend upload boundary, verify device ownership and metadata match, and update resident worker model state with GPU bindings for later GLM kernel dispatch."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "loaded-shard-in"
+      key: "input_use"
+      value: "Consumes d-loaded-rank-shard and the same state-model-worker resident mmap handles published by a-publish-loaded-shard."
+      object_ref {
+        node_id: "d-loaded-rank-shard"
+      }
+      support_refs {
+        port {
+          node_id: "a-upload-gpu-resident-tensors"
+          direction: PORT_DIRECTION_INPUT
+          port_id: "loaded-shard-in"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-upload-gpu-resident-tensors-state-output"
+      key: "state_transition"
+      value: "Updates state-model-worker.gpu_tensors, gpu_tensor_count, gpu_bytes, and gpu_resident only after every upload succeeds; failure releases any partial allocations and leaves gpu_resident false."
+      object_ref {
+        node_id: "state-model-worker"
+      }
+      support_refs {
+        edge_id: "e-gpu-upload-state"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "gpu-bindings-out"
+      key: "output"
+      value: "Produces one ready d-gpu-resident-tensor-bindings entry for each mapped tensor slice, preserving tensor name, role, distribution scope, rank, dtype, shape, element_count, shape_hash, and byte length."
+      object_ref {
+        node_id: "d-gpu-resident-tensor-bindings"
+      }
+      support_refs {
+        port {
+          node_id: "a-upload-gpu-resident-tensors"
+          direction: PORT_DIRECTION_OUTPUT
+          port_id: "gpu-bindings-out"
+        }
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-upload-gpu-resident-tensors-ef"
+      key: "effect"
+      value: "Creates rank-local GPU device allocations and copies model tensor bytes from retained mmap handles through an explicit backend upload callback."
+      support_refs {
+        node_id: "a-upload-gpu-resident-tensors"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-upload-gpu-resident-tensors-exit"
+      key: "exit"
+      value: "a-upload-gpu-resident-tensors-done or invalid when resident mapped tensors, metadata, device ownership, allocation, or upload copy validation fails."
+      support_refs {
+        node_id: "a-upload-gpu-resident-tensors"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-upload-gpu-resident-tensors-cleanup"
+      key: "cleanup"
+      value: "On allocation, ownership, or upload failure, any GPU tensors allocated during this attempt are released before returning failure."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-upload-gpu-resident-tensors-cu"
+      key: "code_unit"
+      value: "ds4_glm52_layout_upload_resident_gpu_tensors"
+      support_refs {
+        node_id: "a-upload-gpu-resident-tensors"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-upload-gpu-resident-tensors-determinism"
+      key: "determinism"
+      value: "GPU binding table order follows the resident mapped tensor table order; no tensor entry is derived from graph adjacency or missing metadata."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-upload-gpu-resident-tensors-im"
+      key: "implementation_choice"
+      value: "backend upload runtime is injected at this boundary; allocation, upload, device ownership validation, and cleanup semantics are fixed by ds4_glm52_layout_upload_resident_gpu_tensors"
+      support_refs {
+        node_id: "a-upload-gpu-resident-tensors"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-upload-gpu-resident-tensors-nd"
+      key: "no_diagnostic"
+      value: "none"
+      support_refs {
+        node_id: "a-upload-gpu-resident-tensors"
+      }
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "a-upload-gpu-resident-tensors-ordering"
+      key: "ordering"
+      value: "Runs only after a-publish-loaded-shard has transferred mmap ownership into state-model-worker, and before real GLM kernels may read resident weight tensors."
+      status: SUPPORTED
+    }
+    state_set {
+      state_node_id: "state-model-worker"
+      access: "update"
+      meaning: "attach rank-owned GPU tensor bindings to resident worker model state after mapped shard publication"
+    }
+    preconditions {
+      condition_id: "pre-gpu-upload-loaded-shard"
+      text: "Resident mapped tensor state exists and each mapped tensor retains validated dtype, shape, element_count, shape_hash, byte count, and readable mmap bytes."
+    }
+    postconditions {
+      condition_id: "post-gpu-upload-resident"
+      text: "Every mapped tensor has exactly one ready rank-owned GPU tensor binding with matching dtype, shape_hash, and byte length, and stale partial bindings are released on failure."
+    }
+  }
+  nodes {
     id: "a-validate-tensor-ownership"
     kind: "ACTION"
     label: "02 validate tensor ownership"
@@ -508,6 +651,48 @@ graph {
       entry_id: "a-validate-tensor-ownership-nd"
       key: "no_diagnostic"
       value: "none"
+      status: SUPPORTED
+    }
+  }
+  nodes {
+    id: "d-gpu-resident-tensor-bindings"
+    kind: "DATA"
+    label: "GPU-resident tensor bindings"
+    data_type: "blueprint.work.ds4_arch.gpu_resident_tensor_binding"
+    semantics {
+      entry_id: "d-gpu-resident-tensor-bindings-data-role"
+      key: "data_role"
+      value: "rank-local GPU device tensor bindings created from validated mapped slice bytes"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-gpu-resident-tensor-bindings-dist"
+      key: "distribution_scope"
+      value: "rank_local_shard"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-gpu-resident-tensor-bindings-identity"
+      key: "identity"
+      value: "d-gpu-resident-tensor-bindings is the named occurrence for uploaded resident model tensors in this graph."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-gpu-resident-tensor-bindings-no-ordering"
+      key: "no_ordering"
+      value: "not a stream-ordered data item; upload order follows mapped tensor table order only for deterministic metadata retention."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-gpu-resident-tensor-bindings-presence"
+      key: "presence"
+      value: "present only after every mapped tensor slice has a ready rank-owned GPU binding."
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "d-gpu-resident-tensor-bindings-provenance"
+      key: "provenance"
+      value: "produced by a-upload-gpu-resident-tensors from d-loaded-rank-shard resident state and its retained mmap handles."
       status: SUPPORTED
     }
   }
@@ -777,6 +962,63 @@ graph {
     }
   }
   edges {
+    id: "e-gpu-state-to-bindings"
+    source_node_id: "state-model-worker"
+    target_node_id: "d-gpu-resident-tensor-bindings"
+    kind: "state-observation"
+    label: "GPU bindings reflect resident worker state update"
+    semantics {
+      entry_id: "e-gpu-state-to-bindings-r"
+      key: "relationship"
+      value: "GPU bindings reflect resident worker state update"
+      status: SUPPORTED
+    }
+    family: "relationship"
+  }
+  edges {
+    id: "e-gpu-upload-out"
+    source_node_id: "a-upload-gpu-resident-tensors"
+    target_node_id: "d-gpu-resident-tensor-bindings"
+    kind: "output"
+    label: "GPU upload produces resident tensor bindings"
+    semantics {
+      entry_id: "e-gpu-upload-out-r"
+      key: "relationship"
+      value: "GPU upload produces resident tensor bindings"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-gpu-upload-out-field"
+      key: "field_flow"
+      value: "Each output binding preserves tensor_name, tensor_role, distribution_scope, rank, dtype, shape, element_count, shape_hash, and byte_length from the accepted mapped tensor and adds device_id plus ready=true after copy succeeds."
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-gpu-upload-state"
+    source_node_id: "a-upload-gpu-resident-tensors"
+    target_node_id: "state-model-worker"
+    kind: "state-access"
+    label: "GPU upload updates resident model worker state"
+    semantics {
+      entry_id: "e-gpu-upload-state-r"
+      key: "relationship"
+      value: "GPU upload updates resident model worker state"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-gpu-upload-state-s"
+      key: "state_update"
+      value: "state-model-worker records gpu_tensors, gpu_tensor_count, gpu_bytes, and gpu_resident only after all mapped tensors have ready rank-owned GPU bindings."
+      object_ref {
+        node_id: "state-model-worker"
+      }
+      status: SUPPORTED
+    }
+    family: "state"
+  }
+  edges {
     id: "e-layout-to-ownership"
     source_node_id: "d-layout-spec"
     target_node_id: "a-validate-tensor-ownership"
@@ -786,6 +1028,26 @@ graph {
       entry_id: "e-layout-to-ownership-r"
       key: "relationship"
       value: "layout spec feeds tensor ownership validation"
+      status: SUPPORTED
+    }
+    family: "dataflow"
+  }
+  edges {
+    id: "e-loaded-to-gpu-upload"
+    source_node_id: "d-loaded-rank-shard"
+    target_node_id: "a-upload-gpu-resident-tensors"
+    kind: "input"
+    label: "loaded shard state authorizes GPU tensor upload"
+    semantics {
+      entry_id: "e-loaded-to-gpu-upload-r"
+      key: "relationship"
+      value: "loaded shard state authorizes GPU tensor upload"
+      status: SUPPORTED
+    }
+    semantics {
+      entry_id: "e-loaded-to-gpu-upload-field"
+      key: "field_flow"
+      value: "loaded_rank_shard mapped bytes and tensor metadata are checked against state-model-worker resident mapped tensors before upload."
       status: SUPPORTED
     }
     family: "dataflow"
@@ -889,6 +1151,20 @@ graph {
     family: "dataflow"
   }
   edges {
+    id: "e-publish-before-gpu-upload"
+    source_node_id: "a-publish-loaded-shard"
+    target_node_id: "a-upload-gpu-resident-tensors"
+    kind: "ordering"
+    label: "resident mapped state exists before GPU upload"
+    semantics {
+      entry_id: "e-publish-before-gpu-upload-r"
+      key: "relationship"
+      value: "resident mapped state exists before GPU upload"
+      status: SUPPORTED
+    }
+    family: "causal"
+  }
+  edges {
     id: "e-publish-out"
     source_node_id: "a-publish-loaded-shard"
     target_node_id: "d-loaded-rank-shard"
@@ -970,7 +1246,7 @@ graph {
   operations {
     operation_id: "op-model-shard-layout"
     name: "Define and map DS4-native rank shard layout"
-    overview: "Read the DS4-native GLM 5.2 TP4 layout manifest, validate tensor ownership and hashes, mmap current-rank tensor slices, and publish the loaded rank shard map."
+    overview: "Read the DS4-native GLM 5.2 TP4 layout manifest, validate tensor ownership and hashes, mmap current-rank tensor slices, publish the loaded rank shard map, and bind uploaded rank-local GPU tensors for later kernel dispatch."
     members {
       ref {
         node_id: "a-load-rank-tensors"
@@ -991,7 +1267,19 @@ graph {
     }
     members {
       ref {
+        node_id: "a-upload-gpu-resident-tensors"
+      }
+      role: "member"
+    }
+    members {
+      ref {
         node_id: "a-validate-tensor-ownership"
+      }
+      role: "member"
+    }
+    members {
+      ref {
+        node_id: "d-gpu-resident-tensor-bindings"
       }
       role: "member"
     }
@@ -1034,7 +1322,10 @@ graph {
     semantics {
       entry_id: "op-model-shard-layout-goal"
       key: "target_state"
-      value: "current rank has only validated DS4-native tensor slices mapped and parent-visible loaded_rank_shard produced"
+      value: "current rank has only validated DS4-native tensor slices mapped, parent-visible loaded_rank_shard produced, and separate GPU bindings attached when a backend upload runtime is supplied"
+      support_refs {
+        node_id: "d-gpu-resident-tensor-bindings"
+      }
       support_refs {
         node_id: "d-loaded-rank-shard"
       }
@@ -1042,7 +1333,7 @@ graph {
     }
     end_goals {
       goal_id: "goal-layout-mapped"
-      intent: "Current rank maps exactly its GLM 5.2 TP4 tensor slices plus required replicated tensors, with complete coverage and no foreign-rank mappings."
+      intent: "Current rank maps exactly its GLM 5.2 TP4 tensor slices plus required replicated tensors, with complete coverage, no foreign-rank mappings, and ready GPU-resident bindings when upload is requested."
       bindings {
         ref {
           node_id: "d-loaded-rank-shard"
@@ -1055,12 +1346,24 @@ graph {
           status: SUPPORTED
         }
       }
+      bindings {
+        ref {
+          node_id: "d-gpu-resident-tensor-bindings"
+        }
+        role: "GPU upload output"
+        semantics {
+          entry_id: "goal-gpu-resident-tensor-bindings"
+          key: "target_state"
+          value: "every uploaded binding is rank-owned, byte-count checked, metadata matched, and ready for later kernel lookup"
+          status: SUPPORTED
+        }
+      }
     }
   }
 }
 canonical {
   schema_sha256: "9de5a18221a33a9379092d084dbae946af604b979dfe7caf07bdd65701b5ea9d"
-  type_schema_sha256: "aa33ec3ae3a40ac468691f0fb786c052d10c1ece1e28b8ab04a80fadc728b2c6"
-  graph_sha256: "c1b29b777f35f923cf42e010d6adad1571331e787527fab3086658fc1e2699a8"
-  graph_contract_sha256: "02eac4c71742fc979fd644e595afd791b49dc6c6a50e7faff20da038f61ff9ca"
+  type_schema_sha256: "38e336f9f776ff0f281abe0dac6e02a1989c03c01c6b4fc56c2f15af3595a2ef"
+  graph_sha256: "e73b3ed6344a547eb769d4a9c207b495b9d2c15bca6033fb8314b647fe16063e"
+  graph_contract_sha256: "2cb594a34ade6be64bbb10e147e6f012c3b4e3554d2399dae097288660eae35e"
 }

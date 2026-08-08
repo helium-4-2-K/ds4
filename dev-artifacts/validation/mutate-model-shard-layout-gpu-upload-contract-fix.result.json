@@ -1,0 +1,73 @@
+{
+  "action": "mutate",
+  "added_graph_ids": [],
+  "after_artifact_integrity": {
+    "blueprint_sha256": "b0843d25396568faf49747eb325823d46447b67c8436831e0a45ddefdf30a22a",
+    "semantic_sha256": "dd1c547fd275e90b2801bb817a0a053708719c18598cad2fe95a35c4ae3ce797"
+  },
+  "before_artifact_integrity": {
+    "blueprint_sha256": "6f756e5ac3ca6d2767bf6205a0f2023dfe05bdbac3f0b777544bbe9a0363a5e1",
+    "semantic_sha256": "e844487d10ebaf58872f8a1b0eb05ed95369e34cd1af419680163301652a018f"
+  },
+  "changed_graph_ids": [
+    "model-load",
+    "model-shard-layout"
+  ],
+  "contract_validation": {
+    "error_count": 0,
+    "errors": [],
+    "graph_ids": [
+      "model-shard-layout"
+    ],
+    "profile": "leaf",
+    "schema": "blueprint-contract-validation/v4",
+    "snapshot": {
+      "artifact_integrity": {
+        "blueprint_sha256": "b0843d25396568faf49747eb325823d46447b67c8436831e0a45ddefdf30a22a",
+        "semantic_sha256": "dd1c547fd275e90b2801bb817a0a053708719c18598cad2fe95a35c4ae3ce797"
+      },
+      "covered_graphs": [
+        {
+          "graph_contract_sha256": "9dbc3e9a385d4fe634eace00c2a1a9745dd571854d8ea38f81af4fcb5de54078",
+          "graph_id": "model-load",
+          "role": "ancestor",
+          "type_schema_sha256": "9d632a15b05a694407b465f8d592366a941b035cc99ead4b69626a9e9f520431"
+        },
+        {
+          "graph_contract_sha256": "85f9bf232d06fc9c98cc0a90b2e5bce40440fc1e22736e9c60bd58be768e5ee5",
+          "graph_id": "model-shard-layout",
+          "role": "selected",
+          "type_schema_sha256": "38e336f9f776ff0f281abe0dac6e02a1989c03c01c6b4fc56c2f15af3595a2ef"
+        },
+        {
+          "graph_contract_sha256": "e86e9e8efe3ad48fdda966be2e1723b862adfd62176e7a45defabfa67b50720a",
+          "graph_id": "serve",
+          "role": "ancestor",
+          "type_schema_sha256": "3f4be1b144e1cee44727789840835951678fede862e9ccde1a2c91d025010a46"
+        }
+      ],
+      "selected_graph_ids": [
+        "model-shard-layout"
+      ]
+    },
+    "status": "PASS",
+    "warning_count": 0,
+    "warnings": []
+  },
+  "request_id": "mutate-model-shard-layout-gpu-upload-contract-fix",
+  "schema": "blueprint-write-result/v4",
+  "status": "PASS",
+  "validation": {
+    "blueprint_id": "ds4-arch",
+    "blueprint_sha256": "b0843d25396568faf49747eb325823d46447b67c8436831e0a45ddefdf30a22a",
+    "error_count": 0,
+    "errors": [],
+    "graph_count": 18,
+    "schema": "blueprint-artifact-validation@1",
+    "semantic_sha256": "dd1c547fd275e90b2801bb817a0a053708719c18598cad2fe95a35c4ae3ce797",
+    "stage": "draft",
+    "status": "PASS",
+    "warning_count": 0,
+    "warnings": []
+  }
+}

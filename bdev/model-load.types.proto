@@ -65,3 +65,27 @@ message loaded_rank_shard {
   int32 vocab_start = 8 [(blueprint.v1.field_contract) = { meaning: "first owned vocab row" }];
   int32 vocab_end = 9 [(blueprint.v1.field_contract) = { meaning: "exclusive end of owned vocab rows" }];
 }
+
+message gpu_resident_tensor_binding {
+  option (blueprint.v1.type_contract) = {
+    type_id: "blueprint.work.ds4_arch.gpu_resident_tensor_binding"
+    represents: "One rank-local GPU-resident model tensor produced from a validated mmap slice."
+    semantics {
+      entry_id: "t-gpu-resident-tensor-binding"
+      key: "meaning"
+      value: "One rank-local GPU-resident model tensor produced from a validated mmap slice."
+      status: SUPPORTED
+    }
+  };
+  string tensor_name = 1 [(blueprint.v1.field_contract) = { meaning: "canonical DS4 tensor name copied from the validated mapped slice" }];
+  string tensor_role = 2 [(blueprint.v1.field_contract) = { meaning: "accepted tensor role such as q_head, mla_kv, expert, vocab, output, or replicated" }];
+  string distribution_scope = 3 [(blueprint.v1.field_contract) = { meaning: "rank_local_shard or replicated scope retained from the mapped slice" }];
+  int32 rank = 4 [(blueprint.v1.field_contract) = { meaning: "owning TP rank for this resident tensor" }];
+  int32 device_id = 5 [(blueprint.v1.field_contract) = { meaning: "rank-local physical/logical GPU device that owns the resident tensor allocation" }];
+  uint64 byte_length = 6 [(blueprint.v1.field_contract) = { meaning: "device allocation payload bytes copied from the validated mapped slice" }];
+  string dtype = 7 [(blueprint.v1.field_contract) = { meaning: "validated storage dtype for the resident tensor bytes" }];
+  repeated uint64 shape = 8 [(blueprint.v1.field_contract) = { meaning: "validated rank-local logical tensor shape dimensions" }];
+  uint64 element_count = 9 [(blueprint.v1.field_contract) = { meaning: "validated element count derived from shape" }];
+  uint64 shape_hash = 10 [(blueprint.v1.field_contract) = { meaning: "stable runtime hash binding dtype and shape for kernel identity checks" }];
+  bool ready = 11 [(blueprint.v1.field_contract) = { meaning: "true only after allocation, device ownership validation, and upload copy succeed" }];
+}

@@ -1,0 +1,13 @@
+{
+  "action": "lint",
+  "blueprint_id": "ds4-arch",
+  "blueprint_sha256": "25cfd9d6bad30a9b9163857f4df866da258fc6ffc09ff2445bfef0cba554669b",
+  "errors": [],
+  "graph_count": 18,
+  "request_id": "lint-after-gpu-upload-binding",
+  "schema": "blueprint-lint-result/v3",
+  "semantic_sha256": "e8c2bcf10d15c04139b4cc38b6b55b4a35ce7d48140a2dee72f57f8e31792952",
+  "status": "PASS",
+  "validation_stage": "draft",
+  "warnings": []
+}

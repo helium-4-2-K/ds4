@@ -1,0 +1,261 @@
+{
+  "schema": "blueprint-write-request/v11",
+  "action": "mutate",
+  "request_id": "mutate-model-shard-layout-gpu-upload-contract-fix",
+  "root": "/Users/helium/src/ds4-gb10x4-bcd/bdev",
+  "record_dir": "/Users/helium/src/ds4-gb10x4-bcd/dev-artifacts/03_record",
+  "expected_blueprint_sha256": "6f756e5ac3ca6d2767bf6205a0f2023dfe05bdbac3f0b777544bbe9a0363a5e1",
+  "validation_stage": "draft",
+  "operations": [
+    {
+      "verb": "replace",
+      "entity": "message_type",
+      "graph_id": "model-load",
+      "params": {
+        "name": "loaded_rank_shard",
+        "contract": {
+          "type_id": "blueprint.work.ds4_arch.loaded_rank_shard",
+          "represents": "Resident mapped weights for one TP4 rank after DwarfStar model load",
+          "semantics": [
+            {
+              "entry_id": "t-loaded-rank-shard",
+              "key": "meaning",
+              "value": "Resident mapped weights for one TP4 rank after DwarfStar model load",
+              "status": "supported"
+            }
+          ],
+          "operations": []
+        },
+        "fields": [
+          {
+            "name": "rank",
+            "number": 1,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "rank id 0..3",
+              "semantics": []
+            }
+          },
+          {
+            "name": "layer_count",
+            "number": 2,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "number of GLM decoder layers loaded",
+              "semantics": []
+            }
+          },
+          {
+            "name": "mapped_bytes",
+            "number": 3,
+            "type_ref": "uint64",
+            "contract": {
+              "meaning": "resident mapped weight bytes",
+              "semantics": []
+            }
+          },
+          {
+            "name": "q_head_start",
+            "number": 4,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "first owned query head",
+              "semantics": []
+            }
+          },
+          {
+            "name": "q_head_end",
+            "number": 5,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "exclusive end of owned query heads",
+              "semantics": []
+            }
+          },
+          {
+            "name": "expert_start",
+            "number": 6,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "first routed expert id present in this rank's expert tensor shard; Bird GLM 5.2 TP4 keeps all expert ids on every rank and shards expert matrix dimensions",
+              "semantics": []
+            }
+          },
+          {
+            "name": "expert_end",
+            "number": 7,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "exclusive end of routed expert ids present in this rank's expert tensor shard; expected [0,256) for Bird GLM 5.2 TP4",
+              "semantics": []
+            }
+          },
+          {
+            "name": "vocab_start",
+            "number": 8,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "first owned vocab row",
+              "semantics": []
+            }
+          },
+          {
+            "name": "vocab_end",
+            "number": 9,
+            "type_ref": "int32",
+            "contract": {
+              "meaning": "exclusive end of owned vocab rows",
+              "semantics": []
+            }
+          }
+        ],
+        "oneofs": [],
+        "reserved_numbers": [],
+        "reserved_names": []
+      }
+    },
+    {
+      "verb": "replace",
+      "entity": "operation",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "operation_id": "op-model-shard-layout",
+        "name": "Define and map DS4-native rank shard layout",
+        "overview": "Read the DS4-native GLM 5.2 TP4 layout manifest, validate tensor ownership and hashes, mmap current-rank tensor slices, publish the loaded rank shard map, and bind uploaded rank-local GPU tensors for later kernel dispatch.",
+        "members": [
+          {
+            "ref": {
+              "node_id": "a-load-rank-tensors"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "a-publish-loaded-shard"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "a-read-layout-spec"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "a-upload-gpu-resident-tensors"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "a-validate-tensor-ownership"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "d-gpu-resident-tensor-bindings"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "d-layout-spec"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "d-loaded-rank-shard"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "d-mapped-tensor-slices"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "d-ownership-plan"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "d-shard-manifest"
+            },
+            "role": "member"
+          },
+          {
+            "ref": {
+              "node_id": "state-model-worker"
+            },
+            "role": "member"
+          }
+        ],
+        "data_flow_ids": [],
+        "semantics": [
+          {
+            "entry_id": "op-model-shard-layout-goal",
+            "key": "target_state",
+            "value": "current rank has only validated DS4-native tensor slices mapped, parent-visible loaded_rank_shard produced, and separate GPU bindings attached when a backend upload runtime is supplied",
+            "support_refs": [
+              {
+                "node_id": "d-loaded-rank-shard"
+              },
+              {
+                "node_id": "d-gpu-resident-tensor-bindings"
+              }
+            ],
+            "status": "supported"
+          }
+        ],
+        "end_goals": [
+          {
+            "goal_id": "goal-layout-mapped",
+            "intent": "Current rank maps exactly its GLM 5.2 TP4 tensor slices plus required replicated tensors, with complete coverage, no foreign-rank mappings, and ready GPU-resident bindings when upload is requested.",
+            "bindings": [
+              {
+                "ref": {
+                  "node_id": "d-loaded-rank-shard"
+                },
+                "role": "parent output",
+                "semantics": [
+                  {
+                    "entry_id": "goal-loaded-rank-shard",
+                    "key": "target_state",
+                    "value": "loaded_rank_shard reflects the accepted DS4-native layout and mapped byte total",
+                    "status": "supported"
+                  }
+                ]
+              },
+              {
+                "ref": {
+                  "node_id": "d-gpu-resident-tensor-bindings"
+                },
+                "role": "GPU upload output",
+                "semantics": [
+                  {
+                    "entry_id": "goal-gpu-resident-tensor-bindings",
+                    "key": "target_state",
+                    "value": "every uploaded binding is rank-owned, byte-count checked, metadata matched, and ready for later kernel lookup",
+                    "status": "supported"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "contract_validation": {
+    "profile": "leaf",
+    "graph_ids": [
+      "model-shard-layout"
+    ]
+  }
+}

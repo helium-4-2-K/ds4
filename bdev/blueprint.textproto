@@ -85,15 +85,15 @@ graphs {
   graph_id: "model-load"
   graph_ref: "model-load.graph.textproto"
   type_schema_ref: "model-load.types.proto"
-  graph_contract_sha256: "083ff1b8ab754f0fe11170f32c449b6777b2944c9156de43a105f0836d89b2d5"
-  type_schema_sha256: "0aa0c0c7dfc43caabc5f745e1e1d6c0a82aae418e40a141221cb94ffe2b1696f"
+  graph_contract_sha256: "9dbc3e9a385d4fe634eace00c2a1a9745dd571854d8ea38f81af4fcb5de54078"
+  type_schema_sha256: "9d632a15b05a694407b465f8d592366a941b035cc99ead4b69626a9e9f520431"
 }
 graphs {
   graph_id: "model-shard-layout"
   graph_ref: "model-shard-layout.graph.textproto"
   type_schema_ref: "model-shard-layout.types.proto"
-  graph_contract_sha256: "02eac4c71742fc979fd644e595afd791b49dc6c6a50e7faff20da038f61ff9ca"
-  type_schema_sha256: "aa33ec3ae3a40ac468691f0fb786c052d10c1ece1e28b8ab04a80fadc728b2c6"
+  graph_contract_sha256: "2cb594a34ade6be64bbb10e147e6f012c3b4e3554d2399dae097288660eae35e"
+  type_schema_sha256: "38e336f9f776ff0f281abe0dac6e02a1989c03c01c6b4fc56c2f15af3595a2ef"
 }
 graphs {
   graph_id: "prefill"
@@ -132,5 +132,5 @@ graphs {
 }
 canonical {
   schema_sha256: "9de5a18221a33a9379092d084dbae946af604b979dfe7caf07bdd65701b5ea9d"
-  blueprint_sha256: "35a59fbba4347862df3f2f50f269a1f6a8e951d5aecb3210c6403a83352f0ee1"
+  blueprint_sha256: "25cfd9d6bad30a9b9163857f4df866da258fc6ffc09ff2445bfef0cba554669b"
 }

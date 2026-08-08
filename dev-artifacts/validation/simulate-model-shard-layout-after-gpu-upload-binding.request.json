@@ -1,0 +1,4034 @@
+{
+  "schema": "blueprint-write-request/v11",
+  "action": "simulate_contract",
+  "request_id": "simulate-model-shard-layout-after-gpu-upload-binding",
+  "root": "/Users/helium/src/ds4-gb10x4-bcd/bdev",
+  "record_dir": "/Users/helium/src/ds4-gb10x4-bcd/dev-artifacts/03_record",
+  "params": {
+    "profile": "leaf",
+    "graph_ids": [
+      "model-shard-layout"
+    ],
+    "cases": [
+      {
+        "case_id": "map-rank-local-ds4-layout-success",
+        "graph_id": "model-shard-layout",
+        "initial_node_ids": [
+          "d-shard-manifest"
+        ],
+        "active_edge_ids": [
+          "e-layout-to-ownership",
+          "e-manifest-to-read",
+          "e-mapped-to-publish",
+          "e-mmap-before-publish",
+          "e-mmap-out",
+          "e-ownership-before-mmap",
+          "e-ownership-out",
+          "e-ownership-to-mmap",
+          "e-publish-out",
+          "e-publish-state",
+          "e-read-before-ownership",
+          "e-read-to-layout",
+          "e-state-to-loaded"
+        ],
+        "terminal_node_ids": [
+          "d-loaded-rank-shard"
+        ],
+        "assumption_entry_ids": [
+          "shard-manifest-in",
+          "d-shard-manifest-presence",
+          "d-shard-manifest-provenance"
+        ],
+        "outcome_entry_ids": [
+          "loaded-shard-out",
+          "a-map-rank-shards-ef",
+          "a-map-rank-shards-exit",
+          "mapped-slices-out",
+          "a-load-rank-tensors-ef",
+          "a-load-rank-tensors-exit",
+          "publish-loaded-shard-out",
+          "a-publish-loaded-shard-ef",
+          "a-publish-loaded-shard-exit",
+          "layout-spec-out",
+          "a-read-layout-spec-ef",
+          "a-read-layout-spec-exit",
+          "ownership-plan-out",
+          "a-validate-tensor-ownership-ef",
+          "a-validate-tensor-ownership-exit"
+        ],
+        "obligation_entry_ids": [
+          "model-shard-layout-arch",
+          "a-map-rank-shards-im",
+          "model-shard-layout-guide",
+          "a-load-rank-tensors-ov",
+          "ownership-plan-in",
+          "a-load-rank-tensors-authority",
+          "a-load-rank-tensors-cu",
+          "a-load-rank-tensors-im",
+          "a-load-rank-tensors-nd",
+          "a-publish-loaded-shard-ov",
+          "mapped-slices-in",
+          "a-publish-loaded-shard-cu",
+          "a-publish-loaded-shard-im",
+          "a-publish-loaded-shard-nd",
+          "a-publish-loaded-shard-transition",
+          "a-read-layout-spec-ov",
+          "layout-manifest-in",
+          "a-read-layout-spec-authority",
+          "a-read-layout-spec-cu",
+          "a-read-layout-spec-im",
+          "a-read-layout-spec-nd",
+          "a-validate-tensor-ownership-ov",
+          "layout-spec-in",
+          "a-validate-tensor-ownership-cu",
+          "a-validate-tensor-ownership-im",
+          "a-validate-tensor-ownership-inv",
+          "a-validate-tensor-ownership-nd",
+          "d-layout-spec-data-role",
+          "d-layout-spec-dist",
+          "d-layout-spec-identity",
+          "d-layout-spec-no-ordering",
+          "d-layout-spec-presence",
+          "d-layout-spec-provenance",
+          "d-loaded-rank-shard-data-role",
+          "d-loaded-rank-shard-dist",
+          "d-loaded-rank-shard-identity",
+          "d-loaded-rank-shard-no-ordering",
+          "d-loaded-rank-shard-presence",
+          "d-loaded-rank-shard-provenance",
+          "d-mapped-tensor-slices-data-role",
+          "d-mapped-tensor-slices-dist",
+          "d-mapped-tensor-slices-identity",
+          "d-mapped-tensor-slices-no-ordering",
+          "d-mapped-tensor-slices-presence",
+          "d-mapped-tensor-slices-provenance",
+          "d-ownership-plan-data-role",
+          "d-ownership-plan-dist",
+          "d-ownership-plan-identity",
+          "d-ownership-plan-no-ordering",
+          "d-ownership-plan-presence",
+          "d-ownership-plan-provenance",
+          "d-shard-manifest-data-role",
+          "d-shard-manifest-dist",
+          "d-shard-manifest-identity",
+          "d-shard-manifest-no-ordering",
+          "state-model-worker-data-role",
+          "state-model-worker-dist",
+          "state-model-worker-identity",
+          "state-model-worker-no-ordering",
+          "state-model-worker-presence",
+          "state-model-worker-provenance",
+          "e-layout-to-ownership-r",
+          "e-manifest-to-read-r",
+          "e-mapped-to-publish-r",
+          "e-mmap-before-publish-r",
+          "e-mmap-out-r",
+          "e-ownership-before-mmap-r",
+          "e-ownership-out-r",
+          "e-ownership-to-mmap-r",
+          "e-publish-out-r",
+          "e-publish-state-r",
+          "e-publish-state-s",
+          "e-read-before-ownership-r",
+          "e-read-to-layout-r",
+          "e-state-to-loaded-r",
+          "op-model-shard-layout-goal",
+          "a-map-rank-shards-nd"
+        ],
+        "bounded_cycle_entry_ids": [],
+        "property_flows": [
+          {
+            "target_entry_id": "d-layout-spec-identity",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-layout-spec-presence",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-layout-spec-provenance",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-loaded-rank-shard-identity",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-loaded-rank-shard-presence",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-loaded-rank-shard-provenance",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-mapped-tensor-slices-identity",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-mapped-tensor-slices-presence",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-mapped-tensor-slices-provenance",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-ownership-plan-identity",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-ownership-plan-presence",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-ownership-plan-provenance",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_entry_id": "state-model-worker-identity",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_entry_id": "state-model-worker-presence",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_entry_id": "state-model-worker-provenance",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          }
+        ],
+        "field_flows": [
+          {
+            "target_node_id": "d-layout-spec",
+            "target_field_path": "format_version",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-layout-spec",
+            "target_field_path": "model_config_sha256",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-layout-spec",
+            "target_field_path": "tp_size",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-layout-spec",
+            "target_field_path": "dcp_size",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-layout-spec",
+            "target_field_path": "rank_count",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-layout-spec",
+            "target_field_path": "required_base_shards",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-layout-spec",
+            "target_field_path": "required_mtp_shards",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-layout-spec",
+            "target_field_path": "entries",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-ownership-plan",
+            "target_field_path": "rank",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-ownership-plan",
+            "target_field_path": "q_head_start",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-ownership-plan",
+            "target_field_path": "q_head_end",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-ownership-plan",
+            "target_field_path": "coverage_complete",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-ownership-plan",
+            "target_field_path": "overlaps_present",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-ownership-plan",
+            "target_field_path": "missing_spans_present",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-ownership-plan",
+            "target_field_path": "entries",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-mapped-tensor-slices",
+            "target_field_path": "rank",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-mapped-tensor-slices",
+            "target_field_path": "tensor_count",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-mapped-tensor-slices",
+            "target_field_path": "mapped_bytes",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-mapped-tensor-slices",
+            "target_field_path": "source_layout_sha256",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-mapped-tensor-slices",
+            "target_field_path": "no_foreign_rank_shard",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-loaded-rank-shard",
+            "target_field_path": "rank",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-loaded-rank-shard",
+            "target_field_path": "layer_count",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-loaded-rank-shard",
+            "target_field_path": "mapped_bytes",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-loaded-rank-shard",
+            "target_field_path": "q_head_start",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-loaded-rank-shard",
+            "target_field_path": "q_head_end",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-loaded-rank-shard",
+            "target_field_path": "expert_start",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-loaded-rank-shard",
+            "target_field_path": "expert_end",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-loaded-rank-shard",
+            "target_field_path": "vocab_start",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-loaded-rank-shard",
+            "target_field_path": "vocab_end",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "model_name",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "tp_degree",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "rank_count",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "n_layer",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "n_embd",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "n_head",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "n_head_kv",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "n_expert",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "n_expert_used",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "qkv_shard_axis",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "expert_shard_axis",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "vocab_shard_axis",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "reference_runtime",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "bird_vllm_commit",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "served_model_name",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "checkpoint_revision",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "speculator",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r",
+              "e-state-to-loaded-r"
+            ]
+          },
+          {
+            "target_node_id": "d-mapped-tensor-slices",
+            "target_field_path": "tensors",
+            "source_value_refs": [
+              {
+                "node_id": "d-ownership-plan",
+                "field_path": "entries"
+              }
+            ],
+            "source_entry_ids": [
+              "ownership-plan-out",
+              "a-validate-tensor-ownership-ef"
+            ],
+            "via_entry_ids": [
+              "e-ownership-to-mmap-r",
+              "a-load-rank-tensors-ov",
+              "a-load-rank-tensors-ef",
+              "e-mmap-out-r",
+              "mapped-slices-out"
+            ]
+          }
+        ],
+        "absent_fields": []
+      },
+      {
+        "case_id": "map-rank-local-ds4-layout-upload-gpu-success",
+        "graph_id": "model-shard-layout",
+        "initial_node_ids": [
+          "d-shard-manifest"
+        ],
+        "active_edge_ids": [
+          "e-layout-to-ownership",
+          "e-manifest-to-read",
+          "e-mapped-to-publish",
+          "e-mmap-before-publish",
+          "e-mmap-out",
+          "e-ownership-before-mmap",
+          "e-ownership-out",
+          "e-ownership-to-mmap",
+          "e-publish-out",
+          "e-publish-state",
+          "e-read-before-ownership",
+          "e-read-to-layout",
+          "e-loaded-to-gpu-upload",
+          "e-publish-before-gpu-upload",
+          "e-gpu-upload-out",
+          "e-gpu-upload-state",
+          "e-gpu-state-to-bindings"
+        ],
+        "terminal_node_ids": [
+          "d-gpu-resident-tensor-bindings"
+        ],
+        "assumption_entry_ids": [
+          "shard-manifest-in",
+          "d-shard-manifest-presence",
+          "d-shard-manifest-provenance"
+        ],
+        "outcome_entry_ids": [
+          "loaded-shard-out",
+          "a-map-rank-shards-ef",
+          "a-map-rank-shards-exit",
+          "mapped-slices-out",
+          "a-load-rank-tensors-ef",
+          "a-load-rank-tensors-exit",
+          "publish-loaded-shard-out",
+          "a-publish-loaded-shard-ef",
+          "a-publish-loaded-shard-exit",
+          "layout-spec-out",
+          "a-read-layout-spec-ef",
+          "a-read-layout-spec-exit",
+          "ownership-plan-out",
+          "a-validate-tensor-ownership-ef",
+          "a-validate-tensor-ownership-exit",
+          "gpu-bindings-out",
+          "a-upload-gpu-resident-tensors-ef",
+          "a-upload-gpu-resident-tensors-exit"
+        ],
+        "obligation_entry_ids": [
+          "model-shard-layout-arch",
+          "a-map-rank-shards-im",
+          "model-shard-layout-guide",
+          "a-load-rank-tensors-ov",
+          "ownership-plan-in",
+          "a-load-rank-tensors-authority",
+          "a-load-rank-tensors-cu",
+          "a-load-rank-tensors-im",
+          "a-load-rank-tensors-nd",
+          "a-publish-loaded-shard-ov",
+          "mapped-slices-in",
+          "a-publish-loaded-shard-cu",
+          "a-publish-loaded-shard-im",
+          "a-publish-loaded-shard-nd",
+          "a-publish-loaded-shard-transition",
+          "a-read-layout-spec-ov",
+          "layout-manifest-in",
+          "a-read-layout-spec-authority",
+          "a-read-layout-spec-cu",
+          "a-read-layout-spec-im",
+          "a-read-layout-spec-nd",
+          "a-validate-tensor-ownership-ov",
+          "layout-spec-in",
+          "a-validate-tensor-ownership-cu",
+          "a-validate-tensor-ownership-im",
+          "a-validate-tensor-ownership-inv",
+          "a-validate-tensor-ownership-nd",
+          "d-layout-spec-data-role",
+          "d-layout-spec-dist",
+          "d-layout-spec-identity",
+          "d-layout-spec-no-ordering",
+          "d-layout-spec-presence",
+          "d-layout-spec-provenance",
+          "d-loaded-rank-shard-data-role",
+          "d-loaded-rank-shard-dist",
+          "d-loaded-rank-shard-identity",
+          "d-loaded-rank-shard-no-ordering",
+          "d-loaded-rank-shard-presence",
+          "d-loaded-rank-shard-provenance",
+          "d-mapped-tensor-slices-data-role",
+          "d-mapped-tensor-slices-dist",
+          "d-mapped-tensor-slices-identity",
+          "d-mapped-tensor-slices-no-ordering",
+          "d-mapped-tensor-slices-presence",
+          "d-mapped-tensor-slices-provenance",
+          "d-ownership-plan-data-role",
+          "d-ownership-plan-dist",
+          "d-ownership-plan-identity",
+          "d-ownership-plan-no-ordering",
+          "d-ownership-plan-presence",
+          "d-ownership-plan-provenance",
+          "d-shard-manifest-data-role",
+          "d-shard-manifest-dist",
+          "d-shard-manifest-identity",
+          "d-shard-manifest-no-ordering",
+          "state-model-worker-data-role",
+          "state-model-worker-dist",
+          "state-model-worker-identity",
+          "state-model-worker-no-ordering",
+          "state-model-worker-presence",
+          "state-model-worker-provenance",
+          "e-layout-to-ownership-r",
+          "e-manifest-to-read-r",
+          "e-mapped-to-publish-r",
+          "e-mmap-before-publish-r",
+          "e-mmap-out-r",
+          "e-ownership-before-mmap-r",
+          "e-ownership-out-r",
+          "e-ownership-to-mmap-r",
+          "e-publish-out-r",
+          "e-publish-state-r",
+          "e-publish-state-s",
+          "e-read-before-ownership-r",
+          "e-read-to-layout-r",
+          "op-model-shard-layout-goal",
+          "a-map-rank-shards-nd",
+          "loaded-shard-in",
+          "a-upload-gpu-resident-tensors-ov",
+          "a-upload-gpu-resident-tensors-cu",
+          "a-upload-gpu-resident-tensors-ordering",
+          "a-upload-gpu-resident-tensors-determinism",
+          "a-upload-gpu-resident-tensors-cleanup",
+          "a-upload-gpu-resident-tensors-im",
+          "a-upload-gpu-resident-tensors-nd",
+          "a-upload-gpu-resident-tensors-state-output",
+          "d-gpu-resident-tensor-bindings-data-role",
+          "d-gpu-resident-tensor-bindings-dist",
+          "d-gpu-resident-tensor-bindings-identity",
+          "d-gpu-resident-tensor-bindings-no-ordering",
+          "d-gpu-resident-tensor-bindings-presence",
+          "d-gpu-resident-tensor-bindings-provenance",
+          "e-loaded-to-gpu-upload-r",
+          "e-loaded-to-gpu-upload-field",
+          "e-gpu-upload-out-r",
+          "e-gpu-upload-out-field",
+          "e-gpu-upload-state-r",
+          "e-gpu-upload-state-s",
+          "e-gpu-state-to-bindings-r"
+        ],
+        "bounded_cycle_entry_ids": [],
+        "property_flows": [
+          {
+            "target_entry_id": "d-layout-spec-identity",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-layout-spec-presence",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-layout-spec-provenance",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-loaded-rank-shard-identity",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-loaded-rank-shard-presence",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-loaded-rank-shard-provenance",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-mapped-tensor-slices-identity",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-mapped-tensor-slices-presence",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-mapped-tensor-slices-provenance",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-ownership-plan-identity",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-ownership-plan-presence",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-ownership-plan-provenance",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_entry_id": "state-model-worker-identity",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_entry_id": "state-model-worker-presence",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_entry_id": "state-model-worker-provenance",
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_entry_id": "d-gpu-resident-tensor-bindings-identity",
+            "source_entry_ids": [
+              "d-mapped-tensor-slices-presence",
+              "d-mapped-tensor-slices-provenance",
+              "publish-loaded-shard-out"
+            ],
+            "via_entry_ids": [
+              "e-mapped-to-publish-r",
+              "e-publish-out-r",
+              "loaded-shard-in",
+              "e-loaded-to-gpu-upload-field",
+              "a-upload-gpu-resident-tensors-ov",
+              "e-gpu-upload-state-s",
+              "e-gpu-state-to-bindings-r",
+              "gpu-bindings-out",
+              "e-gpu-upload-out-field"
+            ]
+          },
+          {
+            "target_entry_id": "d-gpu-resident-tensor-bindings-presence",
+            "source_entry_ids": [
+              "d-mapped-tensor-slices-presence",
+              "d-mapped-tensor-slices-provenance",
+              "publish-loaded-shard-out"
+            ],
+            "via_entry_ids": [
+              "e-mapped-to-publish-r",
+              "e-publish-out-r",
+              "loaded-shard-in",
+              "e-loaded-to-gpu-upload-field",
+              "a-upload-gpu-resident-tensors-ov",
+              "e-gpu-upload-state-s",
+              "e-gpu-state-to-bindings-r",
+              "gpu-bindings-out",
+              "e-gpu-upload-out-field"
+            ]
+          },
+          {
+            "target_entry_id": "d-gpu-resident-tensor-bindings-provenance",
+            "source_entry_ids": [
+              "d-mapped-tensor-slices-presence",
+              "d-mapped-tensor-slices-provenance",
+              "publish-loaded-shard-out"
+            ],
+            "via_entry_ids": [
+              "e-mapped-to-publish-r",
+              "e-publish-out-r",
+              "loaded-shard-in",
+              "e-loaded-to-gpu-upload-field",
+              "a-upload-gpu-resident-tensors-ov",
+              "e-gpu-upload-state-s",
+              "e-gpu-state-to-bindings-r",
+              "gpu-bindings-out",
+              "e-gpu-upload-out-field"
+            ]
+          }
+        ],
+        "field_flows": [
+          {
+            "target_node_id": "d-layout-spec",
+            "target_field_path": "format_version",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-layout-spec",
+            "target_field_path": "model_config_sha256",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-layout-spec",
+            "target_field_path": "tp_size",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-layout-spec",
+            "target_field_path": "dcp_size",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-layout-spec",
+            "target_field_path": "rank_count",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-layout-spec",
+            "target_field_path": "required_base_shards",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-layout-spec",
+            "target_field_path": "required_mtp_shards",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-layout-spec",
+            "target_field_path": "entries",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-ownership-plan",
+            "target_field_path": "rank",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-ownership-plan",
+            "target_field_path": "q_head_start",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-ownership-plan",
+            "target_field_path": "q_head_end",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-ownership-plan",
+            "target_field_path": "coverage_complete",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-ownership-plan",
+            "target_field_path": "overlaps_present",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-ownership-plan",
+            "target_field_path": "missing_spans_present",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-ownership-plan",
+            "target_field_path": "entries",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-mapped-tensor-slices",
+            "target_field_path": "rank",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-mapped-tensor-slices",
+            "target_field_path": "tensor_count",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-mapped-tensor-slices",
+            "target_field_path": "mapped_bytes",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-mapped-tensor-slices",
+            "target_field_path": "source_layout_sha256",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-mapped-tensor-slices",
+            "target_field_path": "no_foreign_rank_shard",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-loaded-rank-shard",
+            "target_field_path": "rank",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-loaded-rank-shard",
+            "target_field_path": "layer_count",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-loaded-rank-shard",
+            "target_field_path": "mapped_bytes",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-loaded-rank-shard",
+            "target_field_path": "q_head_start",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-loaded-rank-shard",
+            "target_field_path": "q_head_end",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-loaded-rank-shard",
+            "target_field_path": "expert_start",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-loaded-rank-shard",
+            "target_field_path": "expert_end",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-loaded-rank-shard",
+            "target_field_path": "vocab_start",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-loaded-rank-shard",
+            "target_field_path": "vocab_end",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "model_name",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "tp_degree",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "rank_count",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "n_layer",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "n_embd",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "n_head",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "n_head_kv",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "n_expert",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "n_expert_used",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "qkv_shard_axis",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "expert_shard_axis",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "vocab_shard_axis",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "reference_runtime",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "bird_vllm_commit",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "served_model_name",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "checkpoint_revision",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "state-model-worker",
+            "target_field_path": "speculator",
+            "source_value_refs": [
+              {
+                "node_id": "d-shard-manifest",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "d-shard-manifest-presence",
+              "d-shard-manifest-provenance"
+            ],
+            "via_entry_ids": [
+              "e-layout-to-ownership-r",
+              "e-manifest-to-read-r",
+              "e-mapped-to-publish-r",
+              "e-mmap-before-publish-r",
+              "e-mmap-out-r",
+              "e-ownership-before-mmap-r",
+              "e-ownership-out-r",
+              "e-ownership-to-mmap-r",
+              "e-publish-out-r",
+              "e-publish-state-r",
+              "e-publish-state-s",
+              "e-read-before-ownership-r",
+              "e-read-to-layout-r"
+            ]
+          },
+          {
+            "target_node_id": "d-mapped-tensor-slices",
+            "target_field_path": "tensors",
+            "source_value_refs": [
+              {
+                "node_id": "d-ownership-plan",
+                "field_path": "entries"
+              }
+            ],
+            "source_entry_ids": [
+              "ownership-plan-out",
+              "a-validate-tensor-ownership-ef"
+            ],
+            "via_entry_ids": [
+              "e-ownership-to-mmap-r",
+              "a-load-rank-tensors-ov",
+              "a-load-rank-tensors-ef",
+              "e-mmap-out-r",
+              "mapped-slices-out"
+            ]
+          },
+          {
+            "target_node_id": "d-gpu-resident-tensor-bindings",
+            "target_field_path": "tensor_name",
+            "source_value_refs": [
+              {
+                "node_id": "d-mapped-tensor-slices",
+                "field_path": "tensors"
+              }
+            ],
+            "source_entry_ids": [
+              "mapped-slices-out",
+              "d-mapped-tensor-slices-provenance"
+            ],
+            "via_entry_ids": [
+              "e-mmap-out-r",
+              "publish-loaded-shard-out",
+              "loaded-shard-in",
+              "e-loaded-to-gpu-upload-field",
+              "gpu-bindings-out",
+              "e-gpu-upload-out-field"
+            ]
+          },
+          {
+            "target_node_id": "d-gpu-resident-tensor-bindings",
+            "target_field_path": "tensor_role",
+            "source_value_refs": [
+              {
+                "node_id": "d-mapped-tensor-slices",
+                "field_path": "tensors"
+              }
+            ],
+            "source_entry_ids": [
+              "mapped-slices-out",
+              "d-mapped-tensor-slices-provenance"
+            ],
+            "via_entry_ids": [
+              "e-mmap-out-r",
+              "publish-loaded-shard-out",
+              "loaded-shard-in",
+              "e-loaded-to-gpu-upload-field",
+              "gpu-bindings-out",
+              "e-gpu-upload-out-field"
+            ]
+          },
+          {
+            "target_node_id": "d-gpu-resident-tensor-bindings",
+            "target_field_path": "distribution_scope",
+            "source_value_refs": [
+              {
+                "node_id": "d-mapped-tensor-slices",
+                "field_path": "tensors"
+              }
+            ],
+            "source_entry_ids": [
+              "mapped-slices-out",
+              "d-mapped-tensor-slices-provenance"
+            ],
+            "via_entry_ids": [
+              "e-mmap-out-r",
+              "publish-loaded-shard-out",
+              "loaded-shard-in",
+              "e-loaded-to-gpu-upload-field",
+              "gpu-bindings-out",
+              "e-gpu-upload-out-field"
+            ]
+          },
+          {
+            "target_node_id": "d-gpu-resident-tensor-bindings",
+            "target_field_path": "rank",
+            "source_value_refs": [
+              {
+                "node_id": "d-mapped-tensor-slices",
+                "field_path": "tensors"
+              }
+            ],
+            "source_entry_ids": [
+              "mapped-slices-out",
+              "d-mapped-tensor-slices-provenance"
+            ],
+            "via_entry_ids": [
+              "e-mmap-out-r",
+              "publish-loaded-shard-out",
+              "loaded-shard-in",
+              "e-loaded-to-gpu-upload-field",
+              "gpu-bindings-out",
+              "e-gpu-upload-out-field"
+            ]
+          },
+          {
+            "target_node_id": "d-gpu-resident-tensor-bindings",
+            "target_field_path": "byte_length",
+            "source_value_refs": [
+              {
+                "node_id": "d-mapped-tensor-slices",
+                "field_path": "tensors"
+              }
+            ],
+            "source_entry_ids": [
+              "mapped-slices-out",
+              "d-mapped-tensor-slices-provenance"
+            ],
+            "via_entry_ids": [
+              "e-mmap-out-r",
+              "publish-loaded-shard-out",
+              "loaded-shard-in",
+              "e-loaded-to-gpu-upload-field",
+              "gpu-bindings-out",
+              "e-gpu-upload-out-field"
+            ]
+          },
+          {
+            "target_node_id": "d-gpu-resident-tensor-bindings",
+            "target_field_path": "dtype",
+            "source_value_refs": [
+              {
+                "node_id": "d-mapped-tensor-slices",
+                "field_path": "tensors"
+              }
+            ],
+            "source_entry_ids": [
+              "mapped-slices-out",
+              "d-mapped-tensor-slices-provenance"
+            ],
+            "via_entry_ids": [
+              "e-mmap-out-r",
+              "publish-loaded-shard-out",
+              "loaded-shard-in",
+              "e-loaded-to-gpu-upload-field",
+              "gpu-bindings-out",
+              "e-gpu-upload-out-field"
+            ]
+          },
+          {
+            "target_node_id": "d-gpu-resident-tensor-bindings",
+            "target_field_path": "shape",
+            "source_value_refs": [
+              {
+                "node_id": "d-mapped-tensor-slices",
+                "field_path": "tensors"
+              }
+            ],
+            "source_entry_ids": [
+              "mapped-slices-out",
+              "d-mapped-tensor-slices-provenance"
+            ],
+            "via_entry_ids": [
+              "e-mmap-out-r",
+              "publish-loaded-shard-out",
+              "loaded-shard-in",
+              "e-loaded-to-gpu-upload-field",
+              "gpu-bindings-out",
+              "e-gpu-upload-out-field"
+            ]
+          },
+          {
+            "target_node_id": "d-gpu-resident-tensor-bindings",
+            "target_field_path": "element_count",
+            "source_value_refs": [
+              {
+                "node_id": "d-mapped-tensor-slices",
+                "field_path": "tensors"
+              }
+            ],
+            "source_entry_ids": [
+              "mapped-slices-out",
+              "d-mapped-tensor-slices-provenance"
+            ],
+            "via_entry_ids": [
+              "e-mmap-out-r",
+              "publish-loaded-shard-out",
+              "loaded-shard-in",
+              "e-loaded-to-gpu-upload-field",
+              "gpu-bindings-out",
+              "e-gpu-upload-out-field"
+            ]
+          },
+          {
+            "target_node_id": "d-gpu-resident-tensor-bindings",
+            "target_field_path": "shape_hash",
+            "source_value_refs": [
+              {
+                "node_id": "d-mapped-tensor-slices",
+                "field_path": "tensors"
+              }
+            ],
+            "source_entry_ids": [
+              "mapped-slices-out",
+              "d-mapped-tensor-slices-provenance"
+            ],
+            "via_entry_ids": [
+              "e-mmap-out-r",
+              "publish-loaded-shard-out",
+              "loaded-shard-in",
+              "e-loaded-to-gpu-upload-field",
+              "gpu-bindings-out",
+              "e-gpu-upload-out-field"
+            ]
+          },
+          {
+            "target_node_id": "d-gpu-resident-tensor-bindings",
+            "target_field_path": "device_id",
+            "source_value_refs": [
+              {
+                "node_id": "d-loaded-rank-shard",
+                "field_path": "rank"
+              }
+            ],
+            "source_entry_ids": [
+              "publish-loaded-shard-out",
+              "loaded-shard-in"
+            ],
+            "via_entry_ids": [
+              "loaded-shard-in",
+              "a-upload-gpu-resident-tensors-ov",
+              "gpu-bindings-out",
+              "e-gpu-upload-out-field"
+            ]
+          },
+          {
+            "target_node_id": "d-gpu-resident-tensor-bindings",
+            "target_field_path": "ready",
+            "source_value_refs": [
+              {
+                "node_id": "d-mapped-tensor-slices",
+                "field_path": "tensors"
+              }
+            ],
+            "source_entry_ids": [
+              "a-upload-gpu-resident-tensors-ef",
+              "a-upload-gpu-resident-tensors-exit"
+            ],
+            "via_entry_ids": [
+              "a-upload-gpu-resident-tensors-ov",
+              "e-gpu-upload-state-s",
+              "e-gpu-state-to-bindings-r",
+              "gpu-bindings-out",
+              "e-gpu-upload-out-field"
+            ]
+          }
+        ],
+        "absent_fields": []
+      }
+    ]
+  }
+}

@@ -3152,6 +3152,7 @@ static const char *const k_layout_action_ids[] = {
     "model-shard-layout/a-read-layout-spec",
     "model-shard-layout/a-validate-tensor-ownership",
     "model-shard-layout/a-load-rank-tensors",
+    "model-shard-layout/a-upload-gpu-resident-tensors",
     "model-shard-layout/a-publish-loaded-shard",
 };
 
@@ -3576,6 +3577,14 @@ static void unmap_layout_tensor(ds4_glm52_layout_mapped_tensor *tensor) {
     memset(tensor, 0, sizeof(*tensor));
 }
 
+static void release_layout_gpu_tensor(ds4_glm52_layout_gpu_tensor *tensor) {
+    if (!tensor) return;
+    if (tensor->free_tensor && tensor->tensor.ptr) {
+        tensor->free_tensor(&tensor->tensor);
+    }
+    memset(tensor, 0, sizeof(*tensor));
+}
+
 void ds4_glm52_layout_unmap_mapped_slices(
         ds4_glm52_layout_mapped_slices *mapped) {
     if (!mapped) return;
@@ -3588,14 +3597,142 @@ void ds4_glm52_layout_unmap_mapped_slices(
     mapped->hash_verified = false;
 }
 
+void ds4_glm52_layout_release_resident_gpu_tensors(
+        ds4_glm52_l0_state *state) {
+    if (!state) return;
+    for (int i = 0; i < state->resident_shards.gpu_tensor_count; i++) {
+        release_layout_gpu_tensor(&state->resident_shards.gpu_tensors[i]);
+    }
+    state->resident_shards.gpu_tensor_count = 0;
+    state->resident_shards.gpu_bytes = 0;
+    state->resident_shards.gpu_resident = false;
+}
+
 void ds4_glm52_l0_unmap_resident_rank_shards(ds4_glm52_l0_state *state) {
     if (!state) return;
+    ds4_glm52_layout_release_resident_gpu_tensors(state);
     for (int i = 0; i < state->resident_shards.tensor_count; i++) {
         unmap_layout_tensor(&state->resident_shards.tensors[i]);
     }
     state->resident_shards.tensor_count = 0;
     state->resident_shards.mapped_bytes = 0;
     state->resident_shards.mapped = false;
+}
+
+static bool mapped_tensor_metadata_ready(
+        const ds4_glm52_layout_mapped_tensor *tensor,
+        char *err,
+        size_t err_size) {
+    if (!tensor || !tensor->mapped || !tensor->data ||
+        tensor->data_bytes == 0) {
+        set_error(err, err_size,
+                  "GPU upload requires a mapped tensor with readable bytes");
+        return false;
+    }
+    if (!tensor->tensor_name[0]) {
+        set_error(err, err_size,
+                  "GPU upload requires a named tensor");
+        return false;
+    }
+    if (!valid_tensor_dtype(tensor->dtype) ||
+        tensor->shape_count <= 0 ||
+        tensor->element_count == 0 ||
+        tensor->shape_hash == 0) {
+        set_error(err, err_size,
+                  "GPU upload requires validated dtype, shape, element count, and shape hash metadata");
+        return false;
+    }
+    const size_t dtype_size = ds4_glm52_tp4_tensor_dtype_size(tensor->dtype);
+    if (tensor->element_count > UINT64_MAX / (uint64_t)dtype_size ||
+        tensor->data_bytes != tensor->element_count * (uint64_t)dtype_size) {
+        set_error(err, err_size,
+                  "GPU upload tensor byte count does not match dtype and shape metadata");
+        return false;
+    }
+    return true;
+}
+
+ds4_glm52_l0_status ds4_glm52_layout_upload_resident_gpu_tensors(
+        ds4_glm52_l0_state *state,
+        int device_id,
+        const ds4_glm52_gpu_tensor_runtime *runtime,
+        ds4_glm52_l0_result *result) {
+    if (!state || !state->resident_shards.mapped ||
+        state->resident_shards.tensor_count <= 0) {
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 3,
+                           "GPU upload requires resident mapped tensors");
+    }
+    if (device_id < 0) {
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 3,
+                           "GPU upload requires a valid rank-local device id");
+    }
+    if (!runtime || !runtime->alloc || !runtime->upload ||
+        !runtime->free) {
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 3,
+                           "GPU upload requires alloc, upload, and free callbacks");
+    }
+
+    ds4_glm52_layout_release_resident_gpu_tensors(state);
+
+    for (int i = 0; i < state->resident_shards.tensor_count; i++) {
+        ds4_glm52_layout_mapped_tensor *src =
+            &state->resident_shards.tensors[i];
+        char err[192] = "";
+        if (!mapped_tensor_metadata_ready(src, err, sizeof(err))) {
+            ds4_glm52_layout_release_resident_gpu_tensors(state);
+            return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 3, err);
+        }
+
+        ds4_glm52_layout_gpu_tensor *dst =
+            &state->resident_shards.gpu_tensors[
+                state->resident_shards.gpu_tensor_count];
+        memset(dst, 0, sizeof(*dst));
+        if (!runtime->alloc(&dst->tensor, device_id, src->data_bytes)) {
+            ds4_glm52_layout_release_resident_gpu_tensors(state);
+            return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 3,
+                               "GPU upload allocation failed");
+        }
+        dst->free_tensor = runtime->free;
+        if (!dst->tensor.ptr ||
+            dst->tensor.bytes < src->data_bytes ||
+            dst->tensor.device_id != device_id) {
+            ds4_glm52_layout_release_resident_gpu_tensors(state);
+            return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 3,
+                               "GPU upload allocation did not return a rank-owned device tensor");
+        }
+        if (!runtime->upload(&dst->tensor, 0, src->data, src->data_bytes)) {
+            ds4_glm52_layout_release_resident_gpu_tensors(state);
+            return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 3,
+                               "GPU upload copy failed");
+        }
+
+        copy_string(dst->tensor_name, sizeof(dst->tensor_name),
+                    src->tensor_name);
+        dst->role = src->role;
+        dst->scope = src->scope;
+        dst->rank = src->rank;
+        dst->device_id = device_id;
+        dst->byte_count = src->data_bytes;
+        dst->dtype = src->dtype;
+        dst->shape_count = src->shape_count;
+        memcpy(dst->shape, src->shape, sizeof(dst->shape));
+        dst->element_count = src->element_count;
+        dst->shape_hash = src->shape_hash;
+        dst->replicated = src->replicated;
+        dst->ready = true;
+        state->resident_shards.gpu_tensor_count++;
+        state->resident_shards.gpu_bytes += src->data_bytes;
+    }
+
+    state->resident_shards.gpu_resident =
+        state->resident_shards.gpu_tensor_count ==
+        state->resident_shards.tensor_count;
+    if (!state->resident_shards.gpu_resident) {
+        ds4_glm52_layout_release_resident_gpu_tensors(state);
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 3,
+                           "GPU upload did not bind every mapped tensor");
+    }
+    return DS4_GLM52_L0_STATUS_OK;
 }
 
 static bool mmap_layout_entry(const char *path,
@@ -4386,15 +4523,15 @@ ds4_glm52_l0_status ds4_glm52_layout_publish_loaded_rank_shard(
         ds4_glm52_l0_state *state,
         ds4_glm52_l0_result *result) {
     if (!mapped || !mapped->mapped) {
-        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 3,
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 4,
                            "publication requires successfully mapped tensors");
     }
     if (!plan || !plan->validated) {
-        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 3,
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 4,
                            "publication requires a validated ownership plan");
     }
     if (!state) {
-        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 3,
+        return layout_fail(result, DS4_GLM52_L0_STATUS_INVALID, 4,
                            "publication target state is missing");
     }
 

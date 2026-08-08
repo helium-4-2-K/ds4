@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #include "ds4.h"
+#include "ds4_gpu_mgpu.h"
 
 #define DS4_GLM52_L0_GRAPH_ID "serve"
 #define DS4_GLM52_MODEL_LOAD_GRAPH_ID "model-load"
@@ -118,6 +119,24 @@ typedef enum {
     DS4_GLM52_TP4_TENSOR_DTYPE_FP8_E4M3 = 3,
 } ds4_glm52_tp4_tensor_dtype;
 
+typedef int (*ds4_glm52_gpu_tensor_alloc_fn)(
+        struct ds4_gpu_tensor *tensor,
+        int device_id,
+        uint64_t bytes);
+typedef int (*ds4_glm52_gpu_tensor_upload_fn)(
+        struct ds4_gpu_tensor *tensor,
+        uint64_t offset,
+        const void *data,
+        uint64_t bytes);
+typedef void (*ds4_glm52_gpu_tensor_free_fn)(
+        struct ds4_gpu_tensor *tensor);
+
+typedef struct {
+    ds4_glm52_gpu_tensor_alloc_fn alloc;
+    ds4_glm52_gpu_tensor_upload_fn upload;
+    ds4_glm52_gpu_tensor_free_fn free;
+} ds4_glm52_gpu_tensor_runtime;
+
 typedef struct {
     char tensor_name[DS4_GLM52_LAYOUT_FIELD_MAX];
     char file_path[DS4_GLM52_LAYOUT_FIELD_MAX];
@@ -139,6 +158,24 @@ typedef struct {
 } ds4_glm52_layout_mapped_tensor;
 
 typedef struct {
+    char tensor_name[DS4_GLM52_LAYOUT_FIELD_MAX];
+    int role;
+    int scope;
+    int rank;
+    int device_id;
+    struct ds4_gpu_tensor tensor;
+    ds4_glm52_gpu_tensor_free_fn free_tensor;
+    uint64_t byte_count;
+    ds4_glm52_tp4_tensor_dtype dtype;
+    int shape_count;
+    uint64_t shape[DS4_GLM52_LAYOUT_MAX_SHAPE_DIMS];
+    uint64_t element_count;
+    uint64_t shape_hash;
+    bool replicated;
+    bool ready;
+} ds4_glm52_layout_gpu_tensor;
+
+typedef struct {
     int rank;
     const char *checkpoint_root;
     int base_shard_count;
@@ -147,7 +184,12 @@ typedef struct {
     int tensor_count;
     ds4_glm52_layout_mapped_tensor
         tensors[DS4_GLM52_LAYOUT_MAX_MAPPED_TENSORS];
+    int gpu_tensor_count;
+    uint64_t gpu_bytes;
+    ds4_glm52_layout_gpu_tensor
+        gpu_tensors[DS4_GLM52_LAYOUT_MAX_MAPPED_TENSORS];
     bool mapped;
+    bool gpu_resident;
     bool no_foreign_rank_shard;
 } ds4_glm52_l0_resident_rank_shards;
 
@@ -1003,8 +1045,15 @@ ds4_glm52_l0_status ds4_glm52_layout_publish_loaded_rank_shard(
         const ds4_glm52_layout_ownership_plan *plan,
         ds4_glm52_l0_state *state,
         ds4_glm52_l0_result *result);
+ds4_glm52_l0_status ds4_glm52_layout_upload_resident_gpu_tensors(
+        ds4_glm52_l0_state *state,
+        int device_id,
+        const ds4_glm52_gpu_tensor_runtime *runtime,
+        ds4_glm52_l0_result *result);
 void ds4_glm52_layout_unmap_mapped_slices(
         ds4_glm52_layout_mapped_slices *mapped);
+void ds4_glm52_layout_release_resident_gpu_tensors(
+        ds4_glm52_l0_state *state);
 void ds4_glm52_l0_unmap_resident_rank_shards(ds4_glm52_l0_state *state);
 
 const char *ds4_glm52_layout_role_name(ds4_glm52_layout_role role);

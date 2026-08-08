@@ -1,0 +1,38 @@
+{
+  "schema": "blueprint-write-request/v11",
+  "action": "mutate",
+  "request_id": "mutate-model-shard-layout-gpu-state-binding-edge",
+  "root": "/Users/helium/src/ds4-gb10x4-bcd/bdev",
+  "record_dir": "/Users/helium/src/ds4-gb10x4-bcd/dev-artifacts/03_record",
+  "expected_blueprint_sha256": "b0843d25396568faf49747eb325823d46447b67c8436831e0a45ddefdf30a22a",
+  "validation_stage": "draft",
+  "operations": [
+    {
+      "verb": "add",
+      "entity": "edge",
+      "graph_id": "model-shard-layout",
+      "params": {
+        "id": "e-gpu-state-to-bindings",
+        "source_node_id": "state-model-worker",
+        "target_node_id": "d-gpu-resident-tensor-bindings",
+        "family": "relationship",
+        "kind": "state-observation",
+        "label": "GPU bindings reflect resident worker state update",
+        "semantics": [
+          {
+            "entry_id": "e-gpu-state-to-bindings-r",
+            "key": "relationship",
+            "value": "GPU bindings reflect resident worker state update",
+            "status": "supported"
+          }
+        ]
+      }
+    }
+  ],
+  "contract_validation": {
+    "profile": "leaf",
+    "graph_ids": [
+      "model-shard-layout"
+    ]
+  }
+}
