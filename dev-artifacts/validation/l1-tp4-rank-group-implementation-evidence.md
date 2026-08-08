@@ -66,10 +66,13 @@ or execute GLM kernels.
   workers, published fabric readiness, sent shutdown, and collected
   `ack_mask=0xf`. Evidence:
   `dev-artifacts/validation/l1-tp-group-crs812-smoke-evidence.md`.
-- Real CRS812 fixed-size all-reduce payload smoke: PASS. Rank 0 listened on
-  `10.100.185.3:49054`; workers sent deterministic `float[1024]` partials;
-  rank 0 summed all four rank payloads; workers verified the reduced vector;
-  final `ack_mask=0xf`. Evidence:
+- Real CRS812 typed-frame fixed-size all-reduce payload smoke: PASS. Rank 0
+  listened on `10.100.185.3:49055`; workers sent typed TP4 collective frames
+  plus deterministic `float[1024]` partials; rank 0 validated the frames,
+  summed all four rank payloads, sent typed reduced-result frames, workers
+  verified the reduced vector, and the final positive run reached
+  `ack_mask=0xf`. The CRS812 bad-frame run on `10.100.185.3:49056` rejected
+  rank 1 before reduction. Evidence:
   `dev-artifacts/validation/l1-tp4-allreduce-payload-smoke-evidence.md`.
 - `make cpu`: PASS.
 - BCD lint at blueprint

@@ -100,8 +100,7 @@ Completed implementation slices:
     command;
   - the payload smoke now carries typed TP4 collective metadata frames validated
     by `ds4_glm52_tp4_collective_frame_validate`; positive and bad-frame local
-    loopback smokes pass, and a typed-frame CRS812 rerun remains the next real
-    fabric gate;
+    loopback and CRS812 smokes pass;
   - clears group readiness when a rank transport failure is recorded;
   - publishes L0 fabric readiness only after the compatible four-rank group is
     complete.
@@ -684,9 +683,8 @@ Implementation:
   dtype, element count, byte count, shape hash, model/session identity, layer,
   token cursor, participant mask, and readiness bits must validate before any
   payload execution.
-- Before binding real buffers, rerun the typed-frame payload smoke on all four
-  GX10s over CRS812 so the network evidence covers the current frame-carrying
-  source, not only the earlier raw-payload smoke.
+- Before binding real buffers, preserve the typed-frame payload smoke as a
+  regression gate for any production wire encoding or backend replacement.
 
 Tests:
 

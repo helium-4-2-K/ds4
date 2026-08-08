@@ -71,7 +71,8 @@ work.
 
 - `make -B tests/test_glm52_l0 && ./tests/test_glm52_l0`: PASS.
 - `make -B tests/glm52_tp4_fabric_smoke`: PASS.
-- Local typed-frame payload smoke and bad-frame rejection smoke: PASS.
+- Local and CRS812 typed-frame payload smoke and bad-frame rejection smoke:
+  PASS.
 - New `tests/test_glm52_l0.c` coverage:
   - `test_model_load_layout_reaches_ready_rank_engines`;
   - `test_real_collective_frontier_fails_closed`, including frame-version,

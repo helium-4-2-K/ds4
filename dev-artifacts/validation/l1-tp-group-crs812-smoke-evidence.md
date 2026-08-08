@@ -118,8 +118,9 @@ Interpretation:
 - PASS: rank 0 validated all worker hello frames and formed a complete TP4/DCP4 group.
 - PASS: the group published fabric readiness in the L0 state seam.
 - PASS: rank 0 broadcast a command and collected all acknowledgements.
-- PROVEN IN FOLLOW-UP: fixed-size CPU float payload exchange and
-  coordinator-summed all-reduce smoke over CRS812. Evidence:
+- PROVEN IN FOLLOW-UP: typed TP4 collective metadata frames plus fixed-size CPU
+  float payload exchange, coordinator-summed all-reduce smoke, and malformed
+  frame rejection over CRS812. Evidence:
   `dev-artifacts/validation/l1-tp4-allreduce-payload-smoke-evidence.md`.
 - NOT PROVEN: production tensor collectives, decentralized all-reduce topology,
   high-throughput streaming, DCP row payload exchange, GPU buffers, or GLM
@@ -130,7 +131,8 @@ Interpretation:
 The next implementation step is to reuse this transport lifecycle for real
 collective payloads:
 
-1. typed tensor metadata negotiation for production collective requests;
+1. portable production wire encoding for typed collective requests if TCP
+   remains a backend;
 2. TP4 attention/FFN all-reduce transport backed by real rank-local buffers;
 3. logits gather/top-k transport;
 4. DCP selected-row exchange payloads.

@@ -7,11 +7,11 @@ CRS812 four-GX10 fabric. This extends the TP-group hello/command/ack smoke with
 a deterministic fixed-size float all-reduce payload. It is still a CPU test
 tool, not the final GPU collective backend.
 
-Local typed-frame update: the payload smoke now carries a typed TP4 collective
+Typed-frame update: the payload smoke now carries a typed TP4 collective
 metadata frame before every rank-local partial payload and before every reduced
-result payload. The frame is validated with the production L0
-`ds4_glm52_tp4_collective_frame_validate` helper before payload bytes are
-accepted.
+result payload on local loopback and CRS812. The frame is validated with the
+production L0 `ds4_glm52_tp4_collective_frame_validate` helper before payload
+bytes are accepted.
 
 ## Implementation Mapping
 
@@ -85,9 +85,9 @@ coordinator: recv payload rank 1 failed: real TP4 collective requires nonzero id
 
 ## Real CRS812 Run
 
-This real run predates the typed-frame update. It proves the same binary path
-shape over CRS812 for fixed-size payloads, but the typed metadata addition needs
-a follow-up CRS812 rerun after this source change is deployed to the GX10s.
+Source staged on each GX10 from commit `67a47e2` into
+`~/ds4-smoke-67a47e2`; all four ranks rebuilt
+`tests/glm52_tp4_fabric_smoke` locally before execution.
 
 Rank mapping:
 
@@ -104,7 +104,7 @@ Coordinator command:
 ./tests/glm52_tp4_fabric_smoke \
   --role coordinator \
   --rank 0 \
-  --listen 10.100.185.3:49054 \
+  --listen 10.100.185.3:49055 \
   --timeout-ms 30000 \
   --payload-floats 1024
 ```
@@ -112,9 +112,9 @@ Coordinator command:
 Worker commands:
 
 ```bash
-./tests/glm52_tp4_fabric_smoke --role worker --rank 1 --connect 10.100.185.3:49054 --timeout-ms 30000 --payload-floats 1024
-./tests/glm52_tp4_fabric_smoke --role worker --rank 2 --connect 10.100.185.3:49054 --timeout-ms 30000 --payload-floats 1024
-./tests/glm52_tp4_fabric_smoke --role worker --rank 3 --connect 10.100.185.3:49054 --timeout-ms 30000 --payload-floats 1024
+./tests/glm52_tp4_fabric_smoke --role worker --rank 1 --connect 10.100.185.3:49055 --timeout-ms 30000 --payload-floats 1024
+./tests/glm52_tp4_fabric_smoke --role worker --rank 2 --connect 10.100.185.3:49055 --timeout-ms 30000 --payload-floats 1024
+./tests/glm52_tp4_fabric_smoke --role worker --rank 3 --connect 10.100.185.3:49055 --timeout-ms 30000 --payload-floats 1024
 ```
 
 Observed worker output:
@@ -134,10 +134,10 @@ worker3: ack sent
 Observed coordinator output:
 
 ```text
-coordinator: listening 10.100.185.3:49054
+coordinator: listening 10.100.185.3:49055
 coordinator: registered rank 1
-coordinator: registered rank 3
 coordinator: registered rank 2
+coordinator: registered rank 3
 coordinator: fabric ready tp=4 dcp=4 ranks=4
 coordinator: allreduce payload floats=1024 first=1000.0 last=5092.0
 coordinator: ack rank 1
@@ -146,19 +146,38 @@ coordinator: ack rank 3
 coordinator: command decode complete seq=1 ack_mask=0xf
 ```
 
+Observed CRS812 negative run:
+
+```text
+coordinator: listening 10.100.185.3:49056
+coordinator: registered rank 1
+coordinator: registered rank 2
+coordinator: registered rank 3
+coordinator: fabric ready tp=4 dcp=4 ranks=4
+coordinator: recv payload rank 1 failed: real TP4 collective requires nonzero identity, layer, shape hash, element count, and matching dtype byte count
+```
+
+Worker negative statuses:
+
+```text
+rank1_status=7
+rank2_status=8
+rank3_status=8
+```
+
 Interpretation:
 
 - PASS: fixed-size tensor bytes moved from worker ranks to rank 0 over local
-  loopback and in the prior CRS812 run.
-- PASS: each local payload is preceded by a typed TP4 collective metadata frame.
-- PASS: malformed local typed metadata is rejected before payload reduction.
+  loopback and CRS812.
+- PASS: each local and CRS812 payload is preceded by a typed TP4 collective
+  metadata frame.
+- PASS: malformed local and CRS812 typed metadata is rejected before payload
+  reduction.
 - PASS: rank 0 performed deterministic all-rank float summation.
-- PASS: reduced tensor bytes moved from rank 0 back to workers locally and in
-  the prior CRS812 run.
+- PASS: reduced tensor bytes moved from rank 0 back to workers locally and over
+  CRS812.
 - PASS: all workers verified the reduced payload before acking in the positive
   path.
-- NOT YET RERUN: typed metadata frames over the real four-GX10 CRS812 fabric
-  after this source change.
 - NOT PROVEN: portable endian-stable production wire encoding, decentralized
   all-reduce topology, high-throughput streaming, GPU buffers, BF16/FP8 tensor
   payload execution, NCCL/RDMA semantics, or GLM layer integration.
@@ -168,10 +187,9 @@ Interpretation:
 Replace the coordinator-summed smoke with the target production collective
 shape:
 
-1. rerun the typed-frame payload smoke over the real four-GX10 CRS812 fabric;
-2. promote the smoke's native fixed-width frame into portable production wire
+1. promote the smoke's native fixed-width frame into portable production wire
    encoding if TCP remains a backend;
-3. attention/FFN all-reduce payloads backed by the real rank-local output
+2. attention/FFN all-reduce payloads backed by the real rank-local output
    buffers;
-4. logits gather/top-k payloads;
-5. DCP selected-row exchange payloads.
+3. logits gather/top-k payloads;
+4. DCP selected-row exchange payloads.
