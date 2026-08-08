@@ -32,7 +32,7 @@ message tensor_shard_entry {
   int32 expert_end = 13 [(blueprint.v1.field_contract) = { meaning: "exclusive end routed expert id present in this rank-local expert tensor shard, or -1; Bird GLM 5.2 TP4 uses [0,256) on every rank" }];
   int32 vocab_start = 14 [(blueprint.v1.field_contract) = { meaning: "first owned vocab/output row or -1" }];
   int32 vocab_end = 15 [(blueprint.v1.field_contract) = { meaning: "exclusive end vocab/output row or -1" }];
-  string dtype = 16 [(blueprint.v1.field_contract) = { meaning: "storage dtype declared for this tensor slice, such as bf16, f32, or fp8_e4m3" }];
+  string dtype = 16 [(blueprint.v1.field_contract) = { meaning: "storage dtype declared for this tensor slice, such as bf16, f32, fp8_e4m3, or i32 for Bird packed weights" }];
   repeated uint64 shape = 17 [(blueprint.v1.field_contract) = { meaning: "rank-local logical tensor shape dimensions for this slice" }];
   uint64 element_count = 18 [(blueprint.v1.field_contract) = { meaning: "product of shape dimensions; must match byte_length divided by dtype size" }];
   uint64 shape_hash = 19 [(blueprint.v1.field_contract) = { meaning: "stable runtime hash derived from dtype and shape, or a manifest-provided value matching that derivation" }];

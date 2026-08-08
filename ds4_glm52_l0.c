@@ -1046,6 +1046,8 @@ const char *ds4_glm52_tp4_tensor_dtype_name(
         return "bf16";
     case DS4_GLM52_TP4_TENSOR_DTYPE_FP8_E4M3:
         return "fp8_e4m3";
+    case DS4_GLM52_TP4_TENSOR_DTYPE_I32:
+        return "i32";
     default:
         return "invalid";
     }
@@ -1060,6 +1062,8 @@ size_t ds4_glm52_tp4_tensor_dtype_size(
         return 2;
     case DS4_GLM52_TP4_TENSOR_DTYPE_FP8_E4M3:
         return 1;
+    case DS4_GLM52_TP4_TENSOR_DTYPE_I32:
+        return 4;
     default:
         return 0;
     }
@@ -3244,6 +3248,7 @@ static ds4_glm52_tp4_tensor_dtype parse_layout_dtype(const char *s) {
     if (!strcmp(s, "fp8_e4m3") || !strcmp(s, "fp8")) {
         return DS4_GLM52_TP4_TENSOR_DTYPE_FP8_E4M3;
     }
+    if (!strcmp(s, "i32")) return DS4_GLM52_TP4_TENSOR_DTYPE_I32;
     return DS4_GLM52_TP4_TENSOR_DTYPE_INVALID;
 }
 

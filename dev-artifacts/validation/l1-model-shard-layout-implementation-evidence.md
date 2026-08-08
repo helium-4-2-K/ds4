@@ -108,9 +108,12 @@ gate is TP4/DCP4 fabric readiness, not model-load readiness.
 - Manifest format: `ds4-shard-layout/v1` key=value text format with `[entry]`
   section headers.
 - Bird import helper: `misc/glm52_bird_layout.py` reads a per-rank
-  `integrity-manifest.json`, emits a DS4 rank plan and DS4 layout manifest,
-  verifies all 20 base shards plus one MTP shard by full-file SHA-256, and
-  binds rank Q-head, `[0,256)` expert-id, and vocab spans for L0 loading.
+  `integrity-manifest.json`, emits a DS4 rank plan for the complete 20 base
+  shards plus one MTP shard, and emits a compact real-tensor layout frontier
+  with exact safetensors byte offsets, byte lengths, dtype, shape,
+  element_count, and SHA-256 for representative Q-head, MLA KV, expert, and
+  vocab tensor slices. The real Bird/vLLM GLM 5.2 packed weights use `i32`
+  storage for the selected Q/KV/expert slices and bf16 for the vocab slice.
 - Fabric binding: rank plans now declare `fabric_data_plane=crs812-200g`.
   Model-load and TP-group validation distinguish CRS812 200G fabric addresses
   from management SSH addresses and reject `192.168.0.x` for TP/DCP
@@ -128,14 +131,15 @@ gate is TP4/DCP4 fabric readiness, not model-load readiness.
   `tests/test_glm52_tp4_mock_serve`, `tests/test_glm52_tp4_mock_process`,
   `tests/test_glm52_tp4_allreduce`, `tests/test_glm52_dcp_row_exchange`).
 - `python3 -m py_compile misc/glm52_bird_layout.py`: PASS.
-- Rank-0 GX10 real layout dry run: PASS through `serve/action-serve-open`;
-  stopped at expected `serve/action-tp-group` real fabric boundary. Evidence:
-  `dev-artifacts/validation/rank0-gx10-real-layout-dry-run.md`.
-- Rank-1 and rank-2 GX10 real layout dry runs: PASS through
-  `serve/action-serve-open` with `fabric_data_plane=crs812-200g`; stopped at
-  expected `serve/action-tp-group` real fabric boundary. Rank 3 is pending SSH
-  access restoration. Evidence:
-  `dev-artifacts/validation/gx10-real-layout-dry-runs-crs812.md`.
+- Four-rank GX10 real GPU-resident layout run: PASS through
+  `serve/action-serve-open` on rank0 `192.168.0.40`, rank1 `192.168.0.240`,
+  rank2 `192.168.0.99`, and rank3 `192.168.0.39`; each rank regenerated a
+  strict tensor-slice layout from its local
+  `/home/helium_gx/models/glm52-full-tp4-mtp-rankN` checkpoint, accepted
+  `fabric_data_plane=crs812-200g`, verified slice SHA-256 values, mmap'd the
+  declared slices, uploaded four GPU-resident tensor bindings totaling
+  1,300,889,600 bytes, and stopped at the expected `serve/action-tp-group`
+  real fabric boundary.
 - `git diff --check`: PASS.
 
 ### Test cases (12 required scenarios)
@@ -213,6 +217,19 @@ GX10 hosts.
   `192.168.0.39`. `make ds4 tests/test_glm52_cuda_layout_upload &&
   ./tests/test_glm52_cuda_layout_upload` passed warning-clean on all four Linux
   GB10 hosts.
+- Real GLM5.2 rank-shard GPU-residency GX10 run for this slice: deployed
+  current source to `/tmp/ds4-gx10-real-gpu-resident-20260808085026` on all
+  four ranks. Each rank command used its local model root, generated
+  `/tmp/ds4-glm52-rankN.plan` and `/tmp/ds4-glm52-rankN.layout`, then ran
+  `./ds4 -m /home/helium_gx/models/glm52-full-tp4-mtp-rankN
+  --glm52-tp4-l0 --glm52-tp4-gpu-resident --glm52-tp4-rank N
+  --glm52-tp4-rank-plan /tmp/ds4-glm52-rankN.plan --glm52-tp4-layout
+  /tmp/ds4-glm52-rankN.layout --glm52-tp4-fabric 10.100.185.{3,1,2,4}
+  --gpu-vram auto --gpu-devices 0 --inspect`. Ranks 0, 1, 2, and 3 all
+  reported `serve/action-serve-open status=ok` and
+  `GPU-resident layout loaded: tensors=4 bytes=1300889600 device=0`, then
+  failed closed at `serve/action-tp-group` because real four-rank collective
+  transport handshake is not implemented.
 - GX10 target run for this slice: deployed current source to
   `/tmp/ds4-gx10-gpu-upload-binding-20260808073416` on rank0 `192.168.0.40`,
   rank1 `192.168.0.240`, rank2 `192.168.0.99`, and rank3 `192.168.0.39`.

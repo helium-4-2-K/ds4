@@ -126,6 +126,7 @@ typedef enum {
     DS4_GLM52_TP4_TENSOR_DTYPE_F32 = 1,
     DS4_GLM52_TP4_TENSOR_DTYPE_BF16 = 2,
     DS4_GLM52_TP4_TENSOR_DTYPE_FP8_E4M3 = 3,
+    DS4_GLM52_TP4_TENSOR_DTYPE_I32 = 4,
 } ds4_glm52_tp4_tensor_dtype;
 
 typedef int (*ds4_glm52_gpu_tensor_alloc_fn)(
